@@ -1,0 +1,630 @@
+/* SyncDevicePanel — Pixel Arcade Theme CSS Module */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ------------------------------------------------------------------ */
+/* Card — pixel-border and pixel-scanlines applied via className      */
+/* ------------------------------------------------------------------ */
+
+.card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-panel);
+  margin-bottom: 0;
+}
+
+[data-theme="dark"] .card {
+  background: rgba(22, 32, 50, 0.96);
+}
+
+/* ------------------------------------------------------------------ */
+/* Section header with 8×8 pixel block decoration                     */
+/* ------------------------------------------------------------------ */
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+  position: relative;
+}
+
+.cardTitle {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  margin: 0;
+  position: relative;
+  padding-left: 16px;
+}
+
+.cardTitle::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--color-primary);
+  image-rendering: pixelated;
+}
+
+/* ------------------------------------------------------------------ */
+/* Console-style sync action button                                    */
+/* ------------------------------------------------------------------ */
+
+.syncButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid var(--color-primary);
+  background: var(--color-bg-panel);
+  color: var(--color-primary);
+  transition: all var(--transition-fast);
+}
+
+.syncButton:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  box-shadow: 0 0 12px rgba(255, 94, 36, 0.4);
+}
+
+.syncButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------------ */
+/* Large pixel-art status badge                                        */
+/* ------------------------------------------------------------------ */
+
+.statusDisplay {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-bg-panel-soft);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    inset 2px 2px 0 0 rgba(255,255,255,0.1),
+    inset -2px -2px 0 0 rgba(0,0,0,0.06);
+  margin-bottom: var(--space-4);
+}
+
+.statusIconBlock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 2px solid;
+  flex-shrink: 0;
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.1);
+}
+
+.statusText {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.statusSubtext {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+}
+
+/* ------------------------------------------------------------------ */
+/* HUD readout — last synced timestamp                                 */
+/* ------------------------------------------------------------------ */
+
+.lastSynced {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+/* ------------------------------------------------------------------ */
+/* Offline notice — pixel border style                                 */
+/* ------------------------------------------------------------------ */
+
+.offlineNotice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-warning-soft);
+  border: 2px solid var(--color-warning-border);
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255,255,255,0.05),
+    inset -1px -1px 0 0 rgba(0,0,0,0.06);
+  font-size: 12px;
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+  color: var(--color-warning);
+  margin-bottom: var(--space-3);
+}
+
+/* ------------------------------------------------------------------ */
+/* HUD-style sync stats readout (mono-font numbers)                    */
+/* ------------------------------------------------------------------ */
+
+.dotStats {
+  display: flex;
+  gap: var(--space-3);
+  font-size: 13px;
+  margin-bottom: var(--space-3);
+}
+
+.dotStat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  padding: 4px 10px;
+  background: var(--color-bg-panel-soft);
+  border: 2px solid var(--color-border-strong);
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255,255,255,0.08),
+    inset -1px -1px 0 0 rgba(0,0,0,0.04);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Devices header                                                      */
+/* ------------------------------------------------------------------ */
+
+.deviceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.deviceToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid var(--color-border-strong);
+  transition: all var(--transition-fast);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.deviceToggle:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ------------------------------------------------------------------ */
+/* Section titles — pending / active                                   */
+/* ------------------------------------------------------------------ */
+
+.pendingTitle {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-warning);
+  margin: 0 0 var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 16px;
+  position: relative;
+}
+
+.activeTitle {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pendingSection {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Device rows                                                          */
+/* ------------------------------------------------------------------ */
+
+.deviceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.deviceInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.deviceName {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pixel-art device badges (square, blocky, chunky borders)            */
+/* ------------------------------------------------------------------ */
+
+.deviceBadge {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 2px solid var(--badge-color);
+  flex-shrink: 0;
+  color: var(--badge-color);
+  background: color-mix(in srgb, var(--badge-color) 8%, transparent);
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255,255,255,0.08),
+    inset -1px -1px 0 0 rgba(0,0,0,0.06);
+}
+
+.deviceBadgeWarning {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 2px solid var(--color-warning);
+  flex-shrink: 0;
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255,255,255,0.08),
+    inset -1px -1px 0 0 rgba(0,0,0,0.06);
+}
+
+.currentDeviceBadge {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 2px solid var(--color-primary);
+  flex-shrink: 0;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255,255,255,0.08),
+    inset -1px -1px 0 0 rgba(0,0,0,0.06);
+}
+
+.deviceMeta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  font-family: var(--font-mono);
+}
+
+/* ------------------------------------------------------------------ */
+/* Device action buttons — console / pixel style                       */
+/* ------------------------------------------------------------------ */
+
+.deviceActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.approveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid var(--color-success);
+  transition: all var(--transition-fast);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+.approveBtn:hover:not(:disabled) {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.rejectBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid var(--color-danger);
+  transition: all var(--transition-fast);
+  background: transparent;
+  color: var(--color-danger);
+}
+
+.rejectBtn:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.revokeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid var(--color-danger-border);
+  transition: all var(--transition-fast);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+.revokeBtn:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+/* ------------------------------------------------------------------ */
+/* Active devices section                                              */
+/* ------------------------------------------------------------------ */
+
+.activeSection {
+  padding-top: var(--space-3);
+}
+
+.currentDeviceRow {
+  background: var(--color-primary-soft);
+  border: 2px solid var(--color-primary-border);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    inset 2px 2px 0 0 rgba(255,255,255,0.08),
+    inset -2px -2px 0 0 rgba(0,0,0,0.05);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-2) 0;
+}
+
+.currentDeviceName {
+  font-size: 13px;
+  color: var(--color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty state                                                         */
+/* ------------------------------------------------------------------ */
+
+.emptyText {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0;
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+  padding: var(--space-4);
+  text-align: center;
+  background: var(--color-bg-panel-soft);
+  border-radius: var(--radius-sm);
+}
+
+/* ------------------------------------------------------------------ */
+/* Confirmation dialog — pixel themed with corner decorations          */
+/* ------------------------------------------------------------------ */
+
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.confirmDialog {
+  background: var(--color-bg-panel);
+  border: 2px solid var(--color-border-strong);
+  box-shadow:
+    inset 2px 2px 0 0 rgba(255,255,255,0.1),
+    inset -2px -2px 0 0 rgba(0,0,0,0.1),
+    var(--shadow-elevated);
+  padding: var(--space-6);
+  max-width: 400px;
+  width: 90%;
+  position: relative;
+}
+
+/* Pixel corner L-shaped decorations on dialog */
+.confirmDialog::before,
+.confirmDialog::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.confirmDialog::before {
+  top: -1px;
+  left: -1px;
+  border-top: 3px solid var(--color-primary);
+  border-left: 3px solid var(--color-primary);
+}
+
+.confirmDialog::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 3px solid var(--color-primary);
+  border-right: 3px solid var(--color-primary);
+}
+
+.confirmHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--space-3);
+}
+
+.confirmIcon {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--confirm-icon-color, var(--color-text-muted));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--confirm-icon-color, var(--color-text-muted)) 9%, transparent);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+.confirmTitle {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.confirmDesc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-2);
+  line-height: 1.5;
+}
+
+.confirmWarning {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-danger-soft);
+  border: 2px solid var(--color-danger-border);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--color-danger);
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.confirmCancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid var(--color-border);
+  transition: all var(--transition-fast);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.confirmCancel:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.confirmOk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all var(--transition-fast);
+  /* background and color set inline for dynamic action type */
+}

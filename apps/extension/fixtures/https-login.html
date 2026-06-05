@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zero Vault HTTPS Login Fixture</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 2rem;
+        max-width: 28rem;
+      }
+
+      label {
+        display: block;
+        margin: 0 0 0.75rem;
+      }
+
+      input,
+      button {
+        box-sizing: border-box;
+        display: block;
+        margin-top: 0.25rem;
+        min-height: 2.25rem;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Example Login</h1>
+    <form id="login-form">
+      <label>
+        Email
+        <input autocomplete="username" name="email" type="email" />
+      </label>
+      <label>
+        Password
+        <input autocomplete="current-password" name="password" type="password" />
+      </label>
+      <button type="submit">Sign in</button>
+    </form>
+    <script>
+      document.getElementById("login-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        document.body.dataset.submitted = "true";
+      });
+    </script>
+  </body>
+</html>

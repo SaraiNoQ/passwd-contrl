@@ -1,0 +1,119 @@
+.lockedLayout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.unlockCard {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-shadow: var(--shadow-panel);
+}
+
+.unlockCardHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.unlockCardHeader svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.unlockCardHeader h2 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  color: var(--color-text-primary);
+}
+
+.unlockCardHeader p {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.unlockForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.unlockSecurityNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.unlockSecurityNote svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.extensionBadge {
+  align-self: flex-start;
+}
+
+.recoverySection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recoveryToggle {
+  font-size: 12px;
+}
+
+.recoveryForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recoverySubmit {
+  width: 100%;
+}
+
+.resetVaultSection {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.resetVaultButton {
+  font-size: 12px;
+  opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.resetVaultButton:hover {
+  opacity: 1;
+}

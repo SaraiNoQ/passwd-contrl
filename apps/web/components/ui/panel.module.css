@@ -1,0 +1,32 @@
+.panel {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  padding: var(--space-4);
+}
+
+.header {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.headerIcon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.title {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.3px;
+}
+
+.content {
+  color: var(--color-text-secondary);
+}

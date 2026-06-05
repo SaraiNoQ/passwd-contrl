@@ -1,0 +1,382 @@
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--color-bg-shell);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 0;
+  gap: 24px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+}
+
+.logoIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-orange-ring);
+}
+
+.logoIcon svg {
+  color: #ffffff;
+}
+
+.logoText {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+  letter-spacing: -0.5px;
+  text-transform: lowercase;
+}
+
+.lockBadge {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  line-height: 1.3;
+}
+
+.lockBadgeLocked {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.lockBadgeUnlocked {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 12px;
+  flex: 1;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+  min-height: 38px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.navItem:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.navItemActive {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+}
+
+.navItemActive:hover {
+  background: var(--color-primary-soft);
+}
+
+.navItem:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 12px;
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px;
+  margin-top: auto;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.status svg { flex-shrink: 0; }
+.statusSuccess { color: var(--color-success); }
+.statusWarning { color: var(--color-warning); }
+.statusDanger  { color: var(--color-danger); }
+
+.offlineNotice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-warning);
+}
+
+.lockBtn {
+  width: 100%;
+}
+
+.accountToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+  min-height: 38px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.accountToggle:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.accountBody {
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.accountForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.accountInput {
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  min-height: 36px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-family: var(--font-family);
+  width: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.accountInput::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.accountInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-border-glow);
+  outline: none;
+}
+
+/* Folder navigation */
+.folderSection {
+  margin-top: 4px;
+}
+
+.folderToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.folderToggle:hover {
+  color: var(--color-text-secondary);
+}
+
+.folderList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.folderItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 24px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  transition: all var(--transition-fast);
+  min-height: 30px;
+}
+
+.folderItem:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+.folderItemActive {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.folderItemActive:hover {
+  background: var(--color-primary-soft);
+}
+
+.folderName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folderCount {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  background: var(--color-bg-panel-soft);
+  padding: 1px 8px;
+  border-radius: 8px;
+  min-width: 22px;
+  text-align: center;
+}
+
+.folderItemActive .folderCount {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+/* Mobile overlay */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  z-index: 90;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.overlayVisible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Close button (mobile only) */
+.closeBtn {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  z-index: 5;
+  transition: all var(--transition-fast);
+}
+
+.closeBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+@media (max-width: 768px) {
+  .overlay {
+    display: block;
+  }
+
+  .closeBtn {
+    display: flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    width: 280px;
+    max-width: 85vw;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+}

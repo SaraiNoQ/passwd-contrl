@@ -1,0 +1,275 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import type { MascotState, MascotMessage } from "../../hooks/useMascot";
+import { SpeechBubble } from "./speech-bubble";
+import styles from "./pixel-mascot.module.css";
+
+interface PixelMascotProps {
+  state: MascotState;
+  message: MascotMessage | null;
+  onDismissMessage: () => void;
+  onClick?: () => void;
+  onFunClick?: () => void;
+}
+
+/* Pixel art guardian — 16x18 grid, each pixel = 6x6 SVG units */
+const P = 6; // pixel size
+
+type PixelRow = number[];
+const SPRITE: PixelRow[] = [
+  //  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+  [ 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0], // 0  ear tips
+  [ 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0], // 1  ears
+  [ 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], // 2  head crown
+  [ 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0], // 3  head top
+  [ 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 0], // 4  face white starts
+  [ 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 0], // 5  eyes upper white
+  [ 0, 0, 1, 1, 2, 3, 2, 2, 2, 2, 2, 3, 2, 1, 1, 0], // 6  eyes center (pupils at 5,11)
+  [ 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 0], // 7  eyes lower white
+  [ 0, 0, 0, 1, 1, 4, 2, 2, 2, 2, 2, 4, 1, 1, 0, 0], // 8  blush cheeks
+  [ 0, 0, 0, 1, 1, 1, 2, 3, 2, 3, 2, 1, 1, 1, 0, 0], // 9  nose area
+  [ 0, 0, 0, 0, 1, 1, 1, 2, 3, 2, 1, 1, 1, 0, 0, 0], // 10 mouth smile
+  [ 0, 0, 0, 0, 0, 1, 1, 1, 2, 1, 1, 1, 0, 0, 0, 0], // 11 chin
+  [ 0, 0, 0, 0, 0, 0, 2, 2, 1, 2, 2, 0, 0, 0, 0, 0], // 12 neck scarf
+  [ 0, 0, 0, 1, 1, 0, 2, 1, 2, 1, 2, 0, 1, 1, 0, 0], // 13 body with stubby arms
+  [ 0, 0, 0, 0, 1, 0, 1, 2, 2, 2, 1, 0, 1, 0, 0, 0], // 14 body lower
+  [ 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0], // 15 body bottom
+  [ 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0], // 16 feet
+  [ 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0], // 17 toes
+];
+
+const COLORS: Record<number, string> = {
+  1: "var(--color-pixel-body, #ff5e24)",
+  2: "var(--color-pixel-white, #ffffff)",
+  3: "var(--color-pixel-dark, #232629)",
+  4: "var(--color-pixel-blush, #ffb09c)",
+};
+
+interface HeartParticle {
+  id: number;
+  x: number;
+  y: number;
+}
+
+export function PixelMascot({
+  state,
+  message,
+  onDismissMessage,
+  onClick,
+  onFunClick,
+}: PixelMascotProps) {
+  const clickCount = useRef(0);
+  const nextHeartId = useRef(0);
+  const [hearts, setHearts] = useState<HeartParticle[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [cursorOffset, setCursorOffset] = useState({ dx: 0, dy: 0 });
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      // Normalise to [-1, 1] and clamp
+      const dx = Math.max(-1, Math.min(1, (e.clientX - cx) / (rect.width / 2)));
+      const dy = Math.max(-1, Math.min(1, (e.clientY - cy) / (rect.height / 2)));
+      setCursorOffset({ dx, dy });
+    },
+    [],
+  );
+
+  const handleClick = useCallback(() => {
+    clickCount.current += 1;
+
+    // Spawn heart burst
+    const newHearts: HeartParticle[] = Array.from({ length: 6 }, (_, i) => ({
+      id: nextHeartId.current++,
+      x: (Math.random() - 0.5) * 60,
+      y: -20 - Math.random() * 40,
+    }));
+    setHearts((prev) => [...prev, ...newHearts]);
+    // Remove hearts after animation
+    setTimeout(() => {
+      setHearts((prev) => prev.filter((h) => !newHearts.some((nh) => nh.id === h.id)));
+    }, 800);
+
+    if (clickCount.current >= 2) {
+      clickCount.current = 0;
+      onClick?.();
+    } else if (state === "idle") {
+      onFunClick?.();
+    }
+    setTimeout(() => {
+      clickCount.current = 0;
+    }, 500);
+  }, [state, onClick, onFunClick]);
+
+  const w = SPRITE[0]!.length * P;
+  const h = SPRITE.length * P;
+
+  // Build body rects, splitting out eye pupils for blink animation
+  const bodyRects: Array<{ x: number; y: number; color: number }> = [];
+  const pupilRects: Array<{ x: number; y: number }> = [];
+
+  SPRITE.forEach((row, yi) => {
+    row.forEach((color, xi) => {
+      if (color === 0) return;
+      // Eye pupils (dark at row 6, cols 5 and 11)
+      if (color === 3 && yi === 6) {
+        pupilRects.push({ x: xi * P, y: yi * P });
+      } else {
+        bodyRects.push({ x: xi * P, y: yi * P, color });
+      }
+    });
+  });
+
+  return (
+    <div
+      ref={containerRef}
+      className={`${styles.container} ${styles[state]}`}
+      onClick={handleClick}
+      onMouseMove={handleMouseMove}
+      role="img"
+      aria-label={`像素守护兽 — ${stateLabel(state)}`}
+      title={`状态: ${stateLabel(state)}`}
+    >
+      {message && (
+        <div className={styles.bubbleWrap}>
+          <SpeechBubble message={message} onDismiss={onDismissMessage} />
+        </div>
+      )}
+
+      <div
+        className={styles.mascot}
+        style={{
+          transform:
+            cursorOffset.dx || cursorOffset.dy
+              ? `perspective(120px) rotateY(${cursorOffset.dx * 8}deg) rotateX(${-cursorOffset.dy * 6}deg)`
+              : undefined,
+        }}
+      >
+        <svg
+          width={w}
+          height={h}
+          viewBox={`0 0 ${w + P * 6} ${h}`}
+          className={styles.svg}
+          aria-hidden="true"
+        >
+          {/* Body */}
+          {bodyRects.map((r, i) => (
+            <rect
+              key={`b-${i}`}
+              x={r.x}
+              y={r.y}
+              width={P}
+              height={P}
+              fill={COLORS[r.color] ?? "#ff5e24"}
+              shapeRendering="crispEdges"
+            />
+          ))}
+
+          {/* Blinking eye pupils */}
+          <g className={styles.eyes}>
+            {pupilRects.map((r, i) => (
+              <rect
+                key={`p-${i}`}
+                x={r.x}
+                y={r.y}
+                width={P}
+                height={P}
+                fill={COLORS[3]}
+                shapeRendering="crispEdges"
+              />
+            ))}
+          </g>
+
+          {/* Floating key — separate element for rotation animation */}
+          <g className={styles.key}>
+            {/* Key bow (ring top) */}
+            <rect x={13 * P} y={6 * P} width={P * 3} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
+            {/* Key bow sides + hole */}
+            <rect x={13 * P} y={7 * P} width={P} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
+            <rect x={15 * P} y={7 * P} width={P} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
+            {/* Key bow bottom */}
+            <rect x={13 * P} y={8 * P} width={P * 3} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
+            {/* Key shaft */}
+            <rect x={14 * P} y={9 * P} width={P} height={P * 4} fill="#fbbf24" shapeRendering="crispEdges" />
+            {/* Key teeth */}
+            <rect x={13 * P} y={13 * P} width={P * 2} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
+            <rect x={12 * P} y={14 * P} width={P} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
+            {/* Key highlight */}
+            <rect x={14 * P + 2} y={6 * P + 2} width={P - 4} height={P - 4} fill="#fde68a" shapeRendering="crispEdges" opacity={0.6} />
+          </g>
+        </svg>
+
+        {/* Z's for sleeping */}
+        {state === "sleeping" && (
+          <div className={styles.zzzGroup}>
+            <span className={styles.zzz}>z</span>
+            <span className={styles.zzz}>Z</span>
+            <span className={styles.zzz}>Z</span>
+          </div>
+        )}
+
+        {/* Sparkles for excited */}
+        {state === "excited" && (
+          <div className={styles.sparkles}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className={styles.sparkle}
+                style={{
+                  left: `${20 + Math.random() * (w - 20)}px`,
+                  top: `${-5 + Math.random() * (h + 10)}px`,
+                  animationDelay: `${i * 0.1}s`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Heart burst on click */}
+        {hearts.map((heart) => (
+          <span
+            key={heart.id}
+            className={styles.heartBurst}
+            style={
+              {
+                "--hx": `${heart.x}px`,
+                "--hy": `${heart.y}px`,
+              } as React.CSSProperties
+            }
+          >
+            &hearts;
+          </span>
+        ))}
+
+        {/* Notification dot */}
+        {(state === "working" || state === "error") && (
+          <div className={styles.dot} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function stateLabel(state: MascotState): string {
+  switch (state) {
+    case "sleeping":
+      return "休眠中";
+    case "idle":
+      return "待机中";
+    case "walking":
+      return "巡视中";
+    case "working":
+      return "工作中";
+    case "excited":
+      return "兴奋中";
+    case "error":
+      return "警报";
+    default:
+      return "在线";
+  }
+}

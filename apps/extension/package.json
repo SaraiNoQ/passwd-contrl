@@ -1,0 +1,24 @@
+{
+  "name": "@zero-vault/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && esbuild src/background.ts --bundle --outfile=dist/background.js --format=esm --target=chrome90 && esbuild src/popup.ts --bundle --outfile=dist/popup.js --format=esm --target=chrome90 && esbuild src/content-script.ts --bundle --outfile=dist/content-script.js --format=iife --target=chrome90",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "test:e2e": "pnpm build && playwright test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@zero-vault/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/chrome": "^0.0.321",
+    "esbuild": "^0.28.0",
+    "jsdom": "^29.1.1",
+    "@vitest/coverage-v8": "^2.1.9",
+    "vitest": "^2.1.9"
+  }
+}

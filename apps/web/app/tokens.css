@@ -1,0 +1,187 @@
+/* ============================================================================
+   Obscura Design Tokens — Pixel Arcade on Cloud Paper
+   Light (default) + Dark mode via [data-theme="dark"]
+   ============================================================================ */
+
+/* ------------------------------------------------------------------ */
+/* Light Theme (default)                                               */
+/* ------------------------------------------------------------------ */
+
+:root {
+  color-scheme: light;
+
+  /* --- Surfaces --- */
+  --color-bg-root: #e3f1fe;
+  --color-bg-shell: #ffffff;
+  --color-bg-panel: #ffffff;
+  --color-bg-panel-soft: #f0f6fd;
+  --color-bg-input: #ffffff;
+  --color-bg-hover: rgba(255, 94, 36, 0.06);
+
+  /* --- Border --- */
+  --color-border: #d0dff2;
+  --color-border-strong: #b8cce6;
+  --color-border-focus: rgba(255, 94, 36, 0.5);
+  --color-border-glow: rgba(255, 94, 36, 0.15);
+
+  /* --- Text --- */
+  --color-text-primary: #232629;
+  --color-text-secondary: #5c6066;
+  --color-text-muted: #989ea4;
+  --color-text-inverse: #ffffff;
+
+  /* --- Semantic --- */
+  --color-primary: #ff5e24;
+  --color-primary-soft: rgba(255, 94, 36, 0.1);
+  --color-primary-border: rgba(255, 94, 36, 0.3);
+  --color-success: #16a34a;
+  --color-success-soft: rgba(22, 163, 74, 0.1);
+  --color-accent: #ff5e24;
+  --color-accent-soft: rgba(255, 94, 36, 0.1);
+  --color-warning: #d97706;
+  --color-warning-soft: rgba(217, 119, 6, 0.1);
+  --color-warning-border: rgba(217, 119, 6, 0.3);
+  --color-danger: #dc2626;
+  --color-danger-soft: rgba(220, 38, 38, 0.08);
+  --color-danger-border: rgba(220, 38, 38, 0.25);
+
+  /* --- Spacing --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* --- Border Radius --- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* --- Typography --- */
+  --font-display: 'Jersey 10', 'Press Start 2P', 'VT323', ui-monospace, monospace;
+  --font-family: 'Manrope Variable', 'Manrope', 'Inter', ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-caption-size: 12px;
+  --text-caption-height: 1.5;
+  --text-caption-weight: 400;
+
+  --text-body-sm-size: 14px;
+  --text-body-sm-height: 1.43;
+  --text-body-sm-weight: 400;
+
+  --text-body-size: 16px;
+  --text-body-height: 1.5;
+  --text-body-weight: 400;
+
+  --text-subheading-size: 18px;
+  --text-subheading-height: 1.56;
+  --text-subheading-weight: 500;
+
+  --text-heading-sm-size: 36px;
+  --text-heading-sm-height: 1.11;
+  --text-heading-sm-weight: 400;
+  --text-heading-sm-tracking: -0.9px;
+
+  --text-heading-size: 48px;
+  --text-heading-height: 0.85;
+  --text-heading-weight: 400;
+  --text-heading-tracking: -1.2px;
+
+  --text-heading-lg-size: 60px;
+  --text-heading-lg-height: 0.85;
+  --text-heading-lg-weight: 400;
+  --text-heading-lg-tracking: -1.5px;
+
+  --text-display-size: 96px;
+  --text-display-height: 0.8;
+  --text-display-weight: 400;
+  --text-display-tracking: -3px;
+
+  --text-button-size: 14px;
+  --text-button-height: 1.43;
+  --text-button-weight: 500;
+
+  /* --- Shadow --- */
+  --shadow-panel: rgba(15, 34, 52, 0.01) 0px 27px 11px 0px,
+    rgba(15, 34, 52, 0.02) 0px 15px 9px 0px,
+    rgba(15, 34, 52, 0.04) 0px 7px 7px 0px,
+    rgba(15, 34, 52, 0.04) 0px 2px 4px 0px;
+  --shadow-elevated: rgba(0, 0, 0, 0.01) 0px 49px 30px 0px,
+    rgba(0, 0, 0, 0.03) 0px 22px 22px 0px,
+    rgba(0, 0, 0, 0.03) 0px 5px 12px 0px;
+  --shadow-orange-ring: rgba(255, 94, 36, 0.17) 0px 0.5px 0.5px 0.5px inset,
+    rgba(153, 37, 18, 0.2) 0px -1px 0.5px 0px inset,
+    rgb(255, 94, 36) 0px 0px 0px 1px;
+  --shadow-dropdown: rgba(15, 34, 52, 0.06) 0px 8px 32px 0px;
+
+  /* --- Overlay --- */
+  --overlay-bg: rgba(35, 38, 41, 0.4);
+
+  /* --- Layout --- */
+  --sidebar-width: 260px;
+  --drawer-width: 400px;
+  --page-max-width: 1200px;
+
+  /* --- Transition --- */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+
+  /* --- Legacy aliases --- */
+  --radius: var(--radius-md);
+  --font-sans: var(--font-family);
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark Theme                                                          */
+/* ------------------------------------------------------------------ */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-bg-root: #0d1520;
+  --color-bg-shell: #111b2a;
+  --color-bg-panel: #162032;
+  --color-bg-panel-soft: #1a273a;
+  --color-bg-input: #0f1825;
+  --color-bg-hover: rgba(255, 94, 36, 0.1);
+
+  --color-border: #1e3044;
+  --color-border-strong: #2a4058;
+  --color-border-focus: rgba(255, 94, 36, 0.5);
+  --color-border-glow: rgba(255, 94, 36, 0.18);
+
+  --color-text-primary: #e8edf3;
+  --color-text-secondary: #9aa4b2;
+  --color-text-muted: #6b7585;
+  --color-text-inverse: #0d1520;
+
+  --color-primary: #ff6b35;
+  --color-primary-soft: rgba(255, 107, 53, 0.12);
+  --color-primary-border: rgba(255, 107, 53, 0.35);
+  --color-success: #22c55e;
+  --color-success-soft: rgba(34, 197, 94, 0.12);
+  --color-warning: #f59e0b;
+  --color-warning-soft: rgba(245, 158, 11, 0.12);
+  --color-warning-border: rgba(245, 158, 11, 0.3);
+  --color-danger: #f87171;
+  --color-danger-soft: rgba(248, 113, 113, 0.1);
+  --color-danger-border: rgba(248, 113, 113, 0.25);
+
+  --shadow-panel: rgba(0, 0, 0, 0.15) 0px 27px 11px 0px,
+    rgba(0, 0, 0, 0.1) 0px 15px 9px 0px,
+    rgba(0, 0, 0, 0.08) 0px 7px 7px 0px,
+    rgba(0, 0, 0, 0.06) 0px 2px 4px 0px;
+  --shadow-elevated: rgba(0, 0, 0, 0.2) 0px 49px 30px 0px,
+    rgba(0, 0, 0, 0.15) 0px 22px 22px 0px,
+    rgba(0, 0, 0, 0.1) 0px 5px 12px 0px;
+  --shadow-orange-ring: rgba(255, 107, 53, 0.2) 0px 0.5px 0.5px 0.5px inset,
+    rgba(255, 107, 53, 0.25) 0px -1px 0.5px 0px inset,
+    rgb(255, 107, 53) 0px 0px 0px 1px;
+  --shadow-dropdown: rgba(0, 0, 0, 0.4) 0px 8px 32px 0px;
+
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+}

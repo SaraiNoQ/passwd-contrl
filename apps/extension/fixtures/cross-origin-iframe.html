@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Cross-Origin Iframe Fixture</title>
+</head>
+<body>
+  <h1>Cross-Origin Iframe Test</h1>
+  <!-- This iframe will be pointed to a different origin; the form inside should NOT be detected -->
+  <iframe id="cross-frame" src="about:blank" style="width:400px;height:300px;border:1px solid #ccc;"></iframe>
+  <script>
+    // The E2E test will set this iframe's src to a different origin
+  </script>
+</body>
+</html>

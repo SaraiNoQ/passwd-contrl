@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Zero Vault",
+  "version": "0.1.0",
+  "description": "User-confirmed zero-knowledge password autofill.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*/*"],
+      "js": ["dist/content-script.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://*/*"],
+  "externally_connectable": {
+    "matches": ["http://localhost/*", "https://localhost/*"]
+  }
+}

@@ -1,0 +1,101 @@
+.bubble {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-bg-panel);
+  border: 2px solid var(--color-border-strong);
+  border-radius: 4px;
+  padding: 8px 12px;
+  max-width: 200px;
+  min-width: 100px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0.5px;
+  color: var(--color-text-primary);
+  white-space: normal;
+  word-break: break-word;
+  z-index: 5;
+  animation: bubbleIn 0.2s ease-out;
+  box-shadow:
+    2px 2px 0 0 rgba(0,0,0,0.06),
+    inset 0 1px 0 0 rgba(255,255,255,0.5);
+}
+
+[data-theme="dark"] .bubble {
+  box-shadow:
+    2px 2px 0 0 rgba(0,0,0,0.2),
+    inset 0 1px 0 0 rgba(255,255,255,0.05);
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--color-border-strong);
+}
+
+.bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--color-bg-panel);
+  z-index: 1;
+}
+
+/* Types */
+.info {
+  border-color: var(--color-primary-border);
+  color: var(--color-text-primary);
+}
+.info::after { border-top-color: var(--color-primary-border); }
+
+.success {
+  border-color: rgba(22, 163, 74, 0.3);
+  color: var(--color-success);
+}
+.success::after { border-top-color: rgba(22, 163, 74, 0.3); }
+
+.warning {
+  border-color: var(--color-warning-border);
+  color: var(--color-warning);
+}
+.warning::after { border-top-color: var(--color-warning-border); }
+
+.error {
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+}
+.error::after { border-top-color: var(--color-danger-border); }
+
+.fun {
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+}
+.fun::after { border-top-color: var(--color-primary-border); }
+
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.95); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.dismissHint {
+  font-size: 9px;
+  opacity: 0.5;
+  margin-top: 4px;
+  letter-spacing: 1px;
+}

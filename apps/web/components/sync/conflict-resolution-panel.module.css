@@ -1,0 +1,487 @@
+/* ConflictResolutionPanel — Pixel Arcade Theme CSS Module */
+
+/* ------------------------------------------------------------------ */
+/* Main panel card                                                     */
+/* ------------------------------------------------------------------ */
+
+.card {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-panel);
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty state                                                         */
+/* ------------------------------------------------------------------ */
+
+.empty {
+  text-align: center;
+  padding: var(--space-6) 0;
+}
+
+.emptyIcon {
+  color: var(--color-success);
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyText {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Header with 8×8 pixel block decoration                              */
+/* ------------------------------------------------------------------ */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: 16px;
+  position: relative;
+}
+
+.title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--color-danger);
+  image-rendering: pixelated;
+}
+
+.titleIcon {
+  color: var(--color-danger);
+  display: flex;
+  align-items: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Badge (conflict count) — pixel styled                               */
+/* ------------------------------------------------------------------ */
+
+.badge {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  padding: 2px 8px;
+  border: 2px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+/* ------------------------------------------------------------------ */
+/* Description / help text                                             */
+/* ------------------------------------------------------------------ */
+
+.description {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-4);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bulk actions bar                                                    */
+/* ------------------------------------------------------------------ */
+
+.bulkBar {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding: 10px 12px;
+  background: var(--color-bg-panel-soft);
+  border: 2px solid var(--color-border-strong);
+  box-shadow:
+    inset 2px 2px 0 0 rgba(255,255,255,0.08),
+    inset -2px -2px 0 0 rgba(0,0,0,0.05);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.bulkLabel {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--color-text-muted);
+  margin-right: 4px;
+}
+
+.bulkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.bulkKeepLocal {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+.bulkAcceptRemote {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  border-color: var(--color-success-soft);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bulk confirmation banner                                            */
+/* ------------------------------------------------------------------ */
+
+.bulkConfirm {
+  padding: var(--space-3);
+  background: var(--color-warning-soft);
+  border: 2px solid var(--color-warning-border);
+  box-shadow: inset 2px 2px 0 0 rgba(255,255,255,0.08);
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.bulkConfirmText {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--color-warning);
+}
+
+.bulkConfirmActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.confirmOkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid var(--color-warning);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  background: var(--color-warning);
+  color: var(--color-text-inverse);
+}
+
+.confirmCancelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid var(--color-border);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Individual conflict card — pixel border + inset                      */
+/* ------------------------------------------------------------------ */
+
+.conflictItem {
+  background: var(--color-bg-panel-soft);
+  border: 2px solid var(--color-border-strong);
+  box-shadow:
+    inset 2px 2px 0 0 rgba(255,255,255,0.08),
+    inset -2px -2px 0 0 rgba(0,0,0,0.05);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+/* ------------------------------------------------------------------ */
+/* Conflict item header                                                */
+/* ------------------------------------------------------------------ */
+
+.conflictHeader {
+  margin-bottom: 12px;
+}
+
+.conflictTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 4px;
+}
+
+.conflictIcon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.conflictTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Conflict reason badge — pixel styled                                */
+/* ------------------------------------------------------------------ */
+
+.conflictBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border: 2px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+/* ------------------------------------------------------------------ */
+/* Conflict meta (revisions / timestamps)                              */
+/* ------------------------------------------------------------------ */
+
+.conflictMeta {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  margin-left: 22px;
+}
+
+.conflictTimestamp {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Toggle comparison button                                            */
+/* ------------------------------------------------------------------ */
+
+.toggleCompareBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid var(--color-border-strong);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.toggleCompareBtn:hover {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+
+.toggleCompareWrapper {
+  margin-bottom: 12px;
+  margin-left: 22px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Side-by-side comparison grid                                        */
+/* ------------------------------------------------------------------ */
+
+.comparisonGrid {
+  margin-bottom: 12px;
+  margin-left: 22px;
+  overflow: hidden;
+  border: 2px solid var(--color-border-strong);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+.comparisonHeader {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--color-bg-panel);
+}
+
+.localHeader {
+  padding: 8px 12px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.remoteHeader {
+  padding: 8px 12px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-success);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.comparisonRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-panel);
+}
+
+.comparisonRow:nth-child(even) {
+  background: var(--color-bg-panel-soft);
+}
+
+.comparisonCell {
+  padding: 6px 12px;
+}
+
+.comparisonCell:first-child {
+  border-right: 1px solid var(--color-border);
+}
+
+.fieldName {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.fieldValue {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.fieldDiff {
+  color: var(--color-warning);
+}
+
+.emptyValue {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------------ */
+/* Action buttons row — pixel themed                                   */
+/* ------------------------------------------------------------------ */
+
+.actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: 22px;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 2px solid;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.keepLocalBtn {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+.acceptRemoteBtn {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  border-color: var(--color-success-soft);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+.createCopyBtn {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border-color: var(--color-danger-border);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+}
+
+.skipBtn {
+  background: transparent;
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}

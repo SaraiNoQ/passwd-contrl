@@ -1,0 +1,30 @@
+{
+  "name": "@zero-vault/worker-api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler d1 migrations apply zero-vault-db --local && wrangler dev --local",
+    "dev:remote": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "db:create": "wrangler d1 create zero-vault-db",
+    "db:create:staging": "wrangler d1 create zero-vault-db --env staging",
+    "db:migrate": "wrangler d1 migrations apply zero-vault-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply zero-vault-db",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zero-vault/shared": "workspace:*",
+    "hono": "^4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4",
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.10.0",
+    "typescript": "^5",
+    "@vitest/coverage-v8": "^2",
+    "vitest": "^2",
+    "wrangler": "^3"
+  }
+}

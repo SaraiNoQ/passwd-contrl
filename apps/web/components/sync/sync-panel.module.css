@@ -1,0 +1,347 @@
+/* SyncPanel — Pixel Arcade Theme CSS Module */
+
+/* ------------------------------------------------------------------ */
+/* Card — pixel-border + pixel-scanlines applied via className in TSX */
+/* ------------------------------------------------------------------ */
+
+.card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-panel);
+}
+
+[data-theme="dark"] .card {
+  background: rgba(22, 32, 50, 0.96);
+}
+
+/* ------------------------------------------------------------------ */
+/* Section header with 8×8 pixel block decoration                     */
+/* ------------------------------------------------------------------ */
+
+.cardHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0;
+}
+
+.cardTitle {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin: 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.cardTitle::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--color-primary);
+  image-rendering: pixelated;
+}
+
+/* ------------------------------------------------------------------ */
+/* Large pixel-art status badge                                        */
+/* ------------------------------------------------------------------ */
+
+.statusIndicator {
+  align-items: center;
+  background: var(--color-bg-panel-soft);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    inset 2px 2px 0 0 rgba(255,255,255,0.1),
+    inset -2px -2px 0 0 rgba(0,0,0,0.06);
+  display: flex;
+  gap: 12px;
+  margin-bottom: 0;
+  padding: var(--space-4) var(--space-6);
+}
+
+.statusIconBlock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 2px solid;
+  flex-shrink: 0;
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.1);
+}
+
+.statusLabel {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.statusSubtext {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Console-style sync button                                           */
+/* ------------------------------------------------------------------ */
+
+.syncButton {
+  align-items: center;
+  background: var(--color-bg-panel);
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  gap: 6px;
+  letter-spacing: 2px;
+  padding: 6px 14px;
+  text-transform: uppercase;
+  transition: all var(--transition-fast);
+}
+
+.syncButton:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  box-shadow: 0 0 12px rgba(255, 94, 36, 0.4);
+}
+
+/* ------------------------------------------------------------------ */
+/* HUD readout — last synced timestamp                                 */
+/* ------------------------------------------------------------------ */
+
+.lastSynced {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  gap: 6px;
+  margin-bottom: var(--space-3);
+}
+
+/* ------------------------------------------------------------------ */
+/* Offline notice — pixel border style                                 */
+/* ------------------------------------------------------------------ */
+
+.offlineNotice {
+  align-items: center;
+  background: var(--color-warning-soft);
+  border: 2px solid var(--color-warning-border);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.05);
+  color: var(--color-warning);
+  display: flex;
+  font-family: var(--font-display);
+  font-size: 12px;
+  gap: var(--space-2);
+  letter-spacing: 1px;
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+/* ------------------------------------------------------------------ */
+/* Stats grid — pixel-art stat cards                                   */
+/* ------------------------------------------------------------------ */
+
+.statsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.statCard {
+  background: var(--color-bg-panel-soft);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    inset 2px 2px 0 0 rgba(255,255,255,0.08),
+    inset -2px -2px 0 0 rgba(0,0,0,0.05);
+  flex: 1;
+  min-width: 100px;
+  padding: var(--space-3) 14px;
+}
+
+.statCardLabel {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: flex;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  gap: 6px;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.statCardValue {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ */
+/* Section sub-header with 8×8 pixel block                             */
+/* ------------------------------------------------------------------ */
+
+.statsHeader {
+  align-items: center;
+  color: var(--color-text-primary);
+  display: flex;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 400;
+  gap: var(--space-2);
+  letter-spacing: 1px;
+  margin: 0 0 14px;
+  padding-left: 16px;
+  position: relative;
+  text-transform: uppercase;
+}
+
+.statsHeader::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--color-primary);
+  image-rendering: pixelated;
+}
+
+/* ------------------------------------------------------------------ */
+/* Block-segmented pixel progress bar                                  */
+/* ------------------------------------------------------------------ */
+
+.progressSection {
+  margin-top: 14px;
+}
+
+.progressLabels {
+  color: var(--color-text-muted);
+  display: flex;
+  font-family: var(--font-display);
+  font-size: 11px;
+  justify-content: space-between;
+  letter-spacing: 1.5px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.progressBar {
+  background: var(--color-bg-panel-soft);
+  border: 2px solid var(--color-border-strong);
+  height: 10px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  transition: width 0.4s steps(20);
+  /* Pixelated block segments — alternating primary/success blocks */
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--color-primary) 0px,
+      var(--color-primary) 8px,
+      var(--color-success) 8px,
+      var(--color-success) 16px
+    );
+  image-rendering: pixelated;
+}
+
+/* ------------------------------------------------------------------ */
+/* Event list                                                          */
+/* ------------------------------------------------------------------ */
+
+.eventListHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.eventRow {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.eventIcon {
+  align-items: center;
+  border: 2px solid;
+  border-color: currentColor;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 1px 1px 0 0 rgba(255,255,255,0.1);
+  display: flex;
+  flex-shrink: 0;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.eventDesc {
+  color: var(--color-text-primary);
+  font-size: 13px;
+}
+
+.eventMeta {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  gap: var(--space-2);
+  margin-top: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Toggle button — pixel themed                                        */
+/* ------------------------------------------------------------------ */
+
+.toggleButton {
+  align-items: center;
+  background: transparent;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  gap: 4px;
+  letter-spacing: 1.5px;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  transition: all var(--transition-fast);
+}
+
+.toggleButton:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}

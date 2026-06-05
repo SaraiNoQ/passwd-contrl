@@ -1,0 +1,79 @@
+.badge {
+  align-items: center;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  gap: var(--space-1);
+  line-height: 1;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.locked {
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.unlocked {
+  background: var(--color-success-soft);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  color: var(--color-success);
+}
+
+.synced {
+  background: var(--color-success-soft);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  color: var(--color-success);
+}
+
+.pending {
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning);
+}
+
+.conflict {
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.offline {
+  background: var(--color-bg-panel-soft);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.blocked {
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.fillable {
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary-border);
+  color: var(--color-primary);
+}
+
+.similar {
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning);
+}
+
+.trusted {
+  background: var(--color-success-soft);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  color: var(--color-success);
+}
+
+.icon {
+  flex-shrink: 0;
+  height: 12px;
+  width: 12px;
+}

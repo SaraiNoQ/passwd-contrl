@@ -1,0 +1,417 @@
+/* ---------------------------------------------------------------------------
+ * Recovery Code Modal
+ * --------------------------------------------------------------------------- */
+
+/* --- Overlay --- */
+.overlay {
+  align-items: center;
+  background: rgba(5, 11, 18, 0.8);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: var(--space-4);
+  position: fixed;
+  z-index: 1000;
+}
+
+/* --- Modal --- */
+.modal {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  max-height: 90vh;
+  max-width: 480px;
+  overflow: auto;
+  padding: 24px;
+  width: 100%;
+}
+
+/* --- Header --- */
+.header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.headerTitle {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* --- Step indicator --- */
+.stepsContainer {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: flex;
+  font-size: 12px;
+  gap: var(--space-2);
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.stepItem {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.stepDot {
+  align-items: center;
+  background: var(--color-border-strong);
+  border-radius: 50%;
+  color: var(--color-text-muted);
+  display: flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  height: 28px;
+  justify-content: center;
+  transition: all 0.2s;
+  width: 28px;
+}
+
+.stepDotActive {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.stepDotCompleted {
+  background: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.stepLabel {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.stepLabelActive {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* --- Content area --- */
+.content {
+  margin-bottom: 24px;
+}
+
+/* --- Footer / Navigation --- */
+.footer {
+  align-items: center;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  padding-top: var(--space-4);
+}
+
+/* --- Buttons --- */
+.btnPrimary {
+  align-items: center;
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-inverse);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 6px;
+  padding: 8px 16px;
+  transition: var(--transition-fast);
+}
+
+.btnPrimary:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btnSecondary {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 6px;
+  padding: 8px 16px;
+  transition: var(--transition-fast);
+}
+
+.btnDanger {
+  align-items: center;
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 6px;
+  padding: 8px 16px;
+  transition: var(--transition-fast);
+}
+
+.btnDanger:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btnGhost {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 6px;
+  padding: 8px 16px;
+  transition: var(--transition-fast);
+}
+
+.btnCopy {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 6px;
+  padding: 4px;
+  transition: var(--transition-fast);
+}
+
+/* --- Section titles --- */
+.sectionTitle {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.sectionSubtitle {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 0 0 24px;
+}
+
+/* --- Icon circle --- */
+.iconCircle {
+  align-items: center;
+  background: var(--color-primary-soft);
+  border-radius: 50%;
+  display: flex;
+  height: 48px;
+  justify-content: center;
+  margin: 0 auto 12px;
+  width: 48px;
+}
+
+.iconPrimary {
+  color: var(--color-primary);
+}
+
+.iconSuccess {
+  color: var(--color-success);
+}
+
+/* --- Info box --- */
+.infoBox {
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  padding: 12px;
+}
+
+.infoBox p {
+  margin: 0;
+}
+
+/* --- Warning box (danger variant) --- */
+.warningBox {
+  align-items: flex-start;
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-danger);
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+  line-height: 20px;
+  padding: 12px;
+}
+
+.warningBox svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.warningBoxTitle {
+  font-weight: 500;
+  margin: 0;
+}
+
+.warningBoxSub {
+  font-size: 12px;
+  margin: 4px 0 0;
+  opacity: 0.8;
+}
+
+/* --- Warning banner (yellow / caution) --- */
+.warningBanner {
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-warning);
+  font-size: 12px;
+  line-height: 18px;
+  padding: 12px;
+}
+
+.warningBanner p {
+  margin: 0;
+}
+
+/* --- Code display --- */
+.codeDisplay {
+  align-items: center;
+  background: var(--color-bg-panel-soft);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--color-primary);
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  gap: 12px;
+  justify-content: space-between;
+  line-height: 1.6;
+  padding: 16px 20px;
+}
+
+.codeText {
+  user-select: all;
+  word-break: break-all;
+}
+
+/* --- Input --- */
+.inputGroup {
+  margin-bottom: var(--space-4);
+}
+
+.inputLabel {
+  color: var(--color-text-secondary);
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.input {
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  outline: none;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+/* --- Validation messages --- */
+.validationError {
+  color: var(--color-danger);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.validationSuccess {
+  color: var(--color-success);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.copiedMessage {
+  color: var(--color-success);
+  font-size: 12px;
+  margin: 8px 0 0;
+  text-align: center;
+}
+
+/* --- Error text --- */
+.errorText {
+  color: var(--color-danger);
+  font-size: 13px;
+  margin-bottom: var(--space-4);
+}
+
+/* --- Confirm checkbox --- */
+.confirmLabel {
+  align-items: center;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  gap: var(--space-2);
+}
+
+.confirmCheckbox {
+  accent-color: var(--color-primary);
+}
+
+/* --- Explanation text --- */
+.explanationText {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.explanationText ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.explanationText li {
+  margin-bottom: 4px;
+}
+
+.explanationText p {
+  margin: 0 0 8px;
+}
+
+/* --- Centered content --- */
+.centerContent {
+  text-align: center;
+}
+
+/* --- Paragraph utility --- */
+.p {
+  margin: 0;
+}
+
+/* --- Margin utilities (context-dependent spacing) --- */
+.mt4 {
+  margin-top: var(--space-4);
+}
+
+.mb4 {
+  margin-bottom: var(--space-4);
+}

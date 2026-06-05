@@ -1,0 +1,170 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: npx pnpm install --frozen-lockfile
+      - run: npx pnpm typecheck
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: npx pnpm install --frozen-lockfile
+      - run: npx pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: npx pnpm install --frozen-lockfile
+      - run: npx pnpm build
+
+  extension-e2e:
+    name: Extension E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: npx pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: npx pnpm --filter @zero-vault/extension exec playwright install --with-deps chromium
+      - run: npx pnpm --filter @zero-vault/extension test:e2e
+
+  web-e2e:
+    name: Web Vault E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: npx pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: npx pnpm --filter @zero-vault/web exec playwright install --with-deps chromium
+      - run: npx pnpm --filter @zero-vault/web test:e2e
+
+  web-e2e-sync:
+    name: Web Vault Sync E2E
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npx pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: npx pnpm --filter @zero-vault/web exec playwright install --with-deps chromium
+      - run: npx pnpm --filter @zero-vault/web test:e2e:sync
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: npx pnpm install --frozen-lockfile
+      - run: npx pnpm lint
+
+  rust-test:
+    name: Rust Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --manifest-path crates/crypto-core/Cargo.toml
+
+  wasm-build:
+    name: WASM Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - run: npx pnpm install --frozen-lockfile
+      - run: npx pnpm wasm:build
+
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: npx pnpm install --frozen-lockfile
+      - name: pnpm audit
+        run: npx pnpm audit
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo audit (advisory)
+        continue-on-error: true
+        run: |
+          cargo install cargo-audit
+          cargo audit --file crates/crypto-core/Cargo.toml

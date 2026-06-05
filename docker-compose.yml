@@ -1,0 +1,3 @@
+# docker-compose.yml
+# PostgreSQL service removed -- the project uses Cloudflare Workers + D1.
+# This file is kept as a placeholder for any future local services.

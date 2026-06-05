@@ -1,0 +1,504 @@
+/* ---------------------------------------------------------------------------
+ * Panel
+ * --------------------------------------------------------------------------- */
+
+.panel {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.panelTitle {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.panelTitleIcon {
+  vertical-align: -4px;
+  margin-right: var(--space-2);
+}
+
+/* ---------------------------------------------------------------------------
+ * Step indicator
+ * --------------------------------------------------------------------------- */
+
+.stepIndicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.stepItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepDot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-border-strong);
+  color: var(--color-text-muted);
+  transition: var(--transition-fast);
+}
+
+.stepDotActive {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.stepDotCompleted {
+  background: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.stepLabel {
+  font-family: var(--font-display);
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.stepLabelActive {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.stepChevron {
+  color: var(--color-border);
+}
+
+/* ---------------------------------------------------------------------------
+ * Section headings & descriptions
+ * --------------------------------------------------------------------------- */
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-2);
+}
+
+.description {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0 0 20px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Source cards
+ * --------------------------------------------------------------------------- */
+
+.sourceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sourceCard {
+  background: var(--color-bg-panel-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  color: var(--color-text-primary);
+}
+
+.sourceCardSelected {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+}
+
+.sourceCardIcon {
+  color: var(--color-text-muted);
+}
+
+.sourceCardIconSelected {
+  color: var(--color-primary);
+}
+
+.sourceCardInfo {
+  text-align: left;
+}
+
+.sourceCardName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sourceCardDesc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.sourceCardCheck {
+  margin-left: auto;
+  color: var(--color-primary);
+}
+
+/* ---------------------------------------------------------------------------
+ * Buttons
+ * --------------------------------------------------------------------------- */
+
+.buttonBase {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition-fast);
+  font-family: inherit;
+}
+
+.primaryButton {
+  composes: buttonBase;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.primaryButtonDisabled {
+  composes: primaryButton;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  composes: buttonBase;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.ghostButton {
+  composes: buttonBase;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Warning / info boxes
+ * --------------------------------------------------------------------------- */
+
+.warningBox {
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--color-warning);
+  line-height: 20px;
+}
+
+.warningBoxIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.warningBoxTitle {
+  margin: 0;
+  font-weight: 500;
+}
+
+.warningBoxDesc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.infoBox {
+  margin-top: var(--space-4);
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.infoBoxTitle {
+  margin: 0;
+  color: var(--color-primary);
+}
+
+.infoBoxDesc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Validation badges
+ * --------------------------------------------------------------------------- */
+
+.validationBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.validationBadgeOk {
+  composes: validationBadge;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.validationBadgeWarning {
+  composes: validationBadge;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.validationBadgeError {
+  composes: validationBadge;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* ---------------------------------------------------------------------------
+ * Stats summary row
+ * --------------------------------------------------------------------------- */
+
+.statsRow {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.validationLegend {
+  margin-bottom: var(--space-3);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Preview table
+ * --------------------------------------------------------------------------- */
+
+.tableWrapper {
+  background: var(--color-bg-panel-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.tableHeader {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.5fr 1fr 1.5fr;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tableBody {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.tableRow {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.5fr 1fr 1.5fr;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tableCellEllipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tableCellPassword {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.tableMoreInfo {
+  padding: var(--space-2) var(--space-3);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+ * Drop zone
+ * --------------------------------------------------------------------------- */
+
+.dropZone {
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+  color: var(--color-text-muted);
+  background: transparent;
+  font-family: inherit;
+  width: 100%;
+}
+
+.dropZoneIcon {
+  margin-bottom: var(--space-2);
+}
+
+.dropZoneFile {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.dropZoneHint {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Parse feedback
+ * --------------------------------------------------------------------------- */
+
+.parseError {
+  color: var(--color-danger);
+  font-size: 13px;
+  margin-top: var(--space-3);
+}
+
+.parseStats {
+  margin-top: var(--space-4);
+  display: flex;
+  gap: var(--space-4);
+  font-size: 13px;
+}
+
+.parseStat {
+  display: flex;
+  align-items: center;
+}
+
+.parseStatIcon {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
+.parseStatSuccess {
+  color: var(--color-success);
+}
+
+.parseStatWarning {
+  color: var(--color-warning);
+}
+
+/* ---------------------------------------------------------------------------
+ * Confirm step
+ * --------------------------------------------------------------------------- */
+
+.confirmSummary {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 13px;
+}
+
+.confirmRow {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-secondary);
+}
+
+.confirmLabel {
+  /* inherits from confirmRow */
+}
+
+.confirmValue {
+  color: var(--color-text-primary);
+}
+
+.confirmValueSuccess {
+  color: var(--color-success);
+}
+
+.confirmValueWarning {
+  color: var(--color-warning);
+}
+
+/* ---------------------------------------------------------------------------
+ * Navigation bar
+ * --------------------------------------------------------------------------- */
+
+.navBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.navBarLeft {
+  /* grouping wrapper */
+}
+
+.navBarRight {
+  /* grouping wrapper */
+}
+
+/* ---------------------------------------------------------------------------
+ * Step content wrapper
+ * --------------------------------------------------------------------------- */
+
+.stepContent {
+  margin-bottom: var(--space-6);
+}
+
+/* ---------------------------------------------------------------------------
+ * File step: drop zone wrapper
+ * --------------------------------------------------------------------------- */
+
+.dropZoneWrapper {
+  margin-top: var(--space-4);
+}

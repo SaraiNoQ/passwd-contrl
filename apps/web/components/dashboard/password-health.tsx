@@ -1,0 +1,471 @@
+"use client";
+
+import { useMemo } from "react";
+import { ShieldCheck, ShieldAlert, Edit3, AlertTriangle, CheckCircle2 } from "lucide-react";
+import type { VaultItem } from "../../lib/local-vault";
+import { isLogin } from "../../lib/item-types";
+import { isWeakPassword } from "../../app/vault-provider";
+import { getPasswordAge } from "../../lib/password-aging";
+import styles from "./password-health.module.css";
+
+/* ---------------------------------------------------------------------------
+   Types
+   --------------------------------------------------------------------------- */
+
+export interface PasswordHealthProps {
+  items: VaultItem[];
+  onEditItem: (item: VaultItem) => void;
+  /** Whether a breach check is currently running. */
+  breachChecking?: boolean;
+  /** Current progress: checked N of total. */
+  breachProgress?: { checked: number; total: number };
+  /** IDs of credentials whose passwords were found in a breach. */
+  breachedIds?: Set<string>;
+  /** ID → breach occurrence count. */
+  breachCounts?: Map<string, number>;
+  /** Callback to start a breach check. */
+  onCheckBreach?: () => void;
+}
+
+type RiskReason = "weak" | "duplicate" | "old" | "non-https" | "breached";
+
+interface ItemRisk {
+  item: VaultItem;
+  reasons: RiskReason[];
+  riskScore: number;
+}
+
+/* ---------------------------------------------------------------------------
+   Helpers
+   --------------------------------------------------------------------------- */
+
+const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+
+function getRiskScore(reasons: RiskReason[]): number {
+  const weights: Record<RiskReason, number> = { weak: 30, duplicate: 25, old: 20, "non-https": 15, breached: 35 };
+  return reasons.reduce((sum, r) => sum + (weights[r] ?? 0), 0);
+}
+
+function getRiskReasons(
+  item: VaultItem,
+  duplicatePasswords: Set<string>,
+  now: number,
+  breachedIds?: Set<string>
+): RiskReason[] {
+  if (!isLogin(item)) return [];
+  const reasons: RiskReason[] = [];
+  if (isWeakPassword(item.password)) reasons.push("weak");
+  if (duplicatePasswords.has(item.password)) reasons.push("duplicate");
+  if (new Date(item.updatedAt).getTime() < now - NINETY_DAYS_MS) reasons.push("old");
+  if (!item.origin.startsWith("https://")) reasons.push("non-https");
+  if (breachedIds?.has(item.id)) reasons.push("breached");
+  return reasons;
+}
+
+function getRiskReasonLabel(reason: RiskReason): string {
+  switch (reason) {
+    case "weak": return "弱密码";
+    case "duplicate": return "重复密码";
+    case "old": return "过期密码";
+    case "non-https": return "非 HTTPS";
+    case "breached": return "已泄露";
+  }
+}
+
+function getRiskTagClass(reason: RiskReason): string | undefined {
+  switch (reason) {
+    case "weak": return styles.riskTagWeak;
+    case "duplicate": return styles.riskTagDuplicate;
+    case "old": return styles.riskTagOld;
+    case "non-https": return styles.riskTagNonHttps;
+    case "breached": return styles.riskTagBreached;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Circular Gauge
+   --------------------------------------------------------------------------- */
+
+const GAUGE_RADIUS = 54;
+const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
+
+function ScoreGauge({ score }: { score: number }) {
+  const offset = GAUGE_CIRCUMFERENCE * (1 - score / 100);
+
+  const { gaugeFillGreen, gaugeFillYellow, gaugeFillRed, scoreGradeGreen, scoreGradeYellow, scoreGradeRed, scoreLayout, gaugeWrap, gauge, gaugeSvg, gaugeTrack, gaugeFill, gaugeCenter, gaugeScore, gaugeLabel, scoreDetails, scoreGrade } = styles;
+
+  let fillClass: string | undefined;
+  let grade: string;
+  let gradeClass: string | undefined;
+  let summary: string;
+
+  if (score >= 71) {
+    fillClass = gaugeFillGreen;
+    grade = "优秀";
+    gradeClass = scoreGradeGreen;
+    summary = "密码安全状况良好，继续保持！";
+  } else if (score >= 41) {
+    fillClass = gaugeFillYellow;
+    grade = "一般";
+    gradeClass = scoreGradeYellow;
+    summary = "存在一些安全风险，建议尽快改善。";
+  } else {
+    fillClass = gaugeFillRed;
+    grade = "危险";
+    gradeClass = scoreGradeRed;
+    summary = "密码安全状况较差，强烈建议立即采取行动。";
+  }
+
+  return (
+    <div className={styles.scoreLayout}>
+      <div className={styles.gaugeWrap}>
+        <div className={styles.gauge}>
+          <svg
+            className={styles.gaugeSvg}
+            width="140"
+            height="140"
+            viewBox="0 0 140 140"
+          >
+            <circle
+              className={styles.gaugeTrack}
+              cx="70"
+              cy="70"
+              r={GAUGE_RADIUS}
+            />
+            <circle
+              className={`${styles.gaugeFill} ${fillClass}`}
+              cx="70"
+              cy="70"
+              r={GAUGE_RADIUS}
+              strokeDasharray={GAUGE_CIRCUMFERENCE}
+              strokeDashoffset={offset}
+            />
+          </svg>
+          <div className={styles.gaugeCenter}>
+            <span className={styles.gaugeScore}>{score}</span>
+            <span className={styles.gaugeLabel}>安全评分</span>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.scoreDetails}>
+        <h3>密码健康概览</h3>
+        <span className={`${styles.scoreGrade} ${gradeClass}`}>
+          {grade} · {score} 分
+        </span>
+        <p className={styles.scoreSummary}>{summary}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Risk Count Color
+   --------------------------------------------------------------------------- */
+
+function countColorClass(count: number, total: number): string | undefined {
+  if (total === 0 || count === 0) return styles.riskCardCountGreen;
+  const ratio = count / total;
+  if (ratio >= 0.5) return styles.riskCardCountRed;
+  if (ratio >= 0.2) return styles.riskCardCountYellow;
+  return styles.riskCardCountMuted;
+}
+
+/* ---------------------------------------------------------------------------
+   PasswordHealth
+   --------------------------------------------------------------------------- */
+
+export function PasswordHealth({
+  items,
+  onEditItem,
+  breachChecking = false,
+  breachProgress,
+  breachedIds,
+  breachCounts,
+  onCheckBreach
+}: PasswordHealthProps) {
+  const now = useMemo(() => Date.now(), []);
+  const effectiveBreachedIds = breachedIds ?? new Set<string>();
+
+  // Compute duplicate password set (passwords used more than once)
+  const duplicatePasswords = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      if (!isLogin(item)) continue;
+      counts.set(item.password, (counts.get(item.password) ?? 0) + 1);
+    }
+    const dupes = new Set<string>();
+    for (const [pw, count] of counts) {
+      if (count > 1) dupes.add(pw);
+    }
+    return dupes;
+  }, [items]);
+
+  // Compute risk counts
+  const weakCount = useMemo(
+    () => items.filter((i) => isLogin(i) && isWeakPassword(i.password)).length,
+    [items]
+  );
+
+  const duplicateItemCount = useMemo(() => {
+    let count = 0;
+    for (const item of items) {
+      if (isLogin(item) && duplicatePasswords.has(item.password)) count++;
+    }
+    return count;
+  }, [items, duplicatePasswords]);
+
+  const oldCount = useMemo(
+    () =>
+      items.filter((i) => new Date(i.updatedAt).getTime() < now - NINETY_DAYS_MS).length,
+    [items, now]
+  );
+
+  const nonHttpsCount = useMemo(
+    () => items.filter((i) => isLogin(i) && !i.origin.startsWith("https://")).length,
+    [items]
+  );
+
+  const breachedCount = effectiveBreachedIds.size;
+
+  // Compute overall security score (0-100)
+  const score = useMemo(() => {
+    const total = items.length;
+    if (total === 0) return 100;
+
+    const weakPenalty = (weakCount / total) * 40;
+    const dupPenalty = (duplicateItemCount / total) * 20;
+    const oldPenalty = (oldCount / total) * 25;
+    const nonHttpsPenalty = (nonHttpsCount / total) * 15;
+    const breachPenalty = breachedCount > 0 ? (breachedCount / total) * 30 : 0;
+    const httpsBonus = nonHttpsCount === 0 ? 5 : 0;
+
+    return Math.max(0, Math.min(100, Math.round(100 - weakPenalty - dupPenalty - oldPenalty - nonHttpsPenalty - breachPenalty + httpsBonus)));
+  }, [items.length, weakCount, duplicateItemCount, oldCount, nonHttpsCount, breachedCount]);
+
+  // Compute top risk items
+  const topRisks = useMemo(() => {
+    const risks: ItemRisk[] = [];
+    for (const item of items) {
+      const reasons = getRiskReasons(item, duplicatePasswords, now, breachedIds);
+      if (reasons.length > 0) {
+        risks.push({ item, reasons, riskScore: getRiskScore(reasons) });
+      }
+    }
+    risks.sort((a, b) => b.riskScore - a.riskScore);
+    return risks.slice(0, 10);
+  }, [items, duplicatePasswords, now, breachedIds]);
+
+  // Empty vault state
+  if (items.length === 0) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.sectionHeader}>
+          <h2>密码健康</h2>
+        </div>
+        <div className={styles.emptyState}>
+          <ShieldCheck size={32} />
+          <p>还没有凭据。添加凭据后将显示密码健康分析。</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${styles.container} pixel-border pixel-scanlines`} style={{ padding: 'var(--space-6)' }}>
+      <div className={styles.sectionHeader}>
+        <h2>密码健康</h2>
+      </div>
+
+      {/* Section 1: Overall Security Score */}
+      <ScoreGauge score={score} />
+
+      {/* Breach check card */}
+      {onCheckBreach ? (
+        <div className={`${styles.breachCheckCard} pixel-border`}>
+          <div className={styles.breachCheckInfo}>
+            <ShieldAlert size={18} />
+            <div>
+              <div className={styles.breachCheckTitle}>数据泄露检测</div>
+              <div className={styles.breachCheckDesc}>
+                使用 Have I Been Pwned 匿名接口检测密码是否已在已知数据泄露中暴露。仅发送密码哈希前缀，不会向第三方发送完整密码。
+              </div>
+            </div>
+          </div>
+          <div className={styles.breachCheckRight}>
+            {breachChecking && breachProgress ? (
+              <span className={styles.breachCheckProgress}>
+                正在检测 {breachProgress.checked}/{breachProgress.total}...
+              </span>
+            ) : null}
+            <button
+              className={styles.breachCheckBtn}
+              type="button"
+              onClick={onCheckBreach}
+              disabled={breachChecking}
+            >
+              <ShieldAlert size={14} />
+              {breachChecking ? "检测中..." : "检测泄露"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Breach result banner */}
+      {breachedCount > 0 && !breachChecking ? (
+        <div className={styles.breachBannerDanger}>
+          <AlertTriangle size={16} />
+          <span>
+            发现 {breachedCount} 个密码已在数据泄露中暴露，请立即更换。
+          </span>
+        </div>
+      ) : breachedIds && breachedCount === 0 && !breachChecking ? (
+        <div className={styles.breachBannerSafe}>
+          <CheckCircle2 size={16} />
+          <span>未在已知数据泄露中发现您的密码。</span>
+        </div>
+      ) : null}
+
+      {/* Section 2: Risk Breakdown Cards */}
+      <div className={styles.riskGrid}>
+        <div className={`${styles.riskCard} pixel-border`}>
+          <div className={styles.riskCardHeader}>
+            <span className={styles.riskCardTitle}>弱密码</span>
+          </div>
+          <span className={`${styles.riskCardCount} ${weakCount > 0 ? styles.riskCardCountRed : styles.riskCardCountGreen}`}>
+            {weakCount}
+          </span>
+          <span className={styles.riskCardSuggestion}>
+            {weakCount > 0 ? "建议更换为强密码" : "所有密码强度达标"}
+          </span>
+        </div>
+
+        <div className={`${styles.riskCard} pixel-border`}>
+          <div className={styles.riskCardHeader}>
+            <span className={styles.riskCardTitle}>重复密码</span>
+          </div>
+          <span className={`${styles.riskCardCount} ${duplicateItemCount > 0 ? styles.riskCardCountYellow : styles.riskCardCountGreen}`}>
+            {duplicateItemCount}
+          </span>
+          <span className={styles.riskCardSuggestion}>
+            {duplicateItemCount > 0 ? "建议为每个网站使用不同密码" : "没有重复使用的密码"}
+          </span>
+        </div>
+
+        <div className={`${styles.riskCard} pixel-border`}>
+          <div className={styles.riskCardHeader}>
+            <span className={styles.riskCardTitle}>过期密码</span>
+          </div>
+          <span className={`${styles.riskCardCount} ${countColorClass(oldCount, items.length)}`}>
+            {oldCount}
+          </span>
+          <span className={styles.riskCardSuggestion}>
+            {oldCount > 0 ? "建议定期更新密码" : "所有凭据都在近期更新过"}
+          </span>
+        </div>
+
+        <div className={`${styles.riskCard} pixel-border`}>
+          <div className={styles.riskCardHeader}>
+            <span className={styles.riskCardTitle}>非 HTTPS</span>
+          </div>
+          <span className={`${styles.riskCardCount} ${nonHttpsCount > 0 ? styles.riskCardCountRed : styles.riskCardCountGreen}`}>
+            {nonHttpsCount}
+          </span>
+          <span className={styles.riskCardSuggestion}>
+            {nonHttpsCount > 0 ? "建议仅使用 HTTPS 站点" : "所有站点均使用 HTTPS"}
+          </span>
+        </div>
+
+        {breachedIds !== undefined ? (
+          <div className={`${styles.riskCard} pixel-border`}>
+            <div className={styles.riskCardHeader}>
+              <span className={styles.riskCardTitle}>泄露密码</span>
+            </div>
+            <span className={`${styles.riskCardCount} ${breachedCount > 0 ? styles.riskCardCountRed : styles.riskCardCountGreen}`}>
+              {breachedCount}
+            </span>
+            <span className={styles.riskCardSuggestion}>
+              {breachedCount > 0 ? "这些密码已出现在数据泄露中，请立即更换" : "未在已知泄露数据中发现您的密码"}
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Section 3: Top Risk Items */}
+      {topRisks.length > 0 ? (
+        <div>
+          <div className={styles.sectionHeader} style={{ marginBottom: 12 }}>
+            <h2>高风险凭据</h2>
+            <span className="stat-card-label" style={{ fontSize: 12 }}>
+              共 {topRisks.length} 项
+            </span>
+          </div>
+          <div className={styles.riskTable}>
+            <div className={styles.riskTableHeader}>
+              <span>凭据</span>
+              <span>风险原因</span>
+              <span>风险评分</span>
+              <span>操作</span>
+            </div>
+            {topRisks.map((risk) => {
+                const ageDays = risk.reasons.includes("old") ? getPasswordAge(risk.item) : null;
+                return (
+              <div className={styles.riskRow} key={risk.item.id}>
+                <div>
+                  <div className={styles.riskItemTitle}>{risk.item.title}</div>
+                  <div className={styles.riskItemOrigin}>
+                    {isLogin(risk.item) ? risk.item.origin : ""}
+                    {ageDays !== null ? (
+                      <span className={styles.riskItemAge}>已使用 {ageDays} 天</span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className={styles.riskItemReasons}>
+                  {risk.reasons.map((r) => (
+                    <span key={r} className={`${styles.riskTag} ${getRiskTagClass(r)}`}>
+                      {getRiskReasonLabel(r)}
+                    </span>
+                  ))}
+                </div>
+                <div>
+                  <span
+                    className={styles.gaugeScore}
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color:
+                        risk.riskScore >= 60
+                          ? "var(--color-danger)"
+                          : risk.riskScore >= 30
+                            ? "var(--color-warning)"
+                            : "var(--color-text-muted)"
+                    }}
+                  >
+                    {risk.riskScore}
+                  </span>
+                </div>
+                <div className={styles.riskAction}>
+                  <button
+                    className={styles.riskActionBtn}
+                    type="button"
+                    onClick={() => onEditItem(risk.item)}
+                    title="编辑凭据"
+                  >
+                    <Edit3 size={12} />
+                    更换
+                  </button>
+                </div>
+              </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className={styles.emptyState} style={{ padding: 24 }}>
+          <ShieldCheck size={32} />
+          <p>未发现风险凭据，安全状况良好！</p>
+        </div>
+      )}
+    </div>
+  );
+}

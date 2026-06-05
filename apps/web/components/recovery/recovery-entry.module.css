@@ -1,0 +1,83 @@
+.panel {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 440px;
+  padding: var(--space-6);
+  width: 100%;
+}
+
+.header { text-align: center; }
+
+.iconCircle {
+  align-items: center;
+  background: var(--color-primary-soft);
+  border-radius: 50%;
+  display: flex;
+  height: 48px;
+  justify-content: center;
+  margin: 0 auto var(--space-3);
+  width: 48px;
+}
+
+.iconCircle svg { color: var(--color-primary); }
+
+.title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-1);
+}
+
+.subtitle { color: var(--color-text-muted); font-size: 14px; line-height: 1.5; margin: 0; }
+.form { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.errorBox {
+  align-items: flex-start;
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-danger);
+  display: flex;
+  font-size: 13px;
+  font-weight: 500;
+  gap: var(--space-2);
+  line-height: 1.5;
+  padding: var(--space-3);
+}
+
+.errorBox svg { flex-shrink: 0; margin-top: 2px; }
+
+.warningBox {
+  align-items: flex-start;
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-warning);
+  display: flex;
+  font-size: 13px;
+  font-weight: 500;
+  gap: var(--space-2);
+  line-height: 1.5;
+  padding: var(--space-3);
+}
+
+.warningBox svg { flex-shrink: 0; margin-top: 2px; }
+.actions { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.cancelBtn {
+  align-items: center; background: transparent; border: none;
+  color: var(--color-text-muted); cursor: pointer;
+  display: flex; font-size: 14px; gap: var(--space-1);
+  justify-content: center; outline: none; padding: var(--space-2);
+  transition: color var(--transition-fast); width: 100%;
+}
+
+.cancelBtn:hover { color: var(--color-text-primary); }
+.cancelBtn:focus-visible { color: var(--color-text-primary); }

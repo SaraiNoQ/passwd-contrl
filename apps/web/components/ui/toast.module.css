@@ -1,71 +1,130 @@
 .container {
   align-items: flex-start;
-  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(35, 38, 41, 0.035) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 8px 8px, 8px 8px, auto;
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
+  box-shadow: var(--shadow-panel);
   display: flex;
-  font-family: var(--font-family);
-  font-size: 13px;
-  font-weight: 500;
+  font-family: var(--font-manrope-variable, var(--font-family));
+  font-size: 14px;
+  font-weight: 600;
   gap: var(--space-2);
-  line-height: 1.5;
+  line-height: 1.43;
   max-width: 380px;
   padding: var(--space-3) var(--space-4);
   pointer-events: auto;
+  animation: toastEnter 180ms steps(3, end);
   width: 100%;
 }
 
 .success {
-  background: var(--color-success-soft);
-  border: 1px solid rgba(22, 163, 74, 0.25);
-  color: var(--color-success);
+  border-left: 4px solid var(--color-graphite-ink);
+  color: var(--color-graphite-ink);
 }
 
 .error {
-  background: var(--color-danger-soft);
-  border: 1px solid var(--color-danger-border);
+  background:
+    linear-gradient(90deg, rgba(220, 38, 38, 0.06) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(220, 38, 38, 0.06) 1px, transparent 1px),
+    color-mix(in srgb, var(--color-danger-soft) 45%, var(--color-paper-white));
+  background-size: 8px 8px, 8px 8px, auto;
+  border-color: var(--color-danger-border);
+  border-left: 4px solid var(--color-danger);
   color: var(--color-danger);
 }
 
 .warning {
-  background: var(--color-warning-soft);
-  border: 1px solid var(--color-warning-border);
-  color: var(--color-warning);
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.07) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 94, 36, 0.07) 1px, transparent 1px),
+    color-mix(in srgb, var(--color-primary-soft) 46%, var(--color-paper-white));
+  background-size: 8px 8px, 8px 8px, auto;
+  border-color: var(--color-primary-border);
+  border-left: 4px solid var(--color-primary);
+  color: var(--color-graphite-ink);
 }
 
 .info {
-  background: var(--color-primary-soft);
-  border: 1px solid var(--color-primary-border);
-  color: var(--color-primary);
+  border-left: 4px solid var(--color-primary);
+  color: var(--color-graphite-ink);
 }
 
 .icon {
+  color: currentColor;
   flex-shrink: 0;
   height: 18px;
-  margin-top: 1px;
+  margin-top: 2px;
   width: 18px;
+}
+
+.warning .icon,
+.info .icon {
+  color: var(--color-primary);
 }
 
 .message {
   flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .dismiss {
   align-items: center;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
   color: inherit;
   cursor: pointer;
   display: inline-flex;
   flex-shrink: 0;
-  height: 20px;
+  height: 44px;
   justify-content: center;
-  opacity: 0.6;
+  margin: -10px -12px -10px 0;
+  min-width: 44px;
+  opacity: 0.68;
   outline: none;
   padding: 0;
-  transition: opacity var(--transition-fast);
-  width: 20px;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    color var(--transition-fast),
+    opacity var(--transition-fast);
 }
 
 .dismiss:hover {
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.08) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 94, 36, 0.08) 1px, transparent 1px),
+    var(--color-cloud-mist);
+  background-size: 8px 8px, 8px 8px, auto;
+  color: var(--color-primary);
   opacity: 1;
+}
+
+.dismiss:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-orange-ring);
+  opacity: 1;
+}
+
+@keyframes toastEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container {
+    animation: none;
+  }
+
+  .dismiss {
+    transition: none;
+  }
 }

@@ -18,5 +18,3 @@ export type { ExtensionBridgeUiState } from "./useExtensionBridge";
 
 export { useOfflineSync } from "./useOfflineSync";
 export type { OfflineSyncState } from "./useOfflineSync";
-
-export { useTheme } from "./useTheme";

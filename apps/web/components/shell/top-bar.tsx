@@ -1,9 +1,8 @@
 "use client";
 
-import { Clock, Menu, Moon, RefreshCw, Search, Sun, X } from "lucide-react";
+import { Clock, Menu, RefreshCw, Search, X, Zap } from "lucide-react";
 import { useMemo } from "react";
 import styles from "./top-bar.module.css";
-import { useTheme } from "../../hooks/useTheme";
 
 type TopBarProps = {
   searchQuery: string;
@@ -40,7 +39,6 @@ export default function TopBar({
   statusMessage,
   onMenuToggle,
 }: TopBarProps) {
-  const { theme, toggleTheme } = useTheme();
   const autoLockDisplay = useMemo(
     () => formatAutoLockTime(autoLockRemaining),
     [autoLockRemaining],
@@ -52,7 +50,7 @@ export default function TopBar({
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+    <div className={styles.shell}>
       <div className={styles.topBar}>
         {/* Hamburger menu button */}
         {onMenuToggle && (
@@ -66,20 +64,25 @@ export default function TopBar({
           </button>
         )}
 
+        <div className={styles.sessionMark} aria-hidden="true">
+          <Zap size={13} />
+          同步中继在线
+        </div>
+
         <div className={styles.search}>
           <Search size={16} />
           <input
             type="text"
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
-            placeholder="搜索凭据..."
+            placeholder="搜索密文凭据、节点标签..."
+            aria-label="搜索凭据"
           />
           {searchQuery ? (
             <button
-              className="btn-icon"
+              className={styles.clearSearchButton}
               type="button"
               onClick={() => onSearchQueryChange("")}
-              style={{ minHeight: 28, minWidth: 28 }}
               aria-label="清除搜索"
             >
               <X size={12} />
@@ -87,31 +90,26 @@ export default function TopBar({
           ) : null}
         </div>
         <div className={styles.right}>
-          <button
-            className="theme-toggle"
-            type="button"
-            onClick={toggleTheme}
-            title={theme === "light" ? "切换到暗色模式" : "切换到亮色模式"}
-            aria-label={theme === "light" ? "切换到暗色模式" : "切换到亮色模式"}
-          >
-            {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-          </button>
           <span className={`${styles.badge} ${badgeClass}`}>
+            <span className={styles.badgePulse} aria-hidden="true" />
             <RefreshCw size={12} />
             {syncStatus}
           </span>
           <span className={styles.badge}>
+            <span className={styles.badgePulse} aria-hidden="true" />
             <Clock size={12} />
-            {"自动锁定"} {autoLockDisplay}
+            自动封存 {autoLockDisplay}
           </span>
           <button
-            className="btn btn-secondary btn-sm"
+            className={styles.syncButton}
             type="button"
             onClick={onSyncNow}
             disabled={loading}
           >
             <RefreshCw size={14} />
-            {loading ? "同步中..." : "同步"}
+            <span className={styles.syncButtonLabel}>
+              {loading ? "写入中..." : "写入回执"}
+            </span>
           </button>
         </div>
       </div>
@@ -124,7 +122,7 @@ export default function TopBar({
         >
           <RefreshCw
             size={14}
-            style={{ animation: "spin 1s linear infinite" }}
+            className={styles.loadingSpinner}
             aria-hidden="true"
           />
           {statusMessage}

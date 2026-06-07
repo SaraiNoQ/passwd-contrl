@@ -82,73 +82,82 @@ export function DashboardPage({
 
   return (
     <div className={styles.container}>
-      {/* Quick actions row */}
-      <div className={styles.quickActions}>
-        <button className={styles.quickActionBtn} type="button" onClick={onAddNew}>
-          <PlusCircle size={18} />
-          添加凭据
-        </button>
-        <button className={styles.quickActionBtn} type="button" onClick={onImport}>
-          <Upload size={18} />
-          导入 CSV
-        </button>
-        <button className={styles.quickActionBtn} type="button" onClick={onSyncNow}>
-          <RefreshCw size={18} />
-          立即同步
-        </button>
+      <div className={styles.commandDeck}>
+        <div className={styles.commandCopy}>
+          <span className={styles.commandKicker}>行动队列 / NEXT BLOCK</span>
+          <h2>继续铸写这条密文链</h2>
+          <p>添加一枚新密钥、迁移旧凭据，或立即取得最新同步回执。</p>
+        </div>
+        <div className={styles.quickActions}>
+          <button className={styles.quickActionPrimary} type="button" onClick={onAddNew}>
+            <PlusCircle size={18} />添加凭据
+          </button>
+          <button className={styles.quickActionBtn} type="button" onClick={onImport}>
+            <Upload size={18} />导入 CSV
+          </button>
+          <button className={styles.quickActionBtn} type="button" onClick={onSyncNow}>
+            <RefreshCw size={18} />立即同步
+          </button>
+        </div>
       </div>
 
-      {/* Password Health */}
-      <PasswordHealth
-        items={items}
-        onEditItem={onEditItem}
-        breachChecking={breachChecking}
-        breachProgress={breachProgress}
-        breachedIds={breachedIds}
-        breachCounts={breachCounts}
-        onCheckBreach={handleCheckBreach}
-      />
+      <div className={styles.dashboardGrid}>
+        <PasswordHealth
+          items={items}
+          onEditItem={onEditItem}
+          breachChecking={breachChecking}
+          breachProgress={breachProgress}
+          breachedIds={breachedIds}
+          breachCounts={breachCounts}
+          onCheckBreach={handleCheckBreach}
+        />
 
-      {/* Recent Activity */}
-      <div className={`${styles.activitySection} pixel-border pixel-scanlines`}>
-        <div className={styles.activityHeader}>
-          <h3>最近活动</h3>
-          {lastSyncedAt ? (
-            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
-              上次同步: {formatDateTime(lastSyncedAt)}
-            </span>
-          ) : null}
-        </div>
-
-        {recentEvents.length > 0 ? (
-          <div className={styles.activityList}>
-            {recentEvents.map((event) => {
-              const { Icon, iconClass } = getActivityIcon(event.type);
-              return (
-                <div className={styles.activityItem} key={event.id}>
-                  <div className={iconClass}>
-                    <Icon size={14} />
-                  </div>
-                  <div className={styles.activityInfo}>
-                    <div className={styles.activityDesc}>{event.description}</div>
-                    <div className={styles.activityTime}>{formatDateTime(event.timestamp)}</div>
-                  </div>
-                  {event.itemCount != null && event.itemCount > 0 ? (
-                    <span className={styles.activityCount}>
-                      {event.itemCount} 项
-                    </span>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className={styles.activityList}>
-            <div className={styles.activityEmpty}>
-              暂无活动记录。开始使用同步功能后将在此显示。
+        <div className={styles.activitySection}>
+          <div className={styles.activityHeader}>
+            <div>
+              <span>最近同步</span>
+              <h3>最近活动</h3>
             </div>
+            {lastSyncedAt ? <small>上次上链<br />{formatDateTime(lastSyncedAt)}</small> : null}
           </div>
-        )}
+
+          {recentEvents.length > 0 ? (
+            <div className={styles.activityList}>
+              {recentEvents.map((event) => {
+                const { Icon, iconClass } = getActivityIcon(event.type);
+                return (
+                  <div className={styles.activityItem} key={event.id}>
+                    <div className={iconClass}><Icon size={14} /></div>
+                    <div className={styles.activityInfo}>
+                      <div className={styles.activityDesc}>{event.description}</div>
+                      <div className={styles.activityTime}>{formatDateTime(event.timestamp)}</div>
+                    </div>
+                    {event.itemCount != null && event.itemCount > 0 ? (
+                      <span className={styles.activityCount}>{event.itemCount} 项</span>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className={styles.activityEmpty}>
+              <div className={styles.emptyLedgerArt} aria-hidden="true">
+                <span className={styles.emptyLedgerBlock} />
+                <span className={styles.emptyLedgerBlock} />
+                <span className={styles.emptyLedgerBlock} />
+              </div>
+              <div className={styles.activityEmptyCopy}>
+                <span>创世区块等待上链</span>
+                <h4>创世区块等待上链</h4>
+                <p>完成首次同步后，每一次推送、拉取与设备授权都会写入这本像素账本。</p>
+              </div>
+              <button className={styles.activityEmptyAction} type="button" onClick={onSyncNow}>
+                <RefreshCw size={16} />
+                铸造首个同步区块
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

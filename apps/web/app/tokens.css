@@ -1,6 +1,6 @@
 /* ============================================================================
    Obscura Design Tokens — Pixel Arcade on Cloud Paper
-   Light (default) + Dark mode via [data-theme="dark"]
+   Light Cloud Mist interface
    ============================================================================ */
 
 /* ------------------------------------------------------------------ */
@@ -10,12 +10,23 @@
 :root {
   color-scheme: light;
 
+  /* --- Canonical DESIGN.md palette --- */
+  --color-signal-orange: #ff5e24;
+  --color-ember-crust: #6c3200;
+  --color-cloud-mist: #e3f1fe;
+  --color-graphite-ink: #232629;
+  --color-paper-white: #ffffff;
+  --color-slate-pencil: #5c6066;
+  --color-ash-mist: #989ea4;
+  --color-blush-shadow: #dbced0;
+  --color-midnight-ink: #101828;
+
   /* --- Surfaces --- */
-  --color-bg-root: #e3f1fe;
-  --color-bg-shell: #ffffff;
-  --color-bg-panel: #ffffff;
+  --color-bg-root: var(--color-cloud-mist);
+  --color-bg-shell: var(--color-paper-white);
+  --color-bg-panel: var(--color-paper-white);
   --color-bg-panel-soft: #f0f6fd;
-  --color-bg-input: #ffffff;
+  --color-bg-input: var(--color-paper-white);
   --color-bg-hover: rgba(255, 94, 36, 0.06);
 
   /* --- Border --- */
@@ -25,18 +36,18 @@
   --color-border-glow: rgba(255, 94, 36, 0.15);
 
   /* --- Text --- */
-  --color-text-primary: #232629;
-  --color-text-secondary: #5c6066;
-  --color-text-muted: #989ea4;
-  --color-text-inverse: #ffffff;
+  --color-text-primary: var(--color-graphite-ink);
+  --color-text-secondary: var(--color-slate-pencil);
+  --color-text-muted: var(--color-ash-mist);
+  --color-text-inverse: var(--color-paper-white);
 
   /* --- Semantic --- */
-  --color-primary: #ff5e24;
+  --color-primary: var(--color-signal-orange);
   --color-primary-soft: rgba(255, 94, 36, 0.1);
   --color-primary-border: rgba(255, 94, 36, 0.3);
   --color-success: #16a34a;
   --color-success-soft: rgba(22, 163, 74, 0.1);
-  --color-accent: #ff5e24;
+  --color-accent: var(--color-signal-orange);
   --color-accent-soft: rgba(255, 94, 36, 0.1);
   --color-warning: #d97706;
   --color-warning-soft: rgba(217, 119, 6, 0.1);
@@ -50,6 +61,7 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
 
@@ -133,55 +145,4 @@
   /* --- Legacy aliases --- */
   --radius: var(--radius-md);
   --font-sans: var(--font-family);
-}
-
-/* ------------------------------------------------------------------ */
-/* Dark Theme                                                          */
-/* ------------------------------------------------------------------ */
-
-[data-theme="dark"] {
-  color-scheme: dark;
-
-  --color-bg-root: #0d1520;
-  --color-bg-shell: #111b2a;
-  --color-bg-panel: #162032;
-  --color-bg-panel-soft: #1a273a;
-  --color-bg-input: #0f1825;
-  --color-bg-hover: rgba(255, 94, 36, 0.1);
-
-  --color-border: #1e3044;
-  --color-border-strong: #2a4058;
-  --color-border-focus: rgba(255, 94, 36, 0.5);
-  --color-border-glow: rgba(255, 94, 36, 0.18);
-
-  --color-text-primary: #e8edf3;
-  --color-text-secondary: #9aa4b2;
-  --color-text-muted: #6b7585;
-  --color-text-inverse: #0d1520;
-
-  --color-primary: #ff6b35;
-  --color-primary-soft: rgba(255, 107, 53, 0.12);
-  --color-primary-border: rgba(255, 107, 53, 0.35);
-  --color-success: #22c55e;
-  --color-success-soft: rgba(34, 197, 94, 0.12);
-  --color-warning: #f59e0b;
-  --color-warning-soft: rgba(245, 158, 11, 0.12);
-  --color-warning-border: rgba(245, 158, 11, 0.3);
-  --color-danger: #f87171;
-  --color-danger-soft: rgba(248, 113, 113, 0.1);
-  --color-danger-border: rgba(248, 113, 113, 0.25);
-
-  --shadow-panel: rgba(0, 0, 0, 0.15) 0px 27px 11px 0px,
-    rgba(0, 0, 0, 0.1) 0px 15px 9px 0px,
-    rgba(0, 0, 0, 0.08) 0px 7px 7px 0px,
-    rgba(0, 0, 0, 0.06) 0px 2px 4px 0px;
-  --shadow-elevated: rgba(0, 0, 0, 0.2) 0px 49px 30px 0px,
-    rgba(0, 0, 0, 0.15) 0px 22px 22px 0px,
-    rgba(0, 0, 0, 0.1) 0px 5px 12px 0px;
-  --shadow-orange-ring: rgba(255, 107, 53, 0.2) 0px 0.5px 0.5px 0.5px inset,
-    rgba(255, 107, 53, 0.25) 0px -1px 0.5px 0px inset,
-    rgb(255, 107, 53) 0px 0px 0px 1px;
-  --shadow-dropdown: rgba(0, 0, 0, 0.4) 0px 8px 32px 0px;
-
-  --overlay-bg: rgba(0, 0, 0, 0.6);
 }

@@ -3,31 +3,33 @@
   bottom: calc(100% + 14px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--color-bg-panel);
-  border: 2px solid var(--color-border-strong);
-  border-radius: 4px;
-  padding: 8px 12px;
+  display: grid;
+  gap: 4px;
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
+  padding: 10px 12px;
   max-width: 200px;
+  min-height: 44px;
   min-width: 100px;
   text-align: center;
-  font-family: var(--font-display);
+  font-family: var(--font-family);
   font-size: 13px;
+  font-weight: 800;
   line-height: 1.4;
-  letter-spacing: 0.5px;
+  letter-spacing: normal;
   color: var(--color-text-primary);
   white-space: normal;
   word-break: break-word;
   z-index: 5;
+  cursor: pointer;
   animation: bubbleIn 0.2s ease-out;
-  box-shadow:
-    2px 2px 0 0 rgba(0,0,0,0.06),
-    inset 0 1px 0 0 rgba(255,255,255,0.5);
+  box-shadow: var(--shadow-panel);
 }
 
-[data-theme="dark"] .bubble {
-  box-shadow:
-    2px 2px 0 0 rgba(0,0,0,0.2),
-    inset 0 1px 0 0 rgba(255,255,255,0.05);
+.bubble:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-orange-ring);
 }
 
 .bubble::after {
@@ -40,7 +42,7 @@
   height: 0;
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
-  border-top: 8px solid var(--color-border-strong);
+  border-top: 8px solid var(--color-border);
 }
 
 .bubble::before {
@@ -53,8 +55,12 @@
   height: 0;
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-top: 6px solid var(--color-bg-panel);
+  border-top: 6px solid var(--color-paper-white);
   z-index: 1;
+}
+
+.messageText {
+  display: block;
 }
 
 /* Types */
@@ -65,10 +71,10 @@
 .info::after { border-top-color: var(--color-primary-border); }
 
 .success {
-  border-color: rgba(22, 163, 74, 0.3);
-  color: var(--color-success);
+  border-color: var(--color-cloud-mist);
+  color: var(--color-graphite-ink);
 }
-.success::after { border-top-color: rgba(22, 163, 74, 0.3); }
+.success::after { border-top-color: var(--color-cloud-mist); }
 
 .warning {
   border-color: var(--color-warning-border);
@@ -94,8 +100,17 @@
 }
 
 .dismissHint {
-  font-size: 9px;
-  opacity: 0.5;
-  margin-top: 4px;
+  display: block;
+  color: var(--color-text-muted);
+  font-family: var(--font-family);
+  font-size: 10px;
+  font-weight: 800;
   letter-spacing: 1px;
+  line-height: 1.2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble {
+    animation: none;
+  }
 }

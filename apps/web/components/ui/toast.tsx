@@ -53,8 +53,9 @@ export function Toast({
   return (
     <div
       className={cn(styles.container, styles[variant], className)}
-      role="alert"
-      aria-live="polite"
+      role={variant === "error" ? "alert" : "status"}
+      aria-live={variant === "error" ? "assertive" : "polite"}
+      aria-atomic="true"
     >
       <Icon className={styles.icon} aria-hidden="true" />
       <span className={styles.message}>{message}</span>

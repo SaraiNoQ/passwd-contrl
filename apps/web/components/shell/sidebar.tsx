@@ -7,11 +7,8 @@ import {
   ChevronRight,
   Folder,
   Lock,
-  Moon,
   RefreshCw,
   Settings,
-  ShieldCheck,
-  Sun,
   UploadCloud,
   Wifi,
   WifiOff,
@@ -20,7 +17,6 @@ import {
 import { Button } from "../ui/button";
 import styles from "./sidebar.module.css";
 import { cn } from "../../lib/utils";
-import { useTheme } from "../../hooks/useTheme";
 
 export interface SidebarProps {
   unlocked: boolean;
@@ -94,7 +90,6 @@ export function Sidebar({
   onClose,
 }: SidebarProps) {
   const [foldersExpanded, setFoldersExpanded] = useState(true);
-  const { theme, toggleTheme } = useTheme();
 
   const handleFolderClick = useCallback(
     (folder: string | null) => {
@@ -114,7 +109,12 @@ export function Sidebar({
         aria-hidden="true"
       />
 
-      <aside className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ""}`}>
+      <aside
+        className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ""}`}
+        aria-label="密钥目录导航"
+      >
+        <span className={styles.pixelCloudA} aria-hidden="true" />
+        <span className={styles.pixelCloudB} aria-hidden="true" />
         {/* Close button (mobile) */}
         {onClose && (
           <button
@@ -129,23 +129,32 @@ export function Sidebar({
 
         {/* Logo */}
         <div className={styles.logo}>
-        <div className={styles.logoIcon}>
-          <ShieldCheck size={20} />
+          <div className={styles.logoIcon} aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 28 28" shapeRendering="crispEdges">
+              <rect x="6" y="2" width="16" height="4" fill="#ffffff" />
+              <rect x="2" y="6" width="24" height="16" fill="#ffffff" />
+              <rect x="2" y="6" width="4" height="16" fill="#6c3200" opacity="0.45" />
+              <rect x="6" y="6" width="20" height="4" fill="#6c3200" opacity="0.35" />
+              <rect x="22" y="10" width="4" height="12" fill="#6c3200" opacity="0.4" />
+              <rect x="6" y="22" width="20" height="4" fill="#6c3200" opacity="0.4" />
+              <rect x="10" y="10" width="8" height="4" fill="#ff5e24" />
+              <rect x="12" y="14" width="4" height="8" fill="#232629" />
+              <rect x="16" y="16" width="4" height="4" fill="#e3f1fe" />
+            </svg>
+          </div>
+          <div className={styles.logoCopy}>
+            <span className={styles.logoText}>obscura</span>
+            <span className={styles.logoCaption}>密钥目录 / 节点舱</span>
+          </div>
+          <span className={cn(styles.lockBadge, unlocked ? styles.lockBadgeUnlocked : styles.lockBadgeLocked)}>
+            {unlocked ? "已解锁" : "封存"}
+          </span>
         </div>
-        <span className={styles.logoText}>obscura</span>
-        <span
-          className={cn(
-            styles.lockBadge,
-            unlocked ? styles.lockBadgeUnlocked : styles.lockBadgeLocked,
-          )}
-        >
-          {unlocked ? "已解锁" : "已锁定"}
-        </span>
-      </div>
 
       {/* Navigation */}
       <nav className={styles.nav}>
-        {sidebarNav.map((item) => (
+        <span className={styles.navLabel}>密钥目录</span>
+        {sidebarNav.map((item, index) => (
           <button
             key={item.id}
             className={cn(styles.navItem, activeNav === item.id && styles.navItemActive)}
@@ -153,8 +162,13 @@ export function Sidebar({
             onClick={() => onNavChange(item.id)}
             type="button"
           >
-            {item.icon}
-            {item.label}
+            <span className={styles.navIndex} aria-hidden="true">
+              {(index + 1).toString().padStart(2, "0")}
+            </span>
+            <span className={styles.navIcon} aria-hidden="true">
+              {item.icon}
+            </span>
+            <span className={styles.navText}>{item.label}</span>
           </button>
         ))}
 
@@ -167,7 +181,7 @@ export function Sidebar({
               onClick={() => setFoldersExpanded((v) => !v)}
             >
               {foldersExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              文件夹
+              文件夹账本
             </button>
 
             {foldersExpanded ? (
@@ -182,7 +196,7 @@ export function Sidebar({
                   onClick={() => handleFolderClick(null)}
                 >
                   <Folder size={13} />
-                  <span className={styles.folderName}>所有凭据</span>
+                  <span className={styles.folderName}>全部密钥</span>
                   <span className={styles.folderCount}>{allCount}</span>
                 </button>
 
@@ -228,6 +242,7 @@ export function Sidebar({
 
       {/* Footer */}
       <div className={styles.footer}>
+        <span className={styles.navLabel}>节点舱信号</span>
         {/* Extension bridge status */}
         <div
           className={cn(
@@ -239,17 +254,19 @@ export function Sidebar({
                 : styles.statusDanger,
           )}
         >
+          <span className={styles.statusDot} aria-hidden="true" />
           {extensionBridge.runtimeAvailable ? <Wifi size={14} /> : <WifiOff size={14} />}
           {!extensionBridge.configured
-            ? "未配置扩展 ID"
+            ? "扩展桥未铸造"
             : extensionBridge.runtimeAvailable
-              ? "扩展已连接"
-              : "扩展未连接"}
+              ? "扩展节点在线"
+              : "扩展节点离线"}
         </div>
 
         {/* Sync status */}
         {user ? (
           <div className={styles.status}>
+            <span className={styles.statusDot} aria-hidden="true" />
             <RefreshCw size={14} />
             {syncStatus}
           </div>
@@ -259,20 +276,9 @@ export function Sidebar({
         {isOffline ? (
           <div className={styles.offlineNotice}>
             <AlertTriangle size={14} />
-            当前离线
+            当前离线，回执暂存本地
           </div>
         ) : null}
-
-        {/* Theme toggle */}
-        <button
-          className={styles.accountToggle}
-          type="button"
-          onClick={toggleTheme}
-          title={theme === "light" ? "切换到暗色模式" : "切换到亮色模式"}
-        >
-          {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
-          {theme === "light" ? "暗色模式" : "亮色模式"}
-        </button>
 
         {/* Lock button */}
         {unlocked ? (
@@ -293,7 +299,10 @@ export function Sidebar({
           onClick={onToggleAccountSection}
         >
           <Settings size={18} />
-          {user ? user.email : "账户"}
+          <span className={styles.accountToggleCopy}>
+            <span className={styles.accountToggleTitle}>身份节点</span>
+            <span className={styles.accountToggleValue}>{user ? user.email : "注册 / 登录"}</span>
+          </span>
         </button>
 
         {showAccountSection ? (
@@ -333,7 +342,7 @@ export function Sidebar({
                   type="email"
                   value={accountEmail}
                   onChange={(e) => onAccountEmailChange(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="输入邮箱地址"
                 />
                 <input
                   className={styles.accountInput}

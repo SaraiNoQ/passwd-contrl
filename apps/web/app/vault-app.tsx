@@ -13,6 +13,8 @@ import { SettingsPage } from "../components/settings/settings-page";
 import SyncPanel, { type SyncEvent } from "../components/sync/sync-panel";
 import SyncDevicePanel from "../components/sync/sync-device-panel";
 import ConflictResolutionPanel from "../components/sync/conflict-resolution-panel";
+import { Toast } from "../components/ui/toast";
+import { Button } from "../components/ui/button";
 import {
   addCredential,
   createEmptyLocalVault,
@@ -106,12 +108,12 @@ type NavItem = {
 const useSidebarNav = (unlocked: boolean): NavItem[] =>
   useMemo(
     () => [
-      { id: "dashboard", label: "仪表盘", icon: <LayoutDashboard size={18} />, enabled: true },
-      { id: "credentials", label: "凭据", icon: <KeyRound size={18} />, enabled: unlocked },
-      { id: "import", label: "导入", icon: <Download size={18} />, enabled: unlocked },
-      { id: "sync", label: "同步与设备", icon: <RefreshCw size={18} />, enabled: unlocked },
-      { id: "recovery", label: "恢复码", icon: <Shield size={18} />, enabled: unlocked },
-      { id: "settings", label: "设置", icon: <Settings size={18} />, enabled: unlocked }
+      { id: "dashboard", label: "密钥总览", icon: <LayoutDashboard size={18} />, enabled: true },
+      { id: "credentials", label: "密文账本", icon: <KeyRound size={18} />, enabled: unlocked },
+      { id: "import", label: "迁移铸入", icon: <Download size={18} />, enabled: unlocked },
+      { id: "sync", label: "区块中继", icon: <RefreshCw size={18} />, enabled: unlocked },
+      { id: "recovery", label: "离线分片", icon: <Shield size={18} />, enabled: unlocked },
+      { id: "settings", label: "工坊控制台", icon: <Settings size={18} />, enabled: unlocked }
     ],
     [unlocked]
   );
@@ -1064,8 +1066,13 @@ export default function VaultApp() {
   const offlineSyncBanner = offlineSync.showRetrySuccess ? (
     <div className="success-banner" role="status">
       <RefreshCw size={16} />
-      <span>连接已恢复，待同步项已成功同步。</span>
-      <button className="btn-icon" type="button" onClick={offlineSync.dismissRetrySuccess} aria-label="关闭">
+      <span>链路已恢复，待投递区块已完成回执。</span>
+      <button
+        className="banner-close-button"
+        type="button"
+        onClick={offlineSync.dismissRetrySuccess}
+        aria-label="关闭同步成功提示"
+      >
         &times;
       </button>
     </div>
@@ -1075,23 +1082,23 @@ export default function VaultApp() {
     !offlineSync.isOnline ? (
       <div className="error-banner" role="alert">
         <AlertTriangle size={16} />
-        <span>当前离线，{offlineSync.pendingCount > 0 ? `${offlineSync.pendingCount} 项待同步。` : ""}连接后将自动同步。</span>
+        <span>当前离线，{offlineSync.pendingCount > 0 ? `${offlineSync.pendingCount} 枚区块待投递。` : ""}连接后将自动中继。</span>
       </div>
     ) : offlineSync.pendingCount > 0 ? (
       <div className="error-banner" role="alert">
         <RefreshCw size={16} />
-        <span>{offlineSync.pendingCount} 项待同步。上次同步失败，将自动重试。</span>
-        <button className="btn btn-sm btn-secondary" type="button" onClick={offlineSync.retryNow} style={{ marginLeft: 12 }}>
+        <span>{offlineSync.pendingCount} 枚区块待投递。上次中继失败，将自动重试。</span>
+        <Button variant="secondary" className="banner-action" type="button" onClick={offlineSync.retryNow}>
           立即重试
-        </button>
+        </Button>
       </div>
     ) : offlineSync.failedCount > 0 ? (
       <div className="error-banner" role="alert">
         <AlertTriangle size={16} />
-        <span>{offlineSync.failedCount} 项同步失败，已达最大重试次数。</span>
-        <button className="btn btn-sm btn-secondary" type="button" onClick={offlineSync.clearFailed} style={{ marginLeft: 12 }}>
-          清除
-        </button>
+        <span>{offlineSync.failedCount} 枚区块投递失败，已达最大重试次数。</span>
+        <Button variant="secondary" className="banner-action" type="button" onClick={offlineSync.clearFailed}>
+          清空队列
+        </Button>
       </div>
     ) : null;
 
@@ -1101,27 +1108,27 @@ export default function VaultApp() {
       {/* Stats cards */}
       <div className="stats-grid">
         <div className="stat-card">
-          <span className="stat-card-label">凭据总数</span>
+          <span className="stat-card-label">密文条目</span>
           <span className="stat-card-value">{vault.itemCount}</span>
         </div>
         <div className="stat-card">
-          <span className="stat-card-label">最近更新</span>
-          <span className="stat-card-value stat-card-value--muted" style={{ fontSize: 14 }}>{vault.updatedAt}</span>
+          <span className="stat-card-label">最近铸写</span>
+          <span className="stat-card-value stat-card-value--muted">{vault.updatedAt}</span>
         </div>
         <div className="stat-card">
-          <span className="stat-card-label">同步状态</span>
+          <span className="stat-card-label">区块回执</span>
           <span className={`stat-card-value ${
             auth.syncStatus.includes("已同步") ? "stat-card-value--success" :
             auth.syncStatus.includes("冲突") ? "stat-card-value--warning" :
             "stat-card-value--muted"
-          }`} style={{ fontSize: 14 }}>
+          } stat-card-value--compact`}>
             {auth.syncStatus}
           </span>
         </div>
         {lastSyncedAt ? (
           <div className="stat-card">
-            <span className="stat-card-label">上次同步</span>
-            <span className="stat-card-value stat-card-value--muted" style={{ fontSize: 14 }}>
+            <span className="stat-card-label">上次上链</span>
+            <span className="stat-card-value stat-card-value--muted">
               {formatDateTime(lastSyncedAt)}
             </span>
           </div>
@@ -1295,8 +1302,8 @@ export default function VaultApp() {
 
   // --- Copy toast ---
   const copyToast = copiedField ? (
-    <div className="copy-toast">
-      已复制到剪贴板
+    <div className="vault-toast-stack">
+      <Toast variant="success" message="已复制到设备剪贴板" duration={0} />
     </div>
   ) : null;
 

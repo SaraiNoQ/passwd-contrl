@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Check,
   ChevronRight,
-  FileText,
   Shield,
   Upload,
 } from "lucide-react";
@@ -50,11 +49,11 @@ const BROWSER_SOURCES: BrowserSource[] = [
 
 const PASSWORD_MANAGER_SOURCES: BrowserSource[] = [
   { id: "bitwarden", name: "Bitwarden", description: "Bitwarden 密码管理器 （未加密导出 JSON）" },
-  { id: "1password", name: "1Password", description: "1Password 密码管理器 （CSV 或 1PUX 文件）" },
+  { id: "1password", name: "1Password", description: "1Password 密码管理器 （CSV，1PUX 将尝试识别）" },
   { id: "generic-json", name: "通用 JSON", description: "通用 JSON 格式 [{ name, url, username, password, notes }]" },
 ];
 
-const STEPS = ["选择来源", "选择文件", "预览校验", "确认导入", "导入结果"] as const;
+const STEPS = ["定位源库", "投递文件", "扫描密文", "铸入账本", "上链回执"] as const;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -130,6 +129,11 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
     return { total, valid, withWarnings, withErrors, duplicates };
   }, [validationEntries, parsedRows]);
 
+  const selectedSourceName = useMemo(() => {
+    const allSources = [...BROWSER_SOURCES, ...PASSWORD_MANAGER_SOURCES];
+    return allSources.find((source) => source.id === selectedSource)?.name ?? "等待定位";
+  }, [selectedSource]);
+
   // File handling
 
   const handleFileInput = useCallback(
@@ -140,12 +144,16 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
       setParseError(null);
       setFileName(file.name);
       setSelectedFile(file);
+      setParsedRows([]);
+      setRejectedCount(0);
+      setValidationEntries([]);
+      setConfirmChecked(false);
 
       try {
         const content = await file.text();
         const format = detectImportFormat(content, file.name);
         if (format === "unknown") {
-          setParseError("无法识别文件格式。支持 Bitwarden JSON、1Password CSV/1PUX、浏览器 CSV 和通用 JSON。");
+          setParseError("无法识别文件格式。支持 Bitwarden JSON、1Password CSV、浏览器 CSV 和通用 JSON；1PUX 会尝试识别。");
           return;
         }
         const result = parsePasswordImport(content, format);
@@ -225,10 +233,15 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
   const renderSourceStep = () => (
     <div className={styles.stepContent}>
-      <h3 className={styles.stepHeading}>选择浏览器来源</h3>
+      <h3 className={styles.stepHeading}>定位外部源库</h3>
       <p className={styles.stepDescription}>
-        选择导出 CSV 的浏览器。不同浏览器的 CSV 格式可能略有不同。
+        先告诉铸造台这些明文来自哪里，Obscura 会按来源准备对应的解析槽位。
       </p>
+      <div className={styles.chainRail} aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
       <div className={styles.sourceList} role="radiogroup" aria-label="浏览器来源">
         {BROWSER_SOURCES.map((source) => (
           <label
@@ -257,9 +270,9 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
         ))}
       </div>
 
-      <h3 className={styles.stepHeading} style={{ marginTop: 24 }}>选择密码管理器来源</h3>
+      <h3 className={cn(styles.stepHeading, styles.stepHeadingSpaced)}>定位密码管理器源库</h3>
       <p className={styles.stepDescription}>
-        从其他密码管理器导出的文件。格式将根据文件内容自动识别。
+        也可以把其它管理器的导出文件投递进来，格式会在本地自动识别。
       </p>
       <div className={styles.sourceList} role="radiogroup" aria-label="密码管理器来源">
         {PASSWORD_MANAGER_SOURCES.map((source) => (
@@ -292,21 +305,18 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
   );
 
   const renderFileStep = () => {
-    const allSources = [...BROWSER_SOURCES, ...PASSWORD_MANAGER_SOURCES];
-    const sourceName = allSources.find((s) => s.id === selectedSource)?.name ?? "来源";
-
     return (
     <div className={styles.stepContent}>
-      <h3 className={styles.stepHeading}>选择文件</h3>
+      <h3 className={styles.stepHeading}>投递明文文件</h3>
       <p className={styles.stepDescription}>
-        从 {sourceName} 导出的文件。支持 CSV、JSON 和 1PUX 格式。
+        从 {selectedSourceName} 导出的文件会短暂停靠在浏览器内存，随后被扫描成待铸账本条目。
       </p>
 
       <div className={styles.warningBox}>
         <AlertTriangle size={16} />
         <div>
           <p className={styles.warningBoxTitle}>
-            导入文件包含明文密码，导入完成后请删除原文件
+            明文文件只是铸造原料，导入完成后请删除原件
           </p>
           <p className={styles.warningBoxDesc}>
             Obscura 不会上传明文数据。所有解析均在浏览器内存中完成。
@@ -324,13 +334,13 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
           <span className={styles.dropZoneFileName}>
             {fileName ?? "点击选择文件"}
           </span>
-          <span className={styles.dropZoneHint}>支持 .csv、.json、.1pux 格式</span>
+          <span className={styles.dropZoneHint}>支持 .csv、.json；.1pux 会尝试识别，解析过程不上云</span>
         </button>
         <input
           ref={fileInputRef}
           type="file"
           accept=".csv,.json,.1pux,text/csv,application/json"
-          style={{ display: "none" }}
+          className={styles.hiddenFileInput}
           onChange={handleFileInput}
           aria-label="选择导入文件"
         />
@@ -342,10 +352,10 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
       {parsedRows.length > 0 && !parseError ? (
         <div className={styles.parseSuccess}>
-          <Check size={14} /> 已解析 {parsedRows.length} 条记录
+          <Check size={14} /> 已扫描 {parsedRows.length} 条待铸记录
           {rejectedCount > 0 ? (
-            <span style={{ color: "var(--color-warning)", marginLeft: 12 }}>
-              <AlertTriangle size={14} style={{ verticalAlign: -2 }} /> 跳过{" "}
+            <span className={styles.parseWarning}>
+              <AlertTriangle size={14} /> 跳过{" "}
               {rejectedCount} 条无效记录
             </span>
           ) : null}
@@ -357,9 +367,9 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
   const renderPreviewStep = () => (
     <div className={styles.stepContent}>
-      <h3 className={styles.stepHeading}>预览与校验</h3>
+      <h3 className={styles.stepHeading}>扫描密文铸件</h3>
       <p className={styles.stepDescription}>
-        以下是解析结果的前 10 行，请检查校验状态后再继续。
+        以下是解析结果的前 10 行。检查网址、用户名与密码槽位，再决定是否写入账本。
       </p>
 
       {/* Stats summary */}
@@ -387,34 +397,34 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
       {/* Validation legend */}
       <div className={styles.validationLegend}>
-        校验维度：URL 有效、HTTPS、用户名存在、密码存在、重复项
+        铸造校验：URL 有效、HTTPS、用户名存在、密码存在、重复项
       </div>
 
       {/* Preview table */}
-      <div className={styles.previewTableWrapper}>
-        <div className={styles.previewTableHeader}>
-          <span>名称</span>
-          <span>网址</span>
-          <span>用户名</span>
-          <span>密码</span>
-          <span>校验</span>
+      <div className={styles.previewTableWrapper} role="table" aria-label="导入预览">
+        <div className={styles.previewTableHeader} role="row">
+          <span role="columnheader">名称</span>
+          <span role="columnheader">网址</span>
+          <span role="columnheader">用户名</span>
+          <span role="columnheader">密码</span>
+          <span role="columnheader">校验</span>
         </div>
-        <div className={styles.previewTableBody}>
+        <div className={styles.previewTableBody} role="rowgroup">
           {validationEntries.slice(0, 10).map((entry) => (
-            <div key={entry.index} className={styles.previewTableRow}>
-              <span className={styles.previewTableCell} title={entry.row.title ?? ""}>
+            <div key={entry.index} className={styles.previewTableRow} role="row">
+              <span className={styles.previewTableCell} role="cell" data-label="名称" title={entry.row.title ?? ""}>
                 {entry.row.title ?? "(无标题)"}
               </span>
-              <span className={styles.previewTableCell} title={entry.row.origin}>
+              <span className={styles.previewTableCell} role="cell" data-label="网址" title={entry.row.origin}>
                 {entry.row.origin}
               </span>
-              <span className={styles.previewTableCell} title={entry.row.username}>
+              <span className={styles.previewTableCell} role="cell" data-label="用户名" title={entry.row.username}>
                 {entry.row.username}
               </span>
-              <span className={styles.previewTableMasked}>
+              <span className={styles.previewTableMasked} role="cell" data-label="密码">
                 {"*".repeat(Math.min(entry.row.password.length, 8))}
               </span>
-              <span>
+              <span className={styles.previewValidationCell} role="cell" data-label="校验">
                 {entry.issues.length === 0 ? (
                   <span className={cn(styles.badge, styles.badgeOk)}>通过</span>
                 ) : (
@@ -444,9 +454,9 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
   const renderConfirmStep = () => (
     <div className={styles.stepContent}>
-      <h3 className={styles.stepHeading}>确认导入</h3>
+      <h3 className={styles.stepHeading}>确认铸入密文账本</h3>
       <p className={styles.stepDescription}>
-        即将导入 {stats.valid} 条有效凭据到密码库。
+        即将把 {stats.valid} 条有效凭据铸入本地密码库。
         {stats.withErrors > 0 ? ` ${stats.withErrors} 条有错误的记录将被跳过。` : ""}
       </p>
 
@@ -488,13 +498,13 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
       <div className={styles.infoBox}>
         <p>
-          <Shield size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+            <Shield size={14} />
           <span className={styles.infoBoxStrong}>
             Obscura 不会上传明文数据。
           </span>
         </p>
         <p className={styles.infoBoxDesc}>
-          所有数据在浏览器内存中加密后写入本地密码库。
+          所有数据在浏览器内存中加密后写入本地密文账本。
         </p>
       </div>
 
@@ -513,11 +523,11 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
   const renderResultStep = () => (
     <div className={styles.stepContent}>
-      <h3 className={styles.stepHeading}>导入结果</h3>
+      <h3 className={styles.stepHeading}>上链回执</h3>
 
       {loading ? (
         <div className={styles.progressContainer}>
-          <p className={styles.resultStatus}>正在导入...</p>
+          <p className={styles.resultStatus}>正在铸入密文账本...</p>
           <div className={styles.progressBar}>
             <div className={styles.progressBarFill} />
           </div>
@@ -539,7 +549,7 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
             <AlertTriangle size={16} />
             <div>
               <p className={styles.warningBoxTitle}>
-                导入完成后请删除原文件
+                铸造完成后请删除原文件
               </p>
               <p className={styles.warningBoxDesc}>
                 导入文件包含明文密码，不应保留在设备上。
@@ -554,13 +564,13 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
               </span>
             </p>
             <p className={styles.infoBoxDesc}>
-              所有数据在浏览器内存中加密后写入本地密码库。
+              所有数据在浏览器内存中加密后写入本地密文账本。
             </p>
           </div>
         </>
       ) : (
         <p className={styles.resultStatus}>
-          尚未导入任何数据。请返回重新导入。
+          尚未铸入任何数据。请返回重新投递文件。
         </p>
       )}
     </div>
@@ -586,83 +596,132 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
   // Render
 
   return (
-    <div className={cn(styles.container, "pixel-border", "pixel-scanlines")} role="dialog" aria-label="密码导入">
+    <section className={styles.container} aria-label="密码导入">
       {/* Header */}
       <div className={styles.header}>
-        <FileText size={20} />
-        <h2 className={styles.headerTitle}>密码导入</h2>
-      </div>
-
-      {/* Step indicator */}
-      <div className={styles.stepIndicator}>
-        {STEPS.map((label, i) => (
-          <div
-            key={label}
-            style={{ display: "flex", alignItems: "center", gap: 6 }}
-          >
-            <div
-              className={cn(
-                styles.stepDot,
-                i === step && styles.stepDotActive,
-                i < step && styles.stepDotCompleted,
-              )}
-            >
-              {i < step ? <Check size={14} /> : i + 1}
-            </div>
-            <span
-              className={cn(
-                styles.stepLabel,
-                i === step && styles.stepLabelActive,
-              )}
-            >
-              {label}
-            </span>
-            {i < STEPS.length - 1 ? (
-              <ChevronRight size={14} className={styles.stepConnector} />
-            ) : null}
-          </div>
-        ))}
-      </div>
-
-      {/* Step content */}
-      {renderStepContent()}
-
-      {/* Navigation */}
-      <div className={styles.footer}>
         <div>
-          {step > 0 && step < 4 ? (
-            <Button variant="secondary" onClick={handleBack} disabled={loading}>
-              上一步
-            </Button>
-          ) : null}
+          <span className={styles.headerKicker}>LOCAL LEDGER FORGE</span>
+          <h2 className={styles.headerTitle}>批量铸入密文账本</h2>
+          <p className={styles.headerCopy}>
+            把浏览器或密码管理器的明文导出，短暂停靠在本地内存，扫描、校验，再写入本地加密密码库。
+          </p>
         </div>
-        <div className={styles.footerActions}>
-          {step === 4 && importStatus ? (
-            <Button variant="secondary" onClick={handleReset} disabled={loading}>
-              重新导入
-            </Button>
-          ) : null}
-          {step === 3 ? (
-            <Button
-              variant="primary"
-              onClick={handleConfirmImport}
-              disabled={!confirmChecked || loading}
-            >
-              确认导入
-              <Upload size={14} />
-            </Button>
-          ) : step < 4 ? (
-            <Button
-              variant="primary"
-              onClick={handleNext}
-              disabled={!canProceed || loading}
-            >
-              下一步
-              <ChevronRight size={14} />
-            </Button>
-          ) : null}
+        <div className={styles.headerGlyph} aria-hidden="true">
+          <svg width="42" height="42" viewBox="0 0 42 42" shapeRendering="crispEdges">
+            <rect x="8" y="4" width="20" height="4" fill="#5c6066" opacity="0.45" />
+            <rect x="4" y="8" width="28" height="28" fill="#ffffff" />
+            <rect x="4" y="8" width="4" height="28" fill="#5c6066" opacity="0.35" />
+            <rect x="8" y="8" width="24" height="4" fill="#5c6066" opacity="0.35" />
+            <rect x="28" y="12" width="4" height="4" fill="#e3f1fe" />
+            <rect x="32" y="16" width="4" height="20" fill="#5c6066" opacity="0.35" />
+            <rect x="8" y="36" width="28" height="4" fill="#5c6066" opacity="0.35" />
+            <rect x="10" y="16" width="8" height="4" fill="#ff5e24" />
+            <rect x="20" y="16" width="10" height="4" fill="#e3f1fe" />
+            <rect x="10" y="24" width="20" height="4" fill="#e3f1fe" />
+            <rect x="10" y="30" width="10" height="4" fill="#ff5e24" />
+            <rect x="24" y="30" width="6" height="4" fill="#e3f1fe" />
+          </svg>
+          <span>CSV<br />JSON<br />1PUX?</span>
         </div>
       </div>
-    </div>
+
+      <div className={styles.forgeSummary} aria-label="导入铸造摘要">
+        <span>
+          <small>源库</small>
+          <strong>{selectedSourceName}</strong>
+        </span>
+        <span>
+          <small>文件</small>
+          <strong>{fileName ?? "等待投递"}</strong>
+        </span>
+        <span>
+          <small>有效记录</small>
+          <strong>{stats.valid}</strong>
+        </span>
+      </div>
+
+      <div className={styles.forgeBody}>
+        {/* Step indicator */}
+        <aside className={styles.pipeline} aria-label="导入铸造流水线">
+          <div className={styles.stepIndicator} role="list" aria-label="导入进度">
+            {STEPS.map((label, i) => (
+              <div
+                key={label}
+                className={styles.stepItem}
+                role="listitem"
+                aria-current={i === step ? "step" : undefined}
+              >
+                <div
+                  className={cn(
+                    styles.stepDot,
+                    i === step && styles.stepDotActive,
+                    i < step && styles.stepDotCompleted,
+                  )}
+                >
+                  {i < step ? <Check size={14} /> : i + 1}
+                </div>
+                <span
+                  className={cn(
+                    styles.stepLabel,
+                    i === step && styles.stepLabelActive,
+                  )}
+                >
+                  {label}
+                </span>
+                {i < STEPS.length - 1 ? (
+                  <ChevronRight size={14} className={styles.stepConnector} />
+                ) : null}
+              </div>
+            ))}
+          </div>
+          <div className={styles.pipelineNote}>
+            <Shield size={14} />
+            全程本地解析，明文只短暂停留在浏览器内存。
+          </div>
+        </aside>
+
+        <div className={styles.workbench} aria-live="polite">
+          {/* Step content */}
+          {renderStepContent()}
+
+          {/* Navigation */}
+          <div className={styles.footer}>
+            <div>
+              {step > 0 && step < 4 ? (
+                <Button variant="secondary" onClick={handleBack} disabled={loading}>
+                  上一步
+                </Button>
+              ) : null}
+            </div>
+            <div className={styles.footerActions}>
+              {step === 4 && importStatus ? (
+                <Button variant="secondary" onClick={handleReset} disabled={loading}>
+                  重新导入
+                </Button>
+              ) : null}
+              {step === 3 ? (
+                <Button
+                  variant="primary"
+                  onClick={handleConfirmImport}
+                  disabled={!confirmChecked || loading}
+                >
+                  确认导入
+                  <Upload size={14} />
+                </Button>
+              ) : step < 4 ? (
+                <Button
+                  variant="primary"
+                  onClick={handleNext}
+                  disabled={!canProceed || loading}
+                >
+                  下一步
+                  <ChevronRight size={14} />
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

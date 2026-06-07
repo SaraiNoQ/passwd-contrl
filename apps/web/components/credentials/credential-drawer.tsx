@@ -86,106 +86,137 @@ export function CredentialDrawer({
       open={isOpen}
       onClose={onClose}
       title={isEditing ? "编辑凭据" : "新增凭据"}
+      className={styles.drawerShell ?? ""}
     >
-      <form className={`${styles.form} pixel-border pixel-scanlines`} onSubmit={onSave}>
-        <Input
-          label="标题"
-          placeholder="例如：GitHub"
-          value={itemForm.title}
-          onChange={(e) => onFormChange("title", e.target.value)}
-        />
-
-        {/* Folder field with autocomplete */}
-        <div className={styles.folderWrapper}>
-          <div className={styles.folderLabel}>
-            <Folder size={14} />
-            文件夹
+      <form className={styles.form} onSubmit={onSave}>
+        <div className={styles.formHero}>
+          <div>
+            <p className={styles.eyebrow}>{isEditing ? "EDIT BLOCK" : "NEW BLOCK"}</p>
+            <h3 className={styles.heroTitle}>
+              {isEditing ? "重写密文卡片" : "铸造新凭据"}
+            </h3>
+            <p className={styles.heroCopy}>
+              站点、身份、密码与 TOTP 会在保存后进入本地加密账本。
+            </p>
           </div>
-          <div className={styles.folderInputContainer}>
-            <input
-              ref={folderInputRef}
-              className={styles.folderInput}
-              type="text"
-              placeholder="未分类"
-              value={itemForm.folder}
-              onChange={(e) => onFormChange("folder", e.target.value)}
-              onFocus={() => setFolderFocused(true)}
-              onBlur={() => setTimeout(() => setFolderFocused(false), 150)}
-              autoComplete="off"
+          <div className={styles.heroGlyph} aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+        </div>
+
+        <div className={styles.fieldGrid}>
+          <Input
+            label="标题"
+            placeholder="例如：GitHub"
+            value={itemForm.title}
+            onChange={(e) => onFormChange("title", e.target.value)}
+          />
+
+          <div className={styles.folderWrapper}>
+            <div className={styles.folderLabel}>
+              <Folder size={14} />
+              文件夹
+            </div>
+            <div className={styles.folderInputContainer}>
+              <input
+                ref={folderInputRef}
+                className={styles.folderInput}
+                type="text"
+                placeholder="未分类"
+                value={itemForm.folder}
+                onChange={(e) => onFormChange("folder", e.target.value)}
+                onFocus={() => setFolderFocused(true)}
+                onBlur={() => setTimeout(() => setFolderFocused(false), 150)}
+                autoComplete="off"
+              />
+              {folderSuggestions.length > 0 ? (
+                <div className={styles.folderSuggestions}>
+                  {folderSuggestions.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={styles.folderSuggestionItem}
+                      onMouseDown={(e) => { e.preventDefault(); handleFolderSelect(f); }}
+                    >
+                      <Folder size={13} />
+                      {f}
+                    </button>
+                  ))}
+                  {!folders.some((f) => f.toLowerCase() === itemForm.folder.trim().toLowerCase()) &&
+                   itemForm.folder.trim() ? (
+                    <button
+                      type="button"
+                      className={styles.folderSuggestionItem}
+                      onMouseDown={(e) => { e.preventDefault(); handleCreateFolder(); }}
+                    >
+                      <Plus size={13} />
+                      新建文件夹 &quot;{itemForm.folder.trim()}&quot;
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className={styles.wideField}>
+            <Input
+              label="网站地址"
+              placeholder="https://example.com"
+              value={itemForm.origin}
+              onChange={(e) => onFormChange("origin", e.target.value)}
+              {...(originWarning ? { error: "自动填充仅支持 HTTPS 站点" } : {})}
             />
-            {folderSuggestions.length > 0 ? (
-              <div className={styles.folderSuggestions}>
-                {folderSuggestions.map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    className={styles.folderSuggestionItem}
-                    onMouseDown={(e) => { e.preventDefault(); handleFolderSelect(f); }}
-                  >
-                    <Folder size={13} />
-                    {f}
-                  </button>
-                ))}
-                {!folders.some((f) => f.toLowerCase() === itemForm.folder.trim().toLowerCase()) &&
-                 itemForm.folder.trim() ? (
-                  <button
-                    type="button"
-                    className={styles.folderSuggestionItem}
-                    onMouseDown={(e) => { e.preventDefault(); handleCreateFolder(); }}
-                  >
-                    <Plus size={13} />
-                    新建文件夹 &quot;{itemForm.folder.trim()}&quot;
-                  </button>
-                ) : null}
-              </div>
+            {originWarning ? (
+              <span className={styles.originHint}>
+                <AlertTriangle size={12} />
+                自动填充仅支持 HTTPS 站点
+              </span>
             ) : null}
           </div>
-        </div>
 
-        <div>
           <Input
-            label="网站地址"
-            placeholder="https://example.com"
-            value={itemForm.origin}
-            onChange={(e) => onFormChange("origin", e.target.value)}
-            {...(originWarning ? { error: "自动填充仅支持 HTTPS 站点" } : {})}
+            label="用户名"
+            placeholder="name@example.com"
+            value={itemForm.username}
+            onChange={(e) => onFormChange("username", e.target.value)}
           />
-          {originWarning ? (
-            <span className={styles.originHint}>
-              <AlertTriangle size={12} />
-              自动填充仅支持 HTTPS 站点
-            </span>
-          ) : null}
+
+          <div className={styles.wideField}>
+            <PasswordField
+              label="密码"
+              placeholder="加密存储"
+              value={itemForm.password}
+              onChange={(e) => onFormChange("password", e.target.value)}
+              onGenerate={onGeneratePassword}
+              onCopy={onCopyPassword}
+            />
+          </div>
         </div>
 
-        <Input
-          label="用户名"
-          placeholder="name@example.com"
-          value={itemForm.username}
-          onChange={(e) => onFormChange("username", e.target.value)}
-        />
-
-        <PasswordField
-          label="密码"
-          placeholder="加密存储"
-          value={itemForm.password}
-          onChange={(e) => onFormChange("password", e.target.value)}
-          onGenerate={onGeneratePassword}
-          onCopy={onCopyPassword}
-        />
-
-        {/* TOTP field */}
-        <div className={styles.totpSection ?? ""}>
-          <div className={styles.totpLabel ?? ""}>
-            <KeyRound size={14} />
-            两步验证码 (TOTP)
+        <section className={styles.totpSection} aria-labelledby="totp-section-title">
+          <div className={styles.totpHeader}>
+            <div className={styles.totpLabel}>
+              <KeyRound size={16} aria-hidden="true" />
+              <div>
+                <span>TOTP BEACON</span>
+                <h4 id="totp-section-title">两步验证码</h4>
+              </div>
+            </div>
+            <span className={styles.totpState}>
+              {itemForm.totp && isValidTotpSecret(itemForm.totp) ? "信标运行中" : "等待密钥"}
+            </span>
           </div>
+          <p className={styles.totpCopy}>
+            验证码仅在此设备根据加密密钥生成，每 30 秒更新一次。
+          </p>
           {itemForm.totp && isValidTotpSecret(itemForm.totp) ? (
-            <div className={styles.totpActive ?? ""}>
+            <div className={styles.totpActive}>
               <TotpDisplay secret={itemForm.totp} />
               <button
                 type="button"
-                className={styles.totpRemoveBtn ?? ""}
+                className={styles.totpRemoveBtn}
                 onClick={() => onFormChange("totp", "")}
                 aria-label="移除 TOTP"
               >
@@ -203,7 +234,7 @@ export function CredentialDrawer({
               <TotpScanner onSecret={(s) => onFormChange("totp", s)} />
             </>
           )}
-        </div>
+        </section>
 
         <Input
           type="textarea"

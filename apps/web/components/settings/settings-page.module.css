@@ -1,85 +1,709 @@
 .page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
+  --settings-cloud: var(--color-cloud-mist, #e3f1fe);
+  --settings-ink: var(--color-graphite-ink, #232629);
+  --settings-muted: var(--color-slate-pencil, #5c6066);
+  --settings-orange: var(--color-signal-orange, #ff5e24);
+  --settings-paper: var(--color-paper-white, #ffffff);
+  --settings-shadow: var(--shadow-panel);
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
   margin: 0 auto;
-  max-width: 640px;
-  padding: var(--space-6);
+  max-width: var(--page-max-width, 1200px);
+  padding: var(--space-4) 0;
+  position: relative;
   width: 100%;
 }
 
-.section { display: flex; flex-direction: column; gap: var(--space-4); }
+.page::before {
+  background-image:
+    linear-gradient(rgba(35, 38, 41, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(35, 38, 41, 0.045) 1px, transparent 1px);
+  background-size: 16px 16px;
+  content: "";
+  inset: 0;
+  mask-image: linear-gradient(180deg, #000 0%, transparent 72%);
+  opacity: 0.5;
+  pointer-events: none;
+  position: absolute;
+}
 
-.sectionTitle {
+.hero {
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.1) 0 4px, transparent 4px),
+    linear-gradient(135deg, rgba(227, 241, 254, 0.82), rgba(255, 255, 255, 0.9)),
+    var(--settings-paper);
+  border: 1px solid var(--settings-cloud);
+  border-radius: 16px;
+  box-shadow: var(--settings-shadow);
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  overflow: hidden;
+  padding: clamp(var(--space-5), 4vw, var(--space-8));
+  position: relative;
+}
+
+.hero::after {
+  animation: settingsScan 4.8s steps(8, end) infinite;
+  background: linear-gradient(90deg, transparent, rgba(255, 94, 36, 0.2), transparent);
+  content: "";
+  height: 2px;
+  inset: 0 auto auto 0;
+  position: absolute;
+  width: 100%;
+}
+
+.pixelCloud {
+  inset: auto var(--space-5) var(--space-4) auto;
+  opacity: 0.9;
+  position: absolute;
+}
+
+.eyebrow,
+.cardKicker {
+  color: var(--settings-orange);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  line-height: 1.5;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.heroTitle,
+.cardTitle {
+  color: var(--settings-ink);
   font-family: var(--font-display);
-  font-size: 22px;
   font-weight: 400;
-  letter-spacing: -0.5px;
-  color: var(--color-text-primary);
+  letter-spacing: -0.025em;
   margin: 0;
 }
 
-.sectionDescription { color: var(--color-text-muted); font-size: 13px; line-height: 1.5; margin: 0; }
-.divider { background: var(--color-border); border: none; height: 1px; margin: 0; }
-
-.row { align-items: center; display: flex; gap: var(--space-4); justify-content: space-between; }
-.rowLabel { color: var(--color-text-primary); font-size: 14px; line-height: 1.5; }
-.rowHint { color: var(--color-text-muted); font-size: 12px; line-height: 1.5; }
-
-.select {
-  appearance: none;
-  background: var(--color-bg-input);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  font-family: var(--font-family);
-  font-size: 14px;
-  min-width: 140px;
-  outline: none;
-  padding: var(--space-2) var(--space-3);
-  transition: border-color var(--transition-fast);
+.heroTitle {
+  font-size: clamp(48px, 8vw, 72px);
+  line-height: 0.85;
+  margin-top: var(--space-2);
 }
 
-.select:focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-border-glow); }
+.heroCopy {
+  color: var(--settings-muted);
+  font-size: 16px;
+  line-height: 1.75;
+  margin: var(--space-4) 0 0;
+  max-width: 700px;
+  position: relative;
+  z-index: 1;
+}
 
-.extensionRow { display: flex; gap: var(--space-2); }
-.extensionRow .extensionInput { flex: 1; }
+.heroSummary {
+  align-self: end;
+  display: grid;
+  gap: var(--space-3);
+  position: relative;
+  z-index: 1;
+}
 
-.passwordForm { display: flex; flex-direction: column; gap: var(--space-3); }
-.passwordActions { display: flex; gap: var(--space-2); justify-content: flex-end; }
-.passwordError { color: var(--color-danger); font-size: 12px; line-height: 1.5; margin: 0; }
-.passwordSuccess { color: var(--color-success); font-size: 12px; line-height: 1.5; margin: 0; }
+.heroSummary span {
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.14) 0 8px, transparent 8px),
+    color-mix(in srgb, var(--settings-cloud) 42%, var(--settings-paper));
+  border: 1px solid var(--settings-cloud);
+  border-radius: 12px;
+  display: grid;
+  gap: var(--space-1);
+  min-height: 64px;
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
+}
 
-.exportActions { display: flex; flex-direction: column; gap: var(--space-3); }
-.exportRow { align-items: center; display: flex; gap: var(--space-4); justify-content: space-between; }
-.exportWarning { color: var(--color-text-muted); font-size: 12px; line-height: 1.5; margin: 0; }
+.heroSummary small {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
 
-.dangerZone {
-  border: 1px solid var(--color-danger-border);
-  border-radius: var(--radius-sm);
+.heroSummary strong {
+  color: var(--settings-ink);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.controlGrid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  position: relative;
+  z-index: 1;
+}
+
+.controlGrid::before {
+  background:
+    linear-gradient(90deg, transparent 0 calc(66.666% - 1px), var(--settings-cloud) calc(66.666% - 1px) calc(66.666% + 1px), transparent calc(66.666% + 1px)),
+    linear-gradient(0deg, transparent 0 calc(50% - 1px), var(--settings-cloud) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px));
+  content: "";
+  inset: 28px 24px 40px;
+  opacity: 0.7;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.card {
+  align-items: start;
+  background:
+    linear-gradient(90deg, rgba(227, 241, 254, 0.72), transparent 28%),
+    var(--settings-paper);
+  border: 1px solid var(--settings-cloud);
+  border-radius: 16px;
+  box-shadow: var(--settings-shadow);
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(220px, 292px) minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--space-5);
+  position: relative;
+  z-index: 1;
+}
+
+.card::before {
+  background:
+    linear-gradient(90deg, var(--settings-orange) 0 10px, transparent 10px 18px, var(--settings-cloud) 18px 100%);
+  content: "";
+  height: 4px;
+  inset: 0 0 auto;
+  position: absolute;
+}
+
+.card::after {
+  background: var(--settings-paper);
+  border: 2px solid var(--settings-orange);
+  border-radius: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--settings-cloud) 72%, transparent);
+  content: "";
+  height: 12px;
+  inset: var(--space-4) var(--space-4) auto auto;
+  position: absolute;
+  width: 12px;
+}
+
+.securityCard {
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.08), transparent 34%),
+    linear-gradient(90deg, rgba(227, 241, 254, 0.72), transparent 28%),
+    var(--settings-paper);
+  grid-column: span 8;
+  grid-row: span 2;
+  min-height: 430px;
+}
+
+.bridgeCard,
+.syncCard,
+.dangerCard {
+  grid-column: span 4;
+  grid-template-columns: 1fr;
+}
+
+.bridgeCard > :not(.cardHeader),
+.syncCard > :not(.cardHeader),
+.dangerCard > :not(.cardHeader) {
+  grid-column: auto;
+}
+
+.bridgeCard .extensionRow,
+.syncCard .row,
+.dangerCard .dangerZone {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.bridgeCard .extensionRow :global(button),
+.syncCard .select,
+.dangerCard .dangerZone :global(button) {
+  width: 100%;
+}
+
+.bridgeCard .miniLedger,
+.syncCard .row {
+  min-height: 0;
+}
+
+.backupCard {
+  background:
+    linear-gradient(135deg, rgba(227, 241, 254, 0.9), rgba(255, 255, 255, 0.72) 42%),
+    var(--settings-paper);
+  grid-column: span 8;
+}
+
+.syncCard {
+  background:
+    linear-gradient(135deg, rgba(227, 241, 254, 0.86), rgba(255, 255, 255, 0.84) 48%),
+    var(--settings-paper);
+}
+
+.dangerCard {
+  grid-column: span 4;
+}
+
+.card > :not(.cardHeader) {
+  grid-column: 2;
+}
+
+.cardHeader {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  min-width: 0;
+  position: relative;
+}
+
+.cardTitle {
+  font-size: clamp(36px, 4vw, 48px);
+  line-height: 1;
+}
+
+.cardDescription {
+  color: var(--settings-muted);
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.cardSprite,
+.bridgeSprite,
+.ledgerSprite,
+.syncSprite,
+.dangerSprite {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(4, 10px);
+  height: 44px;
+  margin-bottom: var(--space-1);
+  width: 56px;
+}
+
+.cardSprite span,
+.bridgeSprite span,
+.ledgerSprite span,
+.syncSprite span,
+.dangerSprite span {
+  background: var(--settings-cloud);
+  border: 1px solid rgba(35, 38, 41, 0.14);
+  border-radius: 2px;
+}
+
+.cardSprite span:nth-child(1),
+.ledgerSprite span:nth-child(2),
+.syncSprite span:nth-child(1) {
+  background: var(--settings-orange);
+}
+
+.cardSprite span:nth-child(2),
+.bridgeSprite span:nth-child(2),
+.ledgerSprite span:nth-child(4),
+.dangerSprite span:nth-child(2) {
+  background: var(--settings-paper);
+}
+
+.bridgeSprite {
+  grid-template-columns: 14px 22px 14px;
+}
+
+.ledgerSprite {
+  grid-template-columns: repeat(2, 18px);
+}
+
+.syncSprite {
+  grid-template-columns: 12px 22px 12px;
+}
+
+.dangerSprite span {
+  background: color-mix(in srgb, var(--color-danger) 18%, var(--settings-paper));
+  border-color: var(--color-danger-border);
+}
+
+.dangerSprite span:nth-child(1),
+.dangerSprite span:nth-child(3) {
+  background: var(--color-danger);
+}
+
+.row {
+  align-items: center;
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.1) 0 4px, transparent 4px),
+    color-mix(in srgb, var(--settings-cloud) 34%, var(--settings-paper));
+  border: 1px solid var(--settings-cloud);
+  border-radius: 12px;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  min-height: 76px;
   padding: var(--space-4);
 }
 
-.dangerTitle { color: var(--color-danger); font-family: var(--font-display); font-size: 18px; font-weight: 400; letter-spacing: -0.3px; margin: 0; }
-.dangerDescription { color: var(--color-text-muted); font-size: 13px; line-height: 1.5; margin: 0; }
+.rowLabel {
+  color: var(--settings-ink);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.45;
+}
 
-.deleteModalBody { display: flex; flex-direction: column; gap: var(--space-3); }
-.deleteModalWarning { color: var(--color-text-secondary); font-size: 14px; line-height: 1.5; margin: 0; }
-.deleteModalIrreversible { color: var(--color-danger); font-size: 12px; font-weight: 600; line-height: 1.5; margin: 0; }
-.selectionCount { color: var(--color-text-muted); font-size: 12px; line-height: 1.5; margin: 0; }
+.rowHint,
+.exportWarning {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: var(--space-1) 0 0;
+}
+
+.select {
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%) right 15px center / 7px 7px no-repeat,
+    var(--settings-paper);
+  border: 1px solid var(--settings-cloud);
+  border-radius: 6px;
+  color: var(--settings-ink);
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 800;
+  min-height: 44px;
+  min-width: 148px;
+  outline: none;
+  padding: var(--space-3) var(--space-6) var(--space-3) var(--space-3);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.select:hover {
+  transform: translateY(-1px);
+}
+
+.select:focus-visible {
+  border-color: var(--settings-orange);
+  box-shadow: var(--shadow-orange-ring);
+}
+
+.passwordPanel {
+  background: var(--settings-paper);
+  border: 1px solid var(--settings-cloud);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.passwordForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.passwordActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.passwordActions :global(button),
+.extensionRow :global(button),
+.exportRow :global(button),
+.dangerZone :global(button) {
+  min-height: 44px;
+}
+
+.passwordError,
+.deleteModalIrreversible {
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.passwordSuccess {
+  background:
+    linear-gradient(90deg, var(--settings-orange) 0 4px, transparent 4px),
+    color-mix(in srgb, var(--settings-cloud) 42%, var(--settings-paper));
+  border: 1px solid var(--settings-cloud);
+  border-radius: 6px;
+  color: var(--settings-ink);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.5;
+  margin: 0;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+}
+
+.extensionRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.extensionInput {
+  flex: 1;
+  min-height: 44px;
+  min-width: 0;
+}
+
+.miniLedger,
+.selectionStrip,
+.importStatus {
+  align-items: center;
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.12) 0 4px, transparent 4px),
+    color-mix(in srgb, var(--settings-cloud) 38%, var(--settings-paper));
+  border: 1px solid var(--settings-cloud);
+  border-radius: 12px;
+  color: var(--color-text-muted);
+  display: flex;
+  font-size: 12px;
+  font-weight: 900;
+  justify-content: space-between;
+  letter-spacing: 0.04em;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+}
+
+.miniLedger strong,
+.selectionStrip strong {
+  color: var(--settings-ink);
+}
+
+.exportActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.exportRow {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--settings-cloud);
+  border-radius: 12px;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  min-height: 76px;
+  padding: var(--space-4);
+}
+
+.divider {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--settings-cloud) 0 12px,
+      transparent 12px 20px
+    );
+  border: none;
+  height: 2px;
+  margin: 0;
+}
+
+.toggleLabel {
+  align-items: center;
+  background: var(--settings-paper);
+  border: 1px solid var(--settings-cloud);
+  border-radius: 6px;
+  color: var(--settings-ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 900;
+  gap: var(--space-2);
+  min-height: 44px;
+  min-width: 96px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.toggleLabel:focus-within {
+  border-color: var(--settings-orange);
+  box-shadow: var(--shadow-orange-ring);
+}
+
+.toggleLabel input {
+  accent-color: var(--settings-orange);
+  inline-size: 20px;
+  margin: 0;
+  min-block-size: 20px;
+}
+
+.dangerCard {
+  border-color: var(--color-danger-border);
+}
+
+.dangerCard::before {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--color-danger) 0 10px,
+      color-mix(in srgb, var(--color-danger) 12%, var(--settings-paper)) 10px 18px
+    );
+}
+
+.dangerCard::after {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.dangerZone {
+  align-items: center;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-danger) 9%, transparent) 0 4px, transparent 4px),
+    var(--settings-paper);
+  border: 1px solid var(--color-danger-border);
+  border-radius: 14px;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  min-height: 76px;
+  padding: var(--space-4);
+}
+
+.dangerTitle {
+  color: var(--color-danger);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.dangerDescription {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: var(--space-1) 0 0;
+}
+
+.deleteModalBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.deleteModalWarning {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.selectionCount {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
 
 .importStatus {
-  color: var(--color-success);
-  font-size: 14px;
-  font-weight: 500;
+  color: var(--settings-ink);
+  display: block;
   line-height: 1.5;
-  margin: var(--space-2) 0 0 0;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-success-soft);
-  border: 1px solid rgba(22, 163, 74, 0.2);
-  border-radius: var(--radius-sm);
+}
+
+.fileInput {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.csvConfirmButton {
+  border-color: var(--color-warning-border);
+  color: var(--color-warning);
+}
+
+@keyframes settingsScan {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero::after {
+    animation: none;
+  }
+
+  .select {
+    transition: none;
+  }
+
+  .select:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 920px) {
+  .controlGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .controlGrid::before {
+    inset: var(--space-4);
+  }
+
+  .securityCard,
+  .bridgeCard,
+  .backupCard,
+  .syncCard,
+  .dangerCard {
+    grid-column: auto;
+    grid-row: auto;
+    min-height: 0;
+  }
+
+  .hero,
+  .card {
+    grid-template-columns: 1fr;
+  }
+
+  .card > :not(.cardHeader) {
+    grid-column: auto;
+  }
+
+  .pixelCloud {
+    opacity: 0.55;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--space-4);
+  }
+
+  .hero,
+  .card {
+    padding: var(--space-4);
+  }
+
+  .row,
+  .exportRow,
+  .dangerZone,
+  .extensionRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .select {
+    width: 100%;
+  }
+
+  .passwordActions {
+    justify-content: stretch;
+  }
+
+  .passwordActions > * {
+    width: 100%;
+  }
 }

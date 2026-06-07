@@ -2,27 +2,42 @@
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 960px) {
   .bar {
     display: flex;
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    right: 12px;
     z-index: 80;
-    height: 60px;
-    background: var(--color-bg-shell);
-    border-top: 2px solid var(--color-border-strong);
-    padding: 0 8px;
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    min-height: 70px;
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--color-cloud-mist) 78%, transparent) 1px, transparent 1px),
+      linear-gradient(0deg, color-mix(in srgb, var(--color-cloud-mist) 62%, transparent) 1px, transparent 1px),
+      var(--color-paper-white);
+    background-size: 8px 8px, 8px 8px, auto;
+    border: 1px solid var(--color-cloud-mist);
+    border-radius: 18px;
+    padding: 10px;
     justify-content: space-around;
     align-items: center;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-elevated);
+    isolation: isolate;
+    overflow: hidden;
   }
+}
 
-  [data-theme="dark"] .bar {
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
-  }
+.dockRail {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 7px;
+  height: 4px;
+  background: repeating-linear-gradient(90deg, var(--color-signal-orange) 0 8px, transparent 8px 16px);
+  image-rendering: pixelated;
+  opacity: 0.7;
+  pointer-events: none;
+  animation: dockRail 2.4s steps(4, end) infinite;
 }
 
 .tab {
@@ -30,38 +45,49 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 4px 8px;
-  min-width: 56px;
-  height: 48px;
-  border: none;
-  background: none;
+  gap: 3px;
+  padding: 7px 8px;
+  min-width: 60px;
+  min-height: 52px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--color-paper-white) 76%, var(--color-cloud-mist));
   color: var(--color-text-muted);
   cursor: pointer;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
-  font-family: var(--font-display);
-  font-size: 10px;
-  letter-spacing: 1px;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform 140ms steps(2, end),
+    box-shadow var(--transition-fast);
+  font-family: var(--font-manrope-variable, var(--font-family));
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   position: relative;
+  z-index: 1;
 }
 
 .tab:hover {
   color: var(--color-text-secondary);
-  background: var(--color-bg-hover);
+  background: var(--color-cloud-mist);
+  transform: translateY(-2px);
 }
 
 .tabActive {
+  background: var(--color-paper-white);
+  border-color: var(--color-primary);
   color: var(--color-primary);
+  box-shadow: var(--shadow-orange-ring);
 }
 
 .tabActive::before {
-  content: '';
+  content: "";
   position: absolute;
-  top: -2px;
+  top: 5px;
   left: 50%;
   transform: translateX(-50%);
-  width: 16px;
+  width: 18px;
   height: 3px;
   background: var(--color-primary);
   image-rendering: pixelated;
@@ -69,13 +95,53 @@
 
 .tabIcon {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.tab:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-orange-ring);
+}
+
 .tabLabel {
   white-space: nowrap;
+}
+
+.activeDot {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  background: var(--color-primary);
+  image-rendering: pixelated;
+}
+
+@keyframes dockRail {
+  0%,
+  100% {
+    opacity: 0.46;
+  }
+
+  50% {
+    opacity: 0.86;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dockRail {
+    animation: none;
+  }
+
+  .tab {
+    transition: none;
+  }
+
+  .tab:hover {
+    transform: none;
+  }
 }

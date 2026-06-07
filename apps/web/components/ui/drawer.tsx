@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -18,6 +18,7 @@ export function Drawer({ open, onClose, title, children, className }: DrawerProp
   const drawerRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const justOpenedRef = useRef(false);
+  const titleId = useId();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -96,10 +97,12 @@ export function Drawer({ open, onClose, title, children, className }: DrawerProp
         className={cn(styles.drawer, className)}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={titleId}
       >
         <div className={styles.header}>
-          <h2 className={styles.title}>{title}</h2>
+          <h2 id={titleId} className={styles.title}>
+            {title}
+          </h2>
           <button
             type="button"
             className={styles.closeBtn}

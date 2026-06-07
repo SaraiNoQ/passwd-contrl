@@ -11,9 +11,14 @@ interface SpeechBubbleProps {
 
 export function SpeechBubble({ message, onDismiss }: SpeechBubbleProps) {
   return (
-    <div className={cn(styles.bubble, styles[message.type])} role="status" aria-live="polite">
-      {message.text}
-      <div className={styles.dismissHint}>点击关闭</div>
-    </div>
+    <button
+      className={cn(styles.bubble, styles[message.type])}
+      type="button"
+      onClick={onDismiss}
+      aria-label={`关闭提示：${message.text}`}
+    >
+      <span className={styles.messageText}>{message.text}</span>
+      <span className={styles.dismissHint}>点击关闭</span>
+    </button>
   );
 }

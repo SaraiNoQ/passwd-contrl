@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import type { MascotState, MascotMessage } from "../../hooks/useMascot";
 import { SpeechBubble } from "./speech-bubble";
 import styles from "./pixel-mascot.module.css";
@@ -39,17 +40,19 @@ const SPRITE: PixelRow[] = [
   [ 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0], // 17 toes
 ];
 
-const COLORS: Record<number, string> = {
-  1: "var(--color-pixel-body, #ff5e24)",
-  2: "var(--color-pixel-white, #ffffff)",
-  3: "var(--color-pixel-dark, #232629)",
-  4: "var(--color-pixel-blush, #ffb09c)",
+const PIXEL_CLASSES: Record<number, string> = {
+  1: styles.pixelBody!,
+  2: styles.pixelWhite!,
+  3: styles.pixelInk!,
+  4: styles.pixelBlush!,
 };
+
+const HEART_PATHS = [0, 1, 2, 3, 4, 5] as const;
+const SPARKLE_POINTS = [0, 1, 2, 3, 4, 5] as const;
 
 interface HeartParticle {
   id: number;
-  x: number;
-  y: number;
+  path: number;
 }
 
 export function PixelMascot({
@@ -84,10 +87,9 @@ export function PixelMascot({
     clickCount.current += 1;
 
     // Spawn heart burst
-    const newHearts: HeartParticle[] = Array.from({ length: 6 }, (_, i) => ({
+    const newHearts: HeartParticle[] = HEART_PATHS.map((path) => ({
       id: nextHeartId.current++,
-      x: (Math.random() - 0.5) * 60,
-      y: -20 - Math.random() * 40,
+      path,
     }));
     setHearts((prev) => [...prev, ...newHearts]);
     // Remove hearts after animation
@@ -108,6 +110,10 @@ export function PixelMascot({
 
   const w = SPRITE[0]!.length * P;
   const h = SPRITE.length * P;
+  const mascotTilt = {
+    "--tilt-x": `${-cursorOffset.dy * 6}deg`,
+    "--tilt-y": `${cursorOffset.dx * 8}deg`,
+  } as CSSProperties;
 
   // Build body rects, splitting out eye pupils for blink animation
   const bodyRects: Array<{ x: number; y: number; color: number }> = [];
@@ -143,66 +149,60 @@ export function PixelMascot({
 
       <div
         className={styles.mascot}
-        style={{
-          transform:
-            cursorOffset.dx || cursorOffset.dy
-              ? `perspective(120px) rotateY(${cursorOffset.dx * 8}deg) rotateX(${-cursorOffset.dy * 6}deg)`
-              : undefined,
-        }}
       >
-        <svg
-          width={w}
-          height={h}
-          viewBox={`0 0 ${w + P * 6} ${h}`}
-          className={styles.svg}
-          aria-hidden="true"
-        >
-          {/* Body */}
-          {bodyRects.map((r, i) => (
-            <rect
-              key={`b-${i}`}
-              x={r.x}
-              y={r.y}
-              width={P}
-              height={P}
-              fill={COLORS[r.color] ?? "#ff5e24"}
-              shapeRendering="crispEdges"
-            />
-          ))}
-
-          {/* Blinking eye pupils */}
-          <g className={styles.eyes}>
-            {pupilRects.map((r, i) => (
+        <div className={styles.spriteStage} style={mascotTilt}>
+          <svg
+            width={w}
+            height={h}
+            viewBox={`0 0 ${w + P * 6} ${h}`}
+            className={styles.svg}
+            aria-hidden="true"
+          >
+            {/* Body */}
+            {bodyRects.map((r, i) => (
               <rect
-                key={`p-${i}`}
+                key={`b-${i}`}
                 x={r.x}
                 y={r.y}
                 width={P}
                 height={P}
-                fill={COLORS[3]}
-                shapeRendering="crispEdges"
+                className={PIXEL_CLASSES[r.color] ?? styles.pixelBody}
               />
             ))}
-          </g>
 
-          {/* Floating key — separate element for rotation animation */}
-          <g className={styles.key}>
-            {/* Key bow (ring top) */}
-            <rect x={13 * P} y={6 * P} width={P * 3} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
-            {/* Key bow sides + hole */}
-            <rect x={13 * P} y={7 * P} width={P} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
-            <rect x={15 * P} y={7 * P} width={P} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
-            {/* Key bow bottom */}
-            <rect x={13 * P} y={8 * P} width={P * 3} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
-            {/* Key shaft */}
-            <rect x={14 * P} y={9 * P} width={P} height={P * 4} fill="#fbbf24" shapeRendering="crispEdges" />
-            {/* Key teeth */}
-            <rect x={13 * P} y={13 * P} width={P * 2} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
-            <rect x={12 * P} y={14 * P} width={P} height={P} fill="#fbbf24" shapeRendering="crispEdges" />
-            {/* Key highlight */}
-            <rect x={14 * P + 2} y={6 * P + 2} width={P - 4} height={P - 4} fill="#fde68a" shapeRendering="crispEdges" opacity={0.6} />
-          </g>
-        </svg>
+            {/* Blinking eye pupils */}
+            <g className={styles.eyes}>
+              {pupilRects.map((r, i) => (
+                <rect
+                  key={`p-${i}`}
+                  x={r.x}
+                  y={r.y}
+                  width={P}
+                  height={P}
+                  className={styles.pixelInk}
+                />
+              ))}
+            </g>
+
+            {/* Floating key — separate element for rotation animation */}
+            <g className={styles.key}>
+              {/* Key bow (ring top) */}
+              <rect x={13 * P} y={6 * P} width={P * 3} height={P} className={styles.keyGold} />
+              {/* Key bow sides + hole */}
+              <rect x={13 * P} y={7 * P} width={P} height={P} className={styles.keyGold} />
+              <rect x={15 * P} y={7 * P} width={P} height={P} className={styles.keyGold} />
+              {/* Key bow bottom */}
+              <rect x={13 * P} y={8 * P} width={P * 3} height={P} className={styles.keyGold} />
+              {/* Key shaft */}
+              <rect x={14 * P} y={9 * P} width={P} height={P * 4} className={styles.keyGold} />
+              {/* Key teeth */}
+              <rect x={13 * P} y={13 * P} width={P * 2} height={P} className={styles.keyGold} />
+              <rect x={12 * P} y={14 * P} width={P} height={P} className={styles.keyGold} />
+              {/* Key highlight */}
+              <rect x={14 * P + 2} y={6 * P + 2} width={P - 4} height={P - 4} className={styles.keyHighlight} />
+            </g>
+          </svg>
+        </div>
 
         {/* Z's for sleeping */}
         {state === "sleeping" && (
@@ -216,15 +216,10 @@ export function PixelMascot({
         {/* Sparkles for excited */}
         {state === "excited" && (
           <div className={styles.sparkles}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
+            {SPARKLE_POINTS.map((i) => (
               <div
                 key={i}
-                className={styles.sparkle}
-                style={{
-                  left: `${20 + Math.random() * (w - 20)}px`,
-                  top: `${-5 + Math.random() * (h + 10)}px`,
-                  animationDelay: `${i * 0.1}s`,
-                }}
+                className={`${styles.sparkle} ${styles[`sparkle${i}`]!}`}
               />
             ))}
           </div>
@@ -234,13 +229,7 @@ export function PixelMascot({
         {hearts.map((heart) => (
           <span
             key={heart.id}
-            className={styles.heartBurst}
-            style={
-              {
-                "--hx": `${heart.x}px`,
-                "--hy": `${heart.y}px`,
-              } as React.CSSProperties
-            }
+            className={`${styles.heartBurst} ${styles[`heartPath${heart.path}`]!}`}
           >
             &hearts;
           </span>

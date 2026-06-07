@@ -48,23 +48,19 @@ export function CredentialRow({
   className,
   children,
 }: CredentialRowProps) {
+  const rowLabel = origin ? `${name}，${origin}` : name;
+
   return (
-    <div
-      className={cn(styles.row, className)}
-      onClick={onClick}
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={
-        onClick
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onClick();
-              }
-            }
-          : undefined
-      }
-    >
+    <div className={cn(styles.row, onClick && styles.clickable, className)}>
+      {onClick && (
+        <button
+          type="button"
+          className={styles.rowTrigger}
+          onClick={onClick}
+          aria-label={`打开凭据：${rowLabel}`}
+        />
+      )}
+
       <div className={styles.info}>
         <div className={styles.name}>{name}</div>
         <div className={styles.origin}>{origin}</div>
@@ -97,8 +93,7 @@ export function CredentialRow({
           <button
             type="button"
             className={styles.actionBtn}
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               onCopyUsername();
             }}
             aria-label="复制用户名"
@@ -110,8 +105,7 @@ export function CredentialRow({
           <button
             type="button"
             className={styles.actionBtn}
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               onCopyPassword();
             }}
             aria-label="复制密码"
@@ -126,8 +120,7 @@ export function CredentialRow({
           <button
             type="button"
             className={styles.actionBtn}
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               onEdit();
             }}
             aria-label="编辑"
@@ -139,8 +132,7 @@ export function CredentialRow({
           <button
             type="button"
             className={cn(styles.actionBtn, styles.danger)}
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               onDelete();
             }}
             aria-label="删除"

@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Camera, Clipboard, X } from "lucide-react";
 import { isValidTotpSecret } from "../lib/totp";
+import styles from "./totp-scanner.module.css";
 
 interface TotpScannerProps {
   onSecret: (secret: string) => void;
@@ -103,83 +104,82 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
   }, [onSecret]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", gap: 8 }}>
+    <section className={styles.scanner} aria-labelledby="totp-scanner-title">
+      <div className={styles.header}>
+        <div>
+          <span className={styles.eyebrow}>SIGNAL CAPTURE</span>
+          <h3 id="totp-scanner-title" className={styles.title}>接入动态验证码信标</h3>
+        </div>
+        <span className={`${styles.status} ${scanning ? styles.statusActive : ""}`}>
+          <span className={styles.statusDot} aria-hidden="true" />
+          {scanning ? "正在扫描" : "等待接入"}
+        </span>
+      </div>
+
+      <div className={styles.actions}>
         <button
           type="button"
           onClick={scanning ? stopScanning : () => void startScanning()}
           aria-label={scanning ? "停止扫描" : "扫描二维码"}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "6px 12px",
-            borderRadius: 6,
-            border: "1px solid var(--color-border)",
-            background: scanning ? "var(--color-error)" : "var(--color-surface)",
-            color: scanning ? "white" : "var(--color-text)",
-            cursor: "pointer",
-            fontSize: 13
-          }}
+          aria-pressed={scanning}
+          className={`${styles.actionButton} ${styles.scanButton} ${scanning ? styles.actionButtonDanger : ""}`}
         >
-          <Camera size={14} />
-          {scanning ? "停止" : "扫描二维码"}
+          <Camera size={18} aria-hidden="true" />
+          {scanning ? "停止扫描" : "扫描二维码"}
         </button>
         <button
           type="button"
           onClick={() => void handlePasteFromClipboard()}
           aria-label="从剪贴板粘贴"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "6px 12px",
-            borderRadius: 6,
-            border: "1px solid var(--color-border)",
-            background: "var(--color-surface)",
-            color: "var(--color-text)",
-            cursor: "pointer",
-            fontSize: 13
-          }}
+          className={styles.actionButton}
         >
-          <Clipboard size={14} />
-          从剪贴板粘贴
+          <Clipboard size={18} aria-hidden="true" />
+          粘贴密钥
         </button>
         {scanning && (
           <button
             type="button"
             onClick={stopScanning}
-            aria-label="关闭"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              padding: 6,
-              borderRadius: 6,
-              border: "1px solid var(--color-border)",
-              background: "var(--color-surface)",
-              cursor: "pointer"
-            }}
+            aria-label="关闭二维码取景器"
+            className={styles.iconButton}
           >
-            <X size={14} />
+            <X size={18} aria-hidden="true" />
           </button>
         )}
       </div>
 
       {scanning && (
-        <div style={{ position: "relative", borderRadius: 8, overflow: "hidden" }}>
+        <div
+          className={styles.videoFrame}
+          role="group"
+          aria-label="二维码扫描取景器"
+        >
           <video
             ref={videoRef}
-            style={{ width: "100%", maxHeight: 200, objectFit: "cover" }}
+            className={styles.video}
             playsInline
             muted
+            aria-label="摄像头实时画面"
           />
-          <canvas ref={canvasRef} style={{ display: "none" }} />
+          <canvas ref={canvasRef} className={styles.canvas} />
+          <div className={styles.viewfinder} aria-hidden="true">
+            <span className={`${styles.corner} ${styles.cornerTopLeft}`} />
+            <span className={`${styles.corner} ${styles.cornerTopRight}`} />
+            <span className={`${styles.corner} ${styles.cornerBottomLeft}`} />
+            <span className={`${styles.corner} ${styles.cornerBottomRight}`} />
+            <span className={styles.scanLine} />
+          </div>
+          <p className={styles.scanHint}>将二维码置于信标框内</p>
         </div>
       )}
 
-      {error && (
-        <p style={{ fontSize: 12, color: "var(--color-error)", margin: 0 }}>{error}</p>
-      )}
-    </div>
+      <div className={styles.liveRegion} aria-live="polite" aria-atomic="true">
+        {scanning ? "摄像头已开启，正在识别动态验证码二维码。" : ""}
+      </div>
+
+      {error ? (
+        <p className={styles.error} role="alert">{error}</p>
+      ) : null}
+    </section>
   );
 }

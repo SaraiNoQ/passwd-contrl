@@ -7,6 +7,7 @@ import {
   createRecoveryPacket,
   type RecoveryPacket
 } from "../../lib/recovery";
+import { Button } from "../ui/button";
 import styles from "./recovery-code-modal.module.css";
 
 // ---------------------------------------------------------------------------
@@ -23,7 +24,7 @@ export type RecoveryCodeModalProps = {
 // Constants
 // ---------------------------------------------------------------------------
 
-const STEPS = ["说明", "生成", "展示", "确认"] as const;
+const STEPS = ["离线区块", "铸造分片", "抄录密钥", "回读确认"] as const;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -130,37 +131,37 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
 
   const renderExplanationStep = () => (
     <div>
-      <div className={styles.centerContent} style={{ marginBottom: 20 }}>
+      <div className={`${styles.centerContent} ${styles.centerContentSpaced}`}>
         <div className={styles.iconCircle}>
           <KeyRound size={24} className={styles.iconPrimary} />
         </div>
         <h3 className={styles.sectionTitle}>
-          恢复码设置
+          离线恢复区块
         </h3>
       </div>
 
       <div className={styles.infoBox}>
         <p>
-          恢复码用于在忘记主密码时恢复密码库。恢复码不会上传到服务器。
+          恢复码是备用密钥分片：它只在本地铸造成恢复包，用于主密码遗失时重新解封密码库。
         </p>
       </div>
 
       <div className={`${styles.explanationText} ${styles.mt4}`}>
-        <p>工作原理：</p>
+        <p>离线区块如何工作：</p>
         <ol>
-          <li>系统生成一个随机恢复码</li>
-          <li>恢复码被用于加密您的密码库密钥</li>
-          <li>加密后的恢复包保存在本地</li>
-          <li>需要恢复时，输入恢复码即可解密密码库密钥</li>
+          <li>本机生成一枚随机备用密钥分片</li>
+          <li>分片用于加密您的密码库密钥</li>
+          <li>加密后的恢复包作为离线恢复区块保存</li>
+          <li>需要恢复时，输入分片即可解封本地密码库密钥</li>
         </ol>
       </div>
 
       <div className={`${styles.warningBox} ${styles.mt4}`}>
         <ShieldAlert size={16} />
         <div>
-          <p className={styles.warningBoxTitle}>恢复码不会上传到服务器</p>
+          <p className={styles.warningBoxTitle}>备用分片不会上传到服务器</p>
           <p className={styles.warningBoxSub}>
-            丢失后无法通过客服找回。
+            一旦遗失，任何节点或客服都无法替您重铸。
           </p>
         </div>
       </div>
@@ -170,45 +171,44 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
   const renderGenerateStep = () => (
     <div className={styles.centerContent}>
       <h3 className={styles.sectionTitle}>
-        生成恢复码
+        铸造备用密钥分片
       </h3>
       <p className={styles.sectionSubtitle}>
-        点击下方按钮生成您的恢复码。
+        点击下方按钮，在本机生成一枚只显示一次的恢复分片。
       </p>
 
       {generatingError ? (
         <p className={styles.errorText}>{generatingError}</p>
       ) : null}
 
-      <button
-        type="button"
-        className={styles.btnPrimary}
+      <Button
         onClick={() => void handleGenerate()}
-        disabled={generating}
+        loading={generating}
       >
         <KeyRound size={16} />
-        {generating ? "生成中..." : "生成恢复码"}
-      </button>
+        铸造恢复分片
+      </Button>
     </div>
   );
 
   const renderDisplayStep = () => (
     <div>
       <h3 className={styles.sectionTitle}>
-        您的恢复码
+        您的备用密钥分片
       </h3>
 
       <div className={`${styles.warningBox} ${styles.mb4}`}>
         <AlertTriangle size={16} />
         <div>
-          <p className={styles.warningBoxTitle}>恢复码只显示一次。</p>
+          <p className={styles.warningBoxTitle}>这枚分片只显示一次。</p>
           <p className={styles.warningBoxSub}>
-            请将恢复码写在纸上并离线保存。
+            请抄写或打印后离线保存，不要放入云端。
           </p>
         </div>
       </div>
 
       <div className={styles.codeDisplay}>
+        <span className={styles.codeRail} aria-hidden="true" />
         <span className={styles.codeText}>{recoveryCode ?? ""}</span>
         <button
           type="button"
@@ -229,7 +229,7 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
 
       <div className={`${styles.warningBanner} ${styles.mt4}`}>
         <p>
-          Obscura 无法通过邮箱或客服重置主密码。如果丢失恢复码和主密码，密码库数据将无法恢复。
+          Obscura 无法通过邮箱或客服重置主密码。如果主密码与备用分片同时丢失，密码库数据将无法恢复。
         </p>
       </div>
     </div>
@@ -238,33 +238,33 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
   const renderConfirmStep = () => (
     <div>
       <h3 className={styles.sectionTitle}>
-        确认保存
+        回读确认
       </h3>
-      <p className={styles.sectionSubtitle} style={{ marginBottom: 16 }}>
-        请输入您的恢复码以确认已安全保存。
+      <p className={`${styles.sectionSubtitle} ${styles.sectionSubtitleTight}`}>
+        请输入完整分片，确认这枚离线区块已经被您安全保存。
       </p>
 
       <div className={styles.inputGroup}>
         <label className={styles.inputLabel}>
-          输入恢复码
+          回读备用分片
         </label>
         <input
           type="text"
           className={styles.input}
           value={verificationInput}
           onChange={(e) => setVerificationInput(e.target.value)}
-          placeholder="粘贴您的恢复码"
+          placeholder="粘贴或输入完整恢复分片"
           autoComplete="off"
           spellCheck={false}
         />
         {verificationInput.length > 0 && !isVerificationValid ? (
           <p className={styles.validationError}>
-            恢复码不匹配，请检查后重新输入。
+            分片不匹配，请检查后重新输入。
           </p>
         ) : null}
         {isVerificationValid ? (
           <p className={styles.validationSuccess}>
-            恢复码验证通过
+            离线分片验证通过
           </p>
         ) : null}
       </div>
@@ -276,13 +276,13 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
           checked={confirmed}
           onChange={(e) => setConfirmed(e.target.checked)}
         />
-        我已安全保存恢复码
+        我已将备用密钥分片离线保存
       </label>
     </div>
   );
 
   return (
-    <div className={styles.overlay} role="dialog" aria-label="恢复码设置" onClick={onCancel}>
+    <div className={styles.overlay} role="dialog" aria-label="离线恢复区块设置" onClick={onCancel}>
       <div
         ref={modalRef}
         className={styles.modal}
@@ -291,12 +291,22 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
       >
         {/* Header */}
         <div className={styles.header}>
+          <div className={styles.headerMark} aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
           <h2 className={styles.headerTitle}>
-            恢复码
+            离线恢复区块
           </h2>
-          <button type="button" className={styles.btnGhost} onClick={onCancel} aria-label="关闭">
+          <Button
+            variant="ghost"
+            className={styles.closeButton ?? ""}
+            onClick={onCancel}
+            aria-label="关闭"
+          >
             <X size={18} />
-          </button>
+          </Button>
         </div>
 
         {/* Step indicator */}
@@ -330,35 +340,31 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
         <div className={styles.footer}>
           <div>
             {step > 0 ? (
-              <button type="button" className={styles.btnSecondary} onClick={() => setStep(step - 1)}>
+              <Button variant="secondary" onClick={() => setStep(step - 1)}>
                 上一步
-              </button>
+              </Button>
             ) : (
-              <button type="button" className={styles.btnGhost} onClick={onCancel}>
+              <Button variant="ghost" onClick={onCancel}>
                 取消
-              </button>
+              </Button>
             )}
           </div>
           <div>
             {step < STEPS.length - 1 ? (
-              <button
-                type="button"
-                className={styles.btnPrimary}
+              <Button
                 onClick={handleNext}
                 disabled={step === 1}
               >
                 {step === 0 ? "开始生成" : "下一步"}
-              </button>
+              </Button>
             ) : (
-              <button
-                type="button"
-                className={styles.btnDanger}
+              <Button
                 onClick={handleComplete}
                 disabled={!confirmed || !isVerificationValid}
               >
                 <Check size={16} />
                 完成
-              </button>
+              </Button>
             )}
           </div>
         </div>

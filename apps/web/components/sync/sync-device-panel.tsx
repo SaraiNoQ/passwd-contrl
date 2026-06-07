@@ -16,6 +16,7 @@ import { useCallback, useState } from "react";
 import type { DeviceInfo } from "../../lib/device-trust";
 import type { EncryptedLocalVault, UnlockedVault } from "../../lib/local-vault";
 import type { ItemSyncInfo } from "../../lib/item-sync";
+import { cn } from "../../lib/utils";
 import styles from "./sync-device-panel.module.css";
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,8 @@ export type SyncDevicePanelProps = {
   isOffline?: boolean;
   /** Optional: refresh device list callback */
   onRefreshDevices?: () => void;
+  /** Render as a functional bay inside SyncWorkspace without duplicate hero/status CTA. */
+  embedded?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -52,14 +55,22 @@ export type SyncDevicePanelProps = {
 // ---------------------------------------------------------------------------
 
 type SyncStatusLabel = "synced" | "pending" | "conflict" | "offline" | "failed" | "unknown";
+type StatusTone = "success" | "warning" | "danger" | "muted";
 
-const STATUS_CONFIG: Record<SyncStatusLabel, { label: string; color: string; icon: typeof Check }> = {
-  synced: { label: "已同步", color: "var(--color-success)", icon: Check },
-  pending: { label: "待同步", color: "var(--color-warning)", icon: Clock },
-  conflict: { label: "有冲突", color: "var(--color-danger)", icon: AlertTriangle },
-  offline: { label: "离线", color: "var(--color-text-muted)", icon: WifiOff },
-  failed: { label: "同步失败", color: "var(--color-danger)", icon: X },
-  unknown: { label: "未知", color: "var(--color-text-muted)", icon: RefreshCw }
+const STATUS_CONFIG: Record<SyncStatusLabel, { label: string; tone: StatusTone; icon: typeof Check }> = {
+  synced: { label: "已回执", tone: "success", icon: Check },
+  pending: { label: "待投递", tone: "warning", icon: Clock },
+  conflict: { label: "有分叉", tone: "danger", icon: AlertTriangle },
+  offline: { label: "离线", tone: "muted", icon: WifiOff },
+  failed: { label: "投递失败", tone: "danger", icon: X },
+  unknown: { label: "等待状态", tone: "muted", icon: RefreshCw }
+};
+
+const TONE_CLASS: Record<StatusTone, string> = {
+  success: styles.toneSuccess ?? "",
+  warning: styles.toneWarning ?? "",
+  danger: styles.toneDanger ?? "",
+  muted: styles.toneMuted ?? ""
 };
 
 // ---------------------------------------------------------------------------
@@ -85,18 +96,18 @@ function deriveSyncStatus(statusStr: string, isOffline: boolean): SyncStatusLabe
   return "unknown";
 }
 
-function deviceStatusLabel(status: DeviceInfo["status"]): { text: string; color: string } {
+function deviceStatusLabel(status: DeviceInfo["status"]): { text: string; tone: StatusTone } {
   switch (status) {
     case "approved":
-      return { text: "已激活", color: "var(--color-success)" };
+      return { text: "已连接", tone: "success" };
     case "pending":
-      return { text: "待审批", color: "var(--color-warning)" };
+      return { text: "待确认", tone: "warning" };
     case "rejected":
-      return { text: "已拒绝", color: "var(--color-danger)" };
+      return { text: "已拒绝", tone: "danger" };
     case "revoked":
-      return { text: "已撤销", color: "var(--color-danger)" };
+      return { text: "已撤销", tone: "danger" };
     default:
-      return { text: "未知", color: "var(--color-text-muted)" };
+      return { text: "未知", tone: "muted" };
   }
 }
 
@@ -109,14 +120,15 @@ export default function SyncDevicePanel({
   onApproveDevice,
   onRejectDevice,
   onRevokeDevice,
-  syncStatus = "Local only",
+  syncStatus = "仅本地",
   lastSyncedAt = null,
   itemSyncInfos = [],
   devices = [],
   currentDeviceId = "",
   loading = false,
   isOffline = false,
-  onRefreshDevices
+  onRefreshDevices,
+  embedded = false
 }: SyncDevicePanelProps) {
   const [showDevices, setShowDevices] = useState(false);
   const [pendingDeviceAction, setPendingDeviceAction] = useState<string | null>(null);
@@ -182,139 +194,145 @@ export default function SyncDevicePanel({
 
   // Confirmation dialog content
   const confirmDevice = confirmAction ? devices.find((d) => d.id === confirmAction.deviceId) : null;
-  const confirmMessages: Record<typeof confirmAction extends null ? never : NonNullable<typeof confirmAction>["action"], { title: string; desc: string; color: string }> = {
+  const confirmMessages: Record<typeof confirmAction extends null ? never : NonNullable<typeof confirmAction>["action"], { title: string; desc: string }> = {
     approve: {
-      title: "批准设备",
-      desc: `确认批准「${confirmDevice?.name ?? ""}」访问你的保险库？该设备将能同步你的加密数据。`,
-      color: "var(--color-success)"
+      title: "批准节点入链",
+      desc: `确认允许「${confirmDevice?.name ?? ""}」成为可信设备节点？它将只能同步加密后的密码区块。`
     },
     reject: {
-      title: "拒绝设备",
-      desc: `确认拒绝「${confirmDevice?.name ?? ""}」的访问请求？该设备将无法同步数据。`,
-      color: "var(--color-warning)"
+      title: "拒绝节点准入",
+      desc: `确认拒绝「${confirmDevice?.name ?? ""}」的准入请求？该设备将无法加入同步链路。`
     },
     revoke: {
-      title: "撤销设备",
-      desc: `确认撤销「${confirmDevice?.name ?? ""}」的访问权限？该设备将立即失去同步能力，本地数据不会被删除，但无法再接收更新。此操作不可轻易撤销。`,
-      color: "var(--color-danger)"
+      title: "撤销节点密钥",
+      desc: `确认撤销「${confirmDevice?.name ?? ""}」的节点密钥？该设备将立即失去同步能力，本地数据不会被删除，但无法再接收新区块。此操作不可轻易撤销。`
     }
   };
 
   return (
-    <div className={styles.wrapper}>
+    <div className={cn(styles.wrapper, embedded && styles.embeddedWrapper)}>
       {/* Sync status card */}
-      <div className={`${styles.card} pixel-border pixel-scanlines`}>
-        <div className={styles.cardHeader}>
-          <h2 className={styles.cardTitle}>
-            同步状态
-          </h2>
-          <button
-            type="button"
-            className={styles.syncButton}
-            style={loading ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
-            onClick={onSync}
-            disabled={loading}
-            aria-label="立即同步"
-          >
-            <RefreshCw size={14} style={loading ? { animation: "spin 1s linear infinite" } : undefined} />
-            {loading ? "同步中..." : "立即同步"}
-          </button>
-        </div>
-
-        {/* Status indicator — large pixel-art badge */}
-        <div className={styles.statusDisplay}>
-          <div
-            className={styles.statusIconBlock}
-            style={{ color: statusConfig.color, borderColor: statusConfig.color }}
-          >
-            <StatusIcon size={22} />
-          </div>
-          <div>
-            <div className={styles.statusText} style={{ color: statusConfig.color }}>
-              {statusConfig.label}
+      {!embedded ? (
+        <div className={styles.relayHero}>
+          <PixelRelayCloud />
+          <div className={styles.cardHeader}>
+            <div>
+              <span className={styles.displayMark}>设备节点准入</span>
+              <h2 className={styles.cardTitle}>可信节点铸入台</h2>
+              <p className={styles.cardIntro}>
+                将每台设备视作一枚可撤销节点，只交换加密区块、同步回执与授权状态，不暴露明文路径。
+              </p>
             </div>
-            <div className={styles.statusSubtext}>
-              {syncStatus}
-            </div>
+            <button
+              type="button"
+              className={cn(styles.syncButton, loading && styles.loading)}
+              onClick={onSync}
+              disabled={loading}
+              aria-label="立即同步"
+            >
+              <RefreshCw size={14} className={loading ? styles.spinning : undefined} />
+              {loading ? "同步中..." : "立即同步"}
+            </button>
           </div>
-        </div>
 
-        {/* Last synced */}
-        {lastSyncedAt ? (
-          <div className={styles.lastSynced}>
-            <Clock size={12} />
-            上次同步：{new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastSyncedAt))}
-          </div>
-        ) : null}
-
-        {/* Offline notice */}
-        {isOffline ? (
-          <div className={styles.offlineNotice}>
-            <WifiOff size={14} />
-            你当前处于离线状态。连接网络后将自动同步。
-          </div>
-        ) : null}
-
-        {/* Item sync stats */}
-        {itemSyncInfos.length > 0 ? (
-          <div className={styles.dotStats}>
-            <div className={styles.dotStat}>
-              <span className={styles.dot} style={{ background: "var(--color-success)" }} />
-              <span>已同步 {syncedCount}</span>
+          <div className={styles.statusDisplay}>
+            <div className={cn(styles.statusIconBlock, TONE_CLASS[statusConfig.tone])}>
+              <StatusIcon size={22} />
             </div>
-            <div className={styles.dotStat}>
-              <span className={styles.dot} style={{ background: "var(--color-warning)" }} />
-              <span>待同步 {pendingCount}</span>
-            </div>
-            {conflictCount > 0 ? (
-              <div className={styles.dotStat}>
-                <span className={styles.dot} style={{ background: "var(--color-danger)" }} />
-                <span>冲突 {conflictCount}</span>
+            <div>
+              <div className={cn(styles.statusText, TONE_CLASS[statusConfig.tone])}>
+                {statusConfig.label}
               </div>
-            ) : null}
+              <div className={styles.statusSubtext}>{syncStatus}</div>
+            </div>
           </div>
-        ) : null}
-      </div>
+
+          {/* Last synced */}
+          {lastSyncedAt ? (
+            <div className={styles.lastSynced}>
+              <Clock size={12} />
+              上次上链：{new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastSyncedAt))}
+            </div>
+          ) : null}
+
+          {/* Offline notice */}
+          {isOffline ? (
+            <div className={styles.offlineNotice}>
+              <WifiOff size={14} />
+              你当前处于离线状态。连接网络后将自动同步。
+            </div>
+          ) : null}
+
+          {/* Item sync stats */}
+          {itemSyncInfos.length > 0 ? (
+            <div className={styles.dotStats}>
+              <div className={styles.dotStat}>
+                <span className={cn(styles.dot, styles.dotSuccess)} />
+                <span>已确认 {syncedCount}</span>
+              </div>
+              <div className={styles.dotStat}>
+                <span className={cn(styles.dot, styles.dotWarning)} />
+                <span>待打包 {pendingCount}</span>
+              </div>
+              {conflictCount > 0 ? (
+                <div className={styles.dotStat}>
+                  <span className={cn(styles.dot, styles.dotDanger)} />
+                  <span>分叉 {conflictCount}</span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Trusted devices */}
-      <div className={`${styles.card} pixel-border pixel-scanlines`}>
+      <div className={cn(styles.card, embedded && styles.embeddedCard)}>
         <div className={styles.deviceHeader}>
-          <h2 className={styles.cardTitle}>
-            受信设备
-          </h2>
+          <div>
+            <span className={styles.cardEyebrow}>准入网关</span>
+            <h2 className={styles.sectionTitle}>设备节点清单</h2>
+          </div>
           <button
             type="button"
             className={styles.deviceToggle}
             onClick={toggleDevices}
+            aria-expanded={showDevices}
+            aria-controls="trusted-device-network"
           >
             <Smartphone size={14} />
             {showDevices ? "收起" : "展开"}
           </button>
         </div>
+        <div className={styles.nodeAccessRail} aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
 
         {showDevices ? (
-          <div>
+          <div id="trusted-device-network">
             {/* Pending device requests */}
             {pendingDevices.length > 0 ? (
               <div className={styles.pendingSection}>
                 <h3 className={styles.pendingTitle}>
                   <AlertTriangle size={14} />
-                  新设备请求 ({pendingDevices.length})
+                  待准入节点 ({pendingDevices.length})
                 </h3>
                 {pendingDevices.map((device) => (
                   <div key={device.id} className={styles.deviceRow}>
                     <div className={styles.deviceInfo}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <Smartphone size={14} style={{ color: "var(--color-warning)", flexShrink: 0 }} />
+                      <div className={styles.deviceTitleLine}>
+                        <Smartphone size={14} className={styles.deviceIconWarning} />
                         <strong className={styles.deviceName}>
                           {device.name}
                         </strong>
                         <span className={styles.deviceBadgeWarning}>
-                          待审批
+                          待准入
                         </span>
                       </div>
                       <div className={styles.deviceMeta}>
-                        <Clock size={10} style={{ verticalAlign: -1 }} />{" "}
+                        <Clock size={10} />
                         {new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(
                           new Date()
                         )}
@@ -326,20 +344,20 @@ export default function SyncDevicePanel({
                         className={styles.approveBtn}
                         onClick={() => requestConfirm(device.id, "approve")}
                         disabled={pendingDeviceAction === device.id}
-                        aria-label={`批准设备 ${device.name}`}
+                        aria-label={`批准节点入链 ${device.name}`}
                       >
                         <Check size={14} />
-                        批准
+                        批准入链
                       </button>
                       <button
                         type="button"
                         className={styles.rejectBtn}
                         onClick={() => requestConfirm(device.id, "reject")}
                         disabled={pendingDeviceAction === device.id}
-                        aria-label={`拒绝设备 ${device.name}`}
+                        aria-label={`拒绝节点准入 ${device.name}`}
                       >
                         <X size={14} />
-                        拒绝
+                        拒绝准入
                       </button>
                     </div>
                   </div>
@@ -351,10 +369,10 @@ export default function SyncDevicePanel({
             <div className={styles.activeSection}>
               <h3 className={styles.activeTitle}>
                 <ShieldCheck size={14} />
-                已激活设备 ({activeDevices.length})
+                已激活节点 ({activeDevices.length})
               </h3>
               {activeDevices.length === 0 ? (
-                <p className={styles.emptyText}>暂无已激活设备。</p>
+                <p className={styles.emptyText}>暂无已激活节点，当前同步链路还没有可用设备。</p>
               ) : (
                 activeDevices.map((device) => {
                   const devStatus = deviceStatusLabel(device.status);
@@ -365,44 +383,41 @@ export default function SyncDevicePanel({
                       className={`${styles.deviceRow}${isCurrentDevice ? ` ${styles.currentDeviceRow}` : ""}`}
                     >
                       <div className={styles.deviceInfo}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div className={styles.deviceTitleLine}>
                           {isCurrentDevice ? (
-                            <Monitor size={14} style={{ color: "var(--color-primary)", flexShrink: 0 }} />
+                            <Monitor size={14} className={styles.deviceIconCurrent} />
                           ) : (
-                            <Smartphone size={14} style={{ color: "var(--color-text-muted)", flexShrink: 0 }} />
+                            <Smartphone size={14} className={styles.deviceIconMuted} />
                           )}
                           <strong className={isCurrentDevice ? styles.currentDeviceName : styles.deviceName}>
                             {device.name}
                           </strong>
                           {isCurrentDevice ? (
                             <span className={styles.currentDeviceBadge}>
-                              当前设备
+                              当前节点
                             </span>
                           ) : null}
-                          <span
-                            className={styles.deviceBadge}
-                            style={{ "--badge-color": devStatus.color } as React.CSSProperties}
-                          >
+                          <span className={cn(styles.deviceBadge, TONE_CLASS[devStatus.tone])}>
                             {devStatus.text}
                           </span>
                         </div>
                         <div className={styles.deviceMeta}>
-                          <Clock size={10} style={{ verticalAlign: -1 }} />{" "}
-                          已注册
+                          <Clock size={10} />
+                          已写入准入账本
                         </div>
                       </div>
                       {/* Revoke button for non-current approved devices */}
                       {!isCurrentDevice && onRevokeDevice ? (
-                        <div style={{ flexShrink: 0 }}>
+                        <div className={styles.revokeWrap}>
                           <button
                             type="button"
                             className={styles.revokeBtn}
                             onClick={() => requestConfirm(device.id, "revoke")}
                             disabled={pendingDeviceAction === device.id}
-                            aria-label={`撤销设备 ${device.name}`}
+                            aria-label={`撤销节点密钥 ${device.name}`}
                           >
                             <ShieldOff size={13} />
-                            撤销
+                            撤销节点
                           </button>
                         </div>
                       ) : null}
@@ -415,8 +430,8 @@ export default function SyncDevicePanel({
         ) : (
           <p className={styles.emptyText}>
             {devices.length > 0
-              ? `${devices.length} 台设备已注册。点击展开查看详情。`
-              : "暂无注册设备。"}
+              ? `${devices.length} 台设备已写入准入账本。点击展开查看节点详情。`
+              : "暂无注册设备节点。"}
           </p>
         )}
       </div>
@@ -428,33 +443,34 @@ export default function SyncDevicePanel({
           onClick={cancelConfirm}
         >
           <div
-            className={styles.confirmDialog}
+            className={cn(styles.confirmDialog, styles[`confirmDialog${confirmAction.action[0]?.toUpperCase()}${confirmAction.action.slice(1)}`])}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="device-confirm-title"
+            aria-describedby="device-confirm-description"
             onClick={(e) => e.stopPropagation()}
           >
             <div className={styles.confirmHeader}>
-              <div
-                className={styles.confirmIcon}
-                style={{ "--confirm-icon-color": confirmMessages[confirmAction.action].color } as React.CSSProperties}
-              >
+              <div className={styles.confirmIcon}>
                 {confirmAction.action === "revoke" ? (
-                  <ShieldOff size={18} style={{ color: confirmMessages[confirmAction.action].color }} />
+                  <ShieldOff size={18} />
                 ) : confirmAction.action === "approve" ? (
-                  <Check size={18} style={{ color: confirmMessages[confirmAction.action].color }} />
+                  <Check size={18} />
                 ) : (
-                  <X size={18} style={{ color: confirmMessages[confirmAction.action].color }} />
+                  <X size={18} />
                 )}
               </div>
-              <h3 className={styles.confirmTitle}>
+              <h3 className={styles.confirmTitle} id="device-confirm-title">
                 {confirmMessages[confirmAction.action].title}
               </h3>
             </div>
-            <p className={styles.confirmDesc}>
+            <p className={styles.confirmDesc} id="device-confirm-description">
               {confirmMessages[confirmAction.action].desc}
             </p>
             {confirmAction.action === "revoke" ? (
               <div className={styles.confirmWarning}>
                 <AlertTriangle size={14} />
-                撤销后该设备将无法再同步任何数据
+                撤销后该设备节点将无法再接收任何新区块
               </div>
             ) : null}
             <div className={styles.confirmActions}>
@@ -467,11 +483,7 @@ export default function SyncDevicePanel({
               </button>
               <button
                 type="button"
-                className={styles.confirmOk}
-                style={{
-                  background: confirmMessages[confirmAction.action].color,
-                  color: confirmAction.action === "approve" ? "var(--color-text-inverse)" : "#fff",
-                }}
+                className={cn(styles.confirmOk, styles[`confirmOk${confirmAction.action[0]?.toUpperCase()}${confirmAction.action.slice(1)}`])}
                 onClick={() => {
                   if (confirmAction.action === "approve") handleApprove(confirmAction.deviceId);
                   else if (confirmAction.action === "reject") handleReject(confirmAction.deviceId);
@@ -486,5 +498,23 @@ export default function SyncDevicePanel({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function PixelRelayCloud() {
+  return (
+    <svg
+      aria-hidden="true"
+      className={styles.relayCloud}
+      viewBox="0 0 176 88"
+      shapeRendering="crispEdges"
+    >
+      <path d="M24 52h16V36h16V20h48v8h16v8h24v16h16v20H24z" fill="#e3f1fe" />
+      <path d="M40 52h16V36h16V28h32v8h24v16h16v12H40z" fill="#ffffff" />
+      <rect x="56" y="52" width="16" height="8" fill="#ff5e24" />
+      <rect x="80" y="44" width="16" height="8" fill="#5c6066" />
+      <rect x="104" y="52" width="16" height="8" fill="#ff5e24" />
+      <rect x="68" y="60" width="40" height="4" fill="#5c6066" />
+    </svg>
   );
 }

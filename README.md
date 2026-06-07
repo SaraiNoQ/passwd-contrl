@@ -111,6 +111,7 @@ See [docs/migration-risk-checklist.md](./docs/migration-risk-checklist.md) for r
 - [Autofill](./docs/autofill.md) - Fill rules, phishing protection, field checks
 - [Import](./docs/import.md) - CSV import flow and security
 - [Development](./docs/development.md) - Local setup, testing, extension dev
+- [Mobile Development](./docs/mobile-development.md) - React Native/Expo mobile app planning and development rules
 - [Deployment](./docs/deployment.md) - Cloudflare Workers, env vars, extension publishing
 - [Cloudflare Deployment](./docs/cloudflare-deployment.md) - Workers, D1, R2 setup and deployment
 - [Migration Risk Checklist](./docs/migration-risk-checklist.md) - Risks and mitigations for Cloudflare migration

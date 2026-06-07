@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  Blocks,
   ChevronRight,
   Download,
   Folder,
@@ -24,12 +25,14 @@ import CsvImport from "../../components/import/csv-import";
 import { SettingsPage } from "../../components/settings/settings-page";
 import SyncPanel from "../../components/sync/sync-panel";
 import SyncDevicePanel from "../../components/sync/sync-device-panel";
+import SyncWorkspace from "../../components/sync/sync-workspace";
 import ConflictResolutionPanel from "../../components/sync/conflict-resolution-panel";
 import { DashboardPage } from "../../components/dashboard/dashboard-page";
 import { PasswordGenerator } from "../../components/tools/password-generator";
 import { Drawer } from "../../components/ui/drawer";
+import { Toast } from "../../components/ui/toast";
+import { Button } from "../../components/ui/button";
 import { MobileNav } from "../../components/shell/mobile-nav";
-import { ActionDock } from "../../components/shell/action-dock";
 import { PixelMascot } from "../../components/mascot";
 import { useVaultContext } from "../vault-provider";
 import { useFolders } from "../../hooks/useFolders";
@@ -40,6 +43,16 @@ function formatDateTime(iso: string) {
 }
 
 const TOOLS_NAV_ID = "tools";
+
+const PAGE_META: Record<string, { eyebrow: string; title: string; description: string }> = {
+  dashboard: { eyebrow: "密钥总览 / 01", title: "密钥总览", description: "从本地封存到区块回执，查看你的密文账本是否轻盈、完整、可恢复。" },
+  credentials: { eyebrow: "密文账本 / 02", title: "密文账本", description: "每一枚秘密都只在当前设备显形，并以可验证的版本持续演进。" },
+  import: { eyebrow: "迁移铸入口 / 03", title: "迁移铸入口", description: "把旧世界的凭据铸入 Obscura 密文账本，不改变它们的所有权。" },
+  sync: { eyebrow: "区块中继 / 04", title: "区块中继", description: "编排可信设备、离线队列与版本回执，保持密码库状态一致。" },
+  recovery: { eyebrow: "离线分片 / 05", title: "离线恢复区块", description: "为不可预测的时刻准备一条离线、可控且只属于你的恢复路径。" },
+  tools: { eyebrow: "密钥工坊 / 06", title: "密钥工坊", description: "铸造高熵访问密钥，为每个站点准备互不重复的独立钥匙。" },
+  settings: { eyebrow: "工坊控制台 / 07", title: "工坊控制台", description: "校准锁定、同步、扩展与账户维护，让密文账本按你的规则运行。" },
+};
 
 export default function VaultPage() {
   const ctx = useVaultContext();
@@ -77,13 +90,13 @@ export default function VaultPage() {
   // -- Sidebar navigation items --
   const sidebarNav = useMemo(
     () => [
-      { id: ctx.NAV_IDS.DASHBOARD, label: "仪表盘", icon: <LayoutDashboard size={18} />, enabled: true },
-      { id: ctx.NAV_IDS.CREDENTIALS, label: "凭据", icon: <KeyRound size={18} />, enabled: !ctx.isLocked },
-      { id: ctx.NAV_IDS.IMPORT, label: "导入", icon: <Download size={18} />, enabled: !ctx.isLocked },
-      { id: ctx.NAV_IDS.SYNC, label: "同步与设备", icon: <RefreshCw size={18} />, enabled: !ctx.isLocked },
-      { id: ctx.NAV_IDS.RECOVERY, label: "恢复码", icon: <Shield size={18} />, enabled: !ctx.isLocked },
-      { id: TOOLS_NAV_ID, label: "工具", icon: <Wand2 size={18} />, enabled: !ctx.isLocked },
-      { id: ctx.NAV_IDS.SETTINGS, label: "设置", icon: <Settings size={18} />, enabled: !ctx.isLocked }
+      { id: ctx.NAV_IDS.DASHBOARD, label: "密钥总览", icon: <LayoutDashboard size={18} />, enabled: true },
+      { id: ctx.NAV_IDS.CREDENTIALS, label: "密文账本", icon: <KeyRound size={18} />, enabled: !ctx.isLocked },
+      { id: ctx.NAV_IDS.IMPORT, label: "迁移铸入", icon: <Download size={18} />, enabled: !ctx.isLocked },
+      { id: ctx.NAV_IDS.SYNC, label: "区块中继", icon: <RefreshCw size={18} />, enabled: !ctx.isLocked },
+      { id: ctx.NAV_IDS.RECOVERY, label: "离线分片", icon: <Shield size={18} />, enabled: !ctx.isLocked },
+      { id: TOOLS_NAV_ID, label: "密钥工坊", icon: <Wand2 size={18} />, enabled: !ctx.isLocked },
+      { id: ctx.NAV_IDS.SETTINGS, label: "工坊控制台", icon: <Settings size={18} />, enabled: !ctx.isLocked }
     ],
     [ctx.isLocked, ctx.NAV_IDS]
   );
@@ -101,7 +114,7 @@ export default function VaultPage() {
         onClick={() => ctx.setFolderFilter(null)}
       >
         <Folder size={14} />
-        凭据
+        密文账本
       </button>
       <ChevronRight size={14} className="folder-breadcrumb-sep" />
       <span className="folder-breadcrumb-current">
@@ -159,7 +172,9 @@ export default function VaultPage() {
 
   // -- Copy toast --
   const copyToast = ctx.copiedField ? (
-    <div className="copy-toast">已复制到剪贴板</div>
+    <div className="vault-toast-stack">
+      <Toast variant="success" message="已复制到设备剪贴板" duration={0} />
+    </div>
   ) : null;
 
   // Track clipboard copies for mascot
@@ -220,6 +235,10 @@ export default function VaultPage() {
     return null;
   }
 
+  const currentPage = PAGE_META[ctx.activeNav] ?? PAGE_META.dashboard!;
+  const showLedgerTelemetry =
+    ctx.activeNav === ctx.NAV_IDS.DASHBOARD || ctx.activeNav === ctx.NAV_IDS.CREDENTIALS;
+
   return (
     <div className="app-shell">
       {sidebarElement}
@@ -236,44 +255,88 @@ export default function VaultPage() {
         />
 
         <div className="main-content">
-          {/* Stats cards - only on Dashboard or Credentials */}
-          {(ctx.activeNav === ctx.NAV_IDS.DASHBOARD || ctx.activeNav === ctx.NAV_IDS.CREDENTIALS) ? (
-            <div className="stats-grid">
-              <div className="stat-card pixel-border">
-                <span className="stat-card-label">凭据总数</span>
-                <span className="stat-card-value">{ctx.itemCount}</span>
+          <header className={`page-intro${showLedgerTelemetry ? " page-intro--telemetry" : ""}`}>
+            <svg
+              className="page-intro-cloud"
+              width="112"
+              height="56"
+              viewBox="0 0 112 56"
+              aria-hidden="true"
+              shapeRendering="crispEdges"
+            >
+              <rect x="24" y="8" width="48" height="8" fill="#ffffff" />
+              <rect x="16" y="16" width="72" height="8" fill="#ffffff" />
+              <rect x="8" y="24" width="96" height="8" fill="#ffffff" />
+              <rect x="0" y="32" width="112" height="8" fill="#ffffff" />
+              <rect x="16" y="40" width="80" height="8" fill="#f0f6fd" />
+              <rect x="32" y="48" width="48" height="8" fill="#e3f1fe" />
+              <rect x="16" y="8" width="8" height="8" fill="#5c6066" opacity="0.55" />
+              <rect x="72" y="8" width="8" height="8" fill="#5c6066" opacity="0.55" />
+              <rect x="8" y="16" width="8" height="8" fill="#5c6066" opacity="0.55" />
+              <rect x="88" y="16" width="8" height="8" fill="#5c6066" opacity="0.55" />
+              <rect x="0" y="24" width="8" height="8" fill="#5c6066" opacity="0.55" />
+              <rect x="104" y="24" width="8" height="8" fill="#5c6066" opacity="0.55" />
+              <rect x="8" y="48" width="24" height="8" fill="#5c6066" opacity="0.55" />
+              <rect x="80" y="48" width="24" height="8" fill="#5c6066" opacity="0.55" />
+            </svg>
+            <div className="page-intro-copy">
+              <span className="page-intro-eyebrow">{currentPage.eyebrow}</span>
+              <h1>{currentPage.title}</h1>
+              <p>{currentPage.description}</p>
+            </div>
+            <div className="page-intro-console">
+              <div className="page-intro-seal" aria-label="零知识加密会话已激活">
+                <span className="page-intro-seal-icon"><Blocks size={18} /></span>
+                <span><small>零知识</small>本地加密会话</span>
               </div>
-              <div className="stat-card pixel-border">
-                <span className="stat-card-label">最近更新</span>
-                <span className="stat-card-value stat-card-value--muted" style={{ fontSize: 14 }}>
-                  {ctx.updatedAt}
-                </span>
-              </div>
-              <div className="stat-card pixel-border">
-                <span className="stat-card-label">同步状态</span>
-                <span
-                  className={`stat-card-value ${
-                    ctx.syncStatus.includes("已同步")
-                      ? "stat-card-value--success"
-                      : ctx.syncStatus.includes("冲突")
-                        ? "stat-card-value--warning"
-                        : "stat-card-value--muted"
-                  }`}
-                  style={{ fontSize: 14 }}
-                >
-                  {ctx.syncStatus}
-                </span>
-              </div>
-              {ctx.lastSyncedAt ? (
-                <div className="stat-card pixel-border">
-                  <span className="stat-card-label">上次同步</span>
-                  <span className="stat-card-value stat-card-value--muted" style={{ fontSize: 14 }}>
-                    {formatDateTime(ctx.lastSyncedAt)}
-                  </span>
+
+              {showLedgerTelemetry ? (
+                <div className="ledger-telemetry" aria-label="密文账本状态">
+                  <div className="ledger-telemetry-head">
+                    <span>区块回执轨</span>
+                    <span className="ledger-telemetry-live">
+                      <i aria-hidden="true" />
+                      会话在线
+                    </span>
+                  </div>
+                  <div className="ledger-telemetry-track">
+                    <div className="ledger-telemetry-node ledger-telemetry-node--primary">
+                      <span className="ledger-telemetry-index">01</span>
+                      <span className="ledger-telemetry-label">密文条目</span>
+                      <strong>{ctx.itemCount}</strong>
+                    </div>
+                    <div className="ledger-telemetry-node">
+                      <span className="ledger-telemetry-index">02</span>
+                      <span className="ledger-telemetry-label">最近铸写</span>
+                      <strong className="ledger-telemetry-copy">{ctx.updatedAt}</strong>
+                    </div>
+                    <div className="ledger-telemetry-node">
+                      <span className="ledger-telemetry-index">03</span>
+                      <span className="ledger-telemetry-label">同步回执</span>
+                      <strong
+                        className={
+                          ctx.syncStatus.includes("已同步")
+                            ? "ledger-telemetry-copy ledger-telemetry-copy--success"
+                            : ctx.syncStatus.includes("冲突")
+                              ? "ledger-telemetry-copy ledger-telemetry-copy--warning"
+                              : "ledger-telemetry-copy"
+                        }
+                      >
+                        {ctx.syncStatus}
+                      </strong>
+                    </div>
+                    <div className="ledger-telemetry-node">
+                      <span className="ledger-telemetry-index">04</span>
+                      <span className="ledger-telemetry-label">上次上链</span>
+                      <strong className="ledger-telemetry-copy">
+                        {ctx.lastSyncedAt ? formatDateTime(ctx.lastSyncedAt) : "等待首枚回执"}
+                      </strong>
+                    </div>
+                  </div>
                 </div>
               ) : null}
             </div>
-          ) : null}
+          </header>
 
           {/* Error banner */}
           {ctx.error ? (
@@ -286,7 +349,6 @@ export default function VaultPage() {
           {/* Tools: Password Generator */}
           {ctx.activeNav === TOOLS_NAV_ID ? (
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 20 }}>密码生成器</h2>
               <PasswordGenerator />
             </div>
           ) : null}
@@ -349,66 +411,50 @@ export default function VaultPage() {
             <RecoverySetup loading={ctx.loading} onGenerateRecoveryCode={ctx.handleCreateRecoveryCode} recoveryCode={ctx.recoveryCode} />
           ) : null}
 
-          {/* Device section */}
-          {ctx.activeNav === ctx.NAV_IDS.SYNC && ctx.user ? (
-            <SyncDevicePanel
-              vault={ctx.unlockedVault ?? ctx.encryptedVault}
-              onSync={ctx.syncNow}
-              onApproveDevice={ctx.handleApproveDevice}
-              onRejectDevice={ctx.handleRejectDevice}
-              onRevokeDevice={ctx.handleRevokeDevice}
+          {ctx.activeNav === ctx.NAV_IDS.SYNC ? (
+            <SyncWorkspace
               syncStatus={ctx.syncStatus}
               lastSyncedAt={ctx.lastSyncedAt}
               itemSyncInfos={ctx.itemSyncInfos}
-              devices={ctx.devices}
-              currentDeviceId={ctx.currentDeviceId}
-              loading={ctx.loading}
-              isOffline={ctx.isOffline}
-              onRefreshDevices={ctx.refreshDevices}
-            />
-          ) : null}
-
-          {/* Sync panel */}
-          {ctx.activeNav === ctx.NAV_IDS.SYNC ? (
-            <SyncPanel
-              syncStatus={ctx.syncStatus}
-              lastSyncedAt={ctx.lastSyncedAt}
-              itemSyncInfos={ctx.itemSyncInfos}
-              syncEvents={ctx.syncEvents}
+              approvedDeviceCount={ctx.devices.filter((device) => device.status === "approved").length}
+              pendingDeviceCount={ctx.devices.filter((device) => device.status === "pending").length}
               loading={ctx.loading}
               isOffline={ctx.isOffline}
               onSync={ctx.syncNow}
+              extensionBridge={ctx.extensionBridge}
+              devicePanel={
+                ctx.user ? (
+                  <SyncDevicePanel
+                    embedded
+                    vault={ctx.unlockedVault ?? ctx.encryptedVault}
+                    onSync={ctx.syncNow}
+                    onApproveDevice={ctx.handleApproveDevice}
+                    onRejectDevice={ctx.handleRejectDevice}
+                    onRevokeDevice={ctx.handleRevokeDevice}
+                    syncStatus={ctx.syncStatus}
+                    lastSyncedAt={ctx.lastSyncedAt}
+                    itemSyncInfos={ctx.itemSyncInfos}
+                    devices={ctx.devices}
+                    currentDeviceId={ctx.currentDeviceId}
+                    loading={ctx.loading}
+                    isOffline={ctx.isOffline}
+                    onRefreshDevices={ctx.refreshDevices}
+                  />
+                ) : null
+              }
+              receiptPanel={
+                <SyncPanel
+                  embedded
+                  syncStatus={ctx.syncStatus}
+                  lastSyncedAt={ctx.lastSyncedAt}
+                  itemSyncInfos={ctx.itemSyncInfos}
+                  syncEvents={ctx.syncEvents}
+                  loading={ctx.loading}
+                  isOffline={ctx.isOffline}
+                  onSync={ctx.syncNow}
+                />
+              }
             />
-          ) : null}
-
-          {/* Extension bridge details */}
-          {ctx.activeNav === ctx.NAV_IDS.SYNC ? (
-            <div className="extension-panel pixel-border">
-              <h3>扩展连接</h3>
-              {!ctx.extensionBridge.configured || !ctx.extensionBridge.runtimeAvailable ? (
-                <div className="extension-unavailable">
-                  未检测到浏览器扩展。自动填充已禁用。
-                </div>
-              ) : null}
-              <div className="extension-status-grid">
-                <div className="extension-status-cell">
-                  <span>扩展 ID</span>
-                  <strong>{ctx.extensionBridge.configured ? "已配置" : "缺失"}</strong>
-                </div>
-                <div className="extension-status-cell">
-                  <span>通信状态</span>
-                  <strong>{ctx.extensionBridge.runtimeAvailable ? ctx.extensionBridge.communication : "不可用"}</strong>
-                </div>
-                <div className="extension-status-cell">
-                  <span>上次发布</span>
-                  <strong>{ctx.extensionBridge.lastPublish}</strong>
-                </div>
-                <div className="extension-status-cell">
-                  <span>上次清空</span>
-                  <strong>{ctx.extensionBridge.lastClear}</strong>
-                </div>
-              </div>
-            </div>
           ) : null}
 
           {/* Settings page */}
@@ -497,67 +543,53 @@ export default function VaultPage() {
         onClose={handleBatchUpdateCancel}
         title="批量更新密码"
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div className="batch-update-drawer">
           {!batchUpdateConfirmOpen ? (
             <>
-              <p style={{ fontSize: 14, color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-                为选中的 <strong style={{ color: "var(--color-primary)" }}>{batchUpdateIds.length}</strong> 个凭据生成新密码。
-              </p>
+              <section className="batch-update-intro" aria-label="批量重铸说明">
+                <span className="batch-update-kicker">批量重铸</span>
+                <p>
+                  为选中的 <strong>{batchUpdateIds.length}</strong> 个凭据生成新密码。
+                  这一步只准备新密钥，确认前不会写入密码库。
+                </p>
+              </section>
               <PasswordGenerator showUseButton onUse={handleBatchGeneratorUse} />
             </>
           ) : (
             <>
-              <div
-                style={{
-                  background: "rgba(245, 158, 11, 0.1)",
-                  border: "1px solid rgba(245, 158, 11, 0.25)",
-                  borderRadius: "var(--radius-md)",
-                  padding: 16,
-                }}
-              >
-                <p style={{ fontSize: 14, color: "var(--color-warning)", fontWeight: 600, margin: 0 }}>
+              <section className="batch-update-warning" aria-label="批量更新警告">
+                <AlertTriangle size={18} />
+                <p>
                   将用新密码更新 {batchUpdateIds.length} 个凭据，此操作不可撤销。
                 </p>
-              </div>
-              <div
-                style={{
-                  background: "var(--color-bg-input)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-md)",
-                  padding: 12,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 16,
-                  color: "var(--color-primary)",
-                  wordBreak: "break-all",
-                }}
-              >
+              </section>
+              <div className="batch-update-password-preview" aria-label="即将写入的新密码">
                 {batchUpdatePassword}
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  className="btn btn-primary"
+              <div className="batch-update-actions">
+                <Button
                   type="button"
                   onClick={() => void handleBatchUpdateConfirm()}
-                  disabled={ctx.loading}
+                  loading={ctx.loading}
                 >
                   {ctx.loading ? "更新中..." : "确认更新"}
-                </button>
-                <button
-                  className="btn btn-secondary"
+                </Button>
+                <Button
+                  variant="secondary"
                   type="button"
                   onClick={() => setBatchUpdateConfirmOpen(false)}
                   disabled={ctx.loading}
                 >
                   重新生成
-                </button>
-                <button
-                  className="btn btn-secondary"
+                </Button>
+                <Button
+                  variant="secondary"
                   type="button"
                   onClick={handleBatchUpdateCancel}
                   disabled={ctx.loading}
                 >
                   取消
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -587,18 +619,10 @@ export default function VaultPage() {
         onClick={() => setMascotError(false)}
       />
 
-      {/* Floating Action Dock (desktop) */}
-      <ActionDock
-        onAddCredential={ctx.openDrawerForCreate}
-        onSyncNow={ctx.syncNow}
-        loading={ctx.loading}
-      />
-
       {/* Mobile Bottom Navigation */}
       <MobileNav
         activeNav={ctx.activeNav}
         onNavChange={ctx.setActiveNav}
-        onOpenMenu={() => setMobileMenuOpen(true)}
         navIds={ctx.NAV_IDS}
       />
     </div>

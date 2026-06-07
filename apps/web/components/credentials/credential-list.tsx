@@ -35,23 +35,14 @@ const isWeakPassword = (password: string): boolean => {
   return variety < 3;
 };
 
-const copyToClipboard = async (text: string): Promise<boolean> => {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 /* ---------------------------------------------------------------------------
    Password Strength
    --------------------------------------------------------------------------- */
 
-type PasswordStrength = { score: number; label: string; color: string };
+type PasswordStrength = { score: number; label: string; tone: "strong" | "medium" | "weak" | "empty" };
 
 function getPasswordStrength(password: string): PasswordStrength {
-  if (!password) return { score: 0, label: "无", color: "var(--color-text-muted)" };
+  if (!password) return { score: 0, label: "无", tone: "empty" };
 
   const hasLower = /[a-z]/u.test(password);
   const hasUpper = /[A-Z]/u.test(password);
@@ -61,18 +52,18 @@ function getPasswordStrength(password: string): PasswordStrength {
 
   // Strong: 12+ chars, mixed case, numbers, symbols
   if (password.length >= 12 && variety >= 4) {
-    return { score: 100, label: "强", color: "var(--color-success)" };
+    return { score: 100, label: "强", tone: "strong" };
   }
   // Medium: 8+ chars with some variety
   if (password.length >= 8 && variety >= 3) {
-    return { score: 66, label: "中", color: "var(--color-warning)" };
+    return { score: 66, label: "中", tone: "medium" };
   }
   // Medium-low: 8+ chars but low variety
   if (password.length >= 8) {
-    return { score: 40, label: "中", color: "var(--color-warning)" };
+    return { score: 40, label: "中", tone: "medium" };
   }
   // Weak: less than 8 chars or very simple
-  return { score: 20, label: "弱", color: "var(--color-danger)" };
+  return { score: 20, label: "弱", tone: "weak" };
 }
 
 /* ---------------------------------------------------------------------------
@@ -84,7 +75,7 @@ export type SortDirection = "asc" | "desc";
 
 const SORT_OPTIONS: { value: SortField; label: string }[] = [
   { value: "name", label: "名称" },
-  { value: "updatedAt", label: "最近更新" },
+  { value: "updatedAt", label: "最近铸写" },
   { value: "createdAt", label: "创建时间" },
 ];
 
@@ -212,6 +203,7 @@ export function CredentialList({
 
   // Batch selection state.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false);
 
   /* ---- Derived counts for filter tabs ---- */
 
@@ -273,6 +265,7 @@ export function CredentialList({
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
+    setBatchDeleteConfirmOpen(false);
   }, []);
 
   // Sync selection to parent (using ref to avoid stale/dynamic callback deps)
@@ -286,6 +279,10 @@ export function CredentialList({
   /* ---- Batch action handlers ---- */
 
   const handleBatchDelete = useCallback(() => {
+    setBatchDeleteConfirmOpen(true);
+  }, []);
+
+  const handleBatchDeleteConfirm = useCallback(() => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     if (onBatchDelete) {
@@ -293,6 +290,10 @@ export function CredentialList({
     }
     clearSelection();
   }, [selectedIds, onBatchDelete, clearSelection]);
+
+  const handleBatchDeleteCancel = useCallback(() => {
+    setBatchDeleteConfirmOpen(false);
+  }, []);
 
   const handleBatchExport = useCallback(() => {
     const selected = sortedItems.filter((i) => selectedIds.has(i.id));
@@ -317,19 +318,43 @@ export function CredentialList({
 
   /* ---- Copy handler with feedback ---- */
 
-  const handleCopy = async (text: string, fieldId: string, callback: (id: string, value: string) => void, id: string) => {
-    const ok = await copyToClipboard(text);
-    if (ok) {
-      setCopiedField(fieldId);
-      callback(id, text);
-      setTimeout(() => setCopiedField(null), 2000);
-    }
+  const handleCopy = (text: string, fieldId: string, callback: (id: string, value: string) => void, id: string) => {
+    callback(id, text);
+    setCopiedField(fieldId);
+    setTimeout(() => setCopiedField(null), 2000);
   };
+
+  const emptyStateCopy = searchQuery
+    ? {
+        title: "链上索引未命中",
+        body: `没有找到与“${searchQuery}”匹配的密文记录。换一个关键词，或清空搜索重新扫描本地账本。`,
+        status: "SEARCH MISS",
+      }
+    : filterMode !== "all"
+      ? {
+          title: "此筛选区块为空",
+          body: "当前筛选条件下没有凭据。安全账本仍在，只是这个视角暂时没有需要处理的条目。",
+          status: "FILTER EMPTY",
+        }
+      : folderFilter !== null
+        ? {
+            title: folderFilter === "" ? "未分类区块尚未写入" : "文件夹区块尚未写入",
+            body:
+              folderFilter === ""
+                ? "未分类文件夹还没有凭据。把零散账号写入这里，再分配到更精确的链上分区。"
+                : `“${folderFilter}”文件夹还没有凭据。为这个分区添加第一枚加密条目。`,
+            status: "FOLDER EMPTY",
+          }
+        : {
+            title: "保险库等待第一枚密文区块",
+            body: "还没有凭据被写入本地账本。点击新增凭据，把账号、密码与备注封装成只属于你的加密记录。",
+            status: "VAULT GENESIS",
+          };
 
   /* ---- Render ---- */
 
   return (
-    <div className={`${styles.container} pixel-border pixel-scanlines`} style={{ padding: 'var(--space-6)' }}>
+    <div className={styles.container}>
       {/* Sort Selector */}
       <div className={styles.sortBar}>
         <span className={styles.sortLabel}>排序</span>
@@ -377,14 +402,14 @@ export function CredentialList({
           type="button"
           onClick={() => onFilterModeChange("weak")}
         >
-          弱密码<span className={styles.filterTabCount}>({weakCount})</span>
+          弱密钥<span className={styles.filterTabCount}>({weakCount})</span>
         </button>
         <button
           className={cn(styles.filterTab, filterMode === "duplicate" && styles.filterTabActive)}
           type="button"
           onClick={() => onFilterModeChange("duplicate")}
         >
-          重复密码<span className={styles.filterTabCount}>({duplicateCount})</span>
+          复用密钥<span className={styles.filterTabCount}>({duplicateCount})</span>
         </button>
         <button
           className={cn(styles.filterTab, filterMode === "unsynced" && styles.filterTabActive)}
@@ -397,62 +422,102 @@ export function CredentialList({
 
       {/* Batch Action Bar */}
       {selectedIds.size > 0 && (
-        <div className={styles.batchBar}>
-          <span className={styles.batchCount}>已选择 {selectedIds.size} 项</span>
-          <button
-            className={cn("btn btn-sm", styles.batchBtn)}
-            type="button"
-            onClick={handleBatchExport}
-            title="导出选中凭据为 CSV"
-          >
-            <Download size={14} />
-            导出 CSV
-          </button>
-          {onBatchUpdatePassword ? (
-            <button
-              className={cn("btn btn-sm", styles.batchBtn)}
-              type="button"
-              onClick={handleBatchUpdatePassword}
-              title="为选中凭据生成新密码"
-            >
-              <KeyRound size={14} />
-              批量更新密码
-            </button>
-          ) : null}
-          <button
-            className="btn btn-danger btn-sm"
-            type="button"
-            onClick={handleBatchDelete}
-            title="批量删除选中凭据"
-          >
-            <Trash2 size={14} />
-            批量删除
-          </button>
-          <button
-            className="btn-icon"
-            type="button"
-            onClick={clearSelection}
-            title="取消选择"
-            aria-label="取消选择"
-          >
-            <X size={14} />
-          </button>
+        <div className={cn(styles.batchBar, batchDeleteConfirmOpen && styles.batchBarConfirm)}>
+          {batchDeleteConfirmOpen ? (
+            <>
+              <div className={styles.batchConfirmCopy} role="alert">
+                <Trash2 size={18} aria-hidden="true" />
+                <span>
+                  确认销毁 <strong>{selectedIds.size}</strong> 枚密文条目？此操作不可撤销。
+                </span>
+              </div>
+              <button
+                className={cn(styles.batchBtn, styles.batchBtnDangerFilled)}
+                type="button"
+                onClick={handleBatchDeleteConfirm}
+                disabled={loading}
+              >
+                确认销毁
+              </button>
+              <button
+                className={styles.batchBtn}
+                type="button"
+                onClick={handleBatchDeleteCancel}
+                disabled={loading}
+              >
+                返回账本
+              </button>
+            </>
+          ) : (
+            <>
+              <span className={styles.batchCount}>已选择 {selectedIds.size} 项</span>
+              <button
+                className={styles.batchBtn}
+                type="button"
+                onClick={handleBatchExport}
+                title="导出选中凭据为 CSV"
+              >
+                <Download size={14} />
+                导出 CSV
+              </button>
+              {onBatchUpdatePassword ? (
+                <button
+                  className={styles.batchBtn}
+                  type="button"
+                  onClick={handleBatchUpdatePassword}
+                  title="为选中凭据生成新密码"
+                >
+                  <KeyRound size={14} />
+                  批量更新密码
+                </button>
+              ) : null}
+              <button
+                className={cn(styles.batchBtn, styles.batchBtnDanger)}
+                type="button"
+                onClick={handleBatchDelete}
+                title="批量删除选中凭据"
+              >
+                <Trash2 size={14} />
+                批量删除
+              </button>
+              <button
+                className={styles.batchClearBtn}
+                type="button"
+                onClick={clearSelection}
+                title="取消选择"
+                aria-label="取消选择"
+              >
+                <X size={14} />
+              </button>
+            </>
+          )}
         </div>
       )}
 
       {/* Credential Table Header */}
       <div className={styles.tableHeader}>
-        <h2>凭据</h2>
-        <button className="btn btn-primary btn-sm" type="button" onClick={onAdd}>
+        <div>
+          <span className={styles.tableEyebrow}>CIPHER LEDGER</span>
+          <h2>凭据</h2>
+          <p>每张卡片都是一枚本地解锁的密文记录；复制、编辑与删除都在当前设备内完成。</p>
+        </div>
+        <button className={styles.addButton} type="button" onClick={onAdd}>
           新增凭据
         </button>
       </div>
 
       {/* Loading State */}
       {loading && (
-        <div className={styles.loading}>
-          <Sparkles size={16} />
-          <span>加载中...</span>
+        <div className={styles.loading} aria-live="polite" aria-busy="true">
+          <div className={styles.loadingGlyph} aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className={styles.loadingCopy}>
+            <span className={styles.loadingKicker}>LEDGER SYNC</span>
+            <span className={styles.loadingText}>正在扫描本地密文账本...</span>
+          </div>
         </div>
       )}
 
@@ -460,211 +525,199 @@ export function CredentialList({
       {!loading && (
         <div className={styles.list} aria-live="polite">
           {sortedItems.length > 0 ? (
-            <>
-              {/* Column headers */}
-              <div className={cn(styles.row, styles.headerRow)}>
-                <div className={styles.checkboxCell}>
+            <div className={styles.ledgerList}>
+              <div className={styles.ledgerToolbar}>
+                <label className={styles.selectAllControl}>
                   <input
                     type="checkbox"
                     checked={isAllSelected}
                     onChange={toggleSelectAll}
                     aria-label="全选"
-                    title="全选"
                   />
-                </div>
-                <div className={styles.cell}>
-                  <span className={styles.headerLabel}>名称</span>
-                </div>
-                <div className={styles.cell}>
-                  <span className={styles.headerLabel}>用户名</span>
-                </div>
-                <div className={styles.cell}>
-                  <span className={styles.headerLabel}>密码</span>
-                </div>
-                <div className={styles.cell}>
-                  <span className={styles.headerLabel}>强度</span>
-                </div>
-                <div className={styles.actions}>
-                  <span className={styles.headerLabel}>操作</span>
-                </div>
+                  全选当前账本
+                </label>
+                <span>{sortedItems.length} 个加密条目</span>
               </div>
 
-              {sortedItems.map((item) => {
+              {sortedItems.map((item, index) => {
                 const strength = getPasswordStrength(item.password);
-                const strengthFillClass =
-                  strength.score >= 100
-                    ? styles.strengthFillStrong
-                    : strength.score >= 66
-                      ? styles.strengthFillMedium
-                      : strength.score >= 20
-                        ? styles.strengthFillWeak
-                        : undefined;
+                const strengthToneClass = styles[`strengthTone${strength.tone[0]?.toUpperCase()}${strength.tone.slice(1)}`] ?? "";
                 const isSelected = selectedIds.has(item.id);
                 return (
-                  <div
-                    className={cn(styles.row, isSelected && styles.rowSelected)}
+                  <article
+                    className={cn(styles.ledgerCard, isSelected && styles.ledgerCardSelected)}
                     key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") onEdit(item);
-                    }}
                   >
-                    {/* Checkbox */}
-                    <div className={styles.checkboxCell} onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(item.id)}
-                        aria-label={`选择 ${item.title}`}
-                      />
-                    </div>
+                    <div className={styles.cardTop}>
+                      {/* Checkbox */}
+                      <label className={styles.checkboxCell} onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(item.id)}
+                          aria-label={`选择 ${item.title}`}
+                        />
+                      </label>
 
-                    {/* Name / Origin */}
-                    <div className={styles.cell} onClick={() => onEdit(item)}>
-                      <div className={styles.cellName}>{item.title}</div>
-                      <div className={styles.cellOrigin}>
-                        {item.origin}
-                        {item.folder ? (
-                          <span className={styles.folderTag}>{item.folder}</span>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {/* Username */}
-                    <div className={styles.cell} onClick={() => onEdit(item)}>
-                      <span className={styles.cellText}>{item.username || "无用户名"}</span>
-                    </div>
-
-                    {/* Password */}
-                    <div className={styles.cell} onClick={() => onEdit(item)}>
-                      <span
-                        className={cn(
-                          styles.cellPassword,
-                          passwordRevealedId === item.id && styles.cellPasswordRevealed,
-                        )}
-                      >
-                        {passwordRevealedId === item.id ? item.password : "••••••••••••"}
-                      </span>
-                    </div>
-
-                    {/* Password Strength Bar */}
-                    <div className={styles.cell} onClick={() => onEdit(item)}>
-                      <div className={styles.strengthContainer}>
-                        <div className={styles.strengthBar}>
-                          <div
-                            className={cn(styles.strengthFill, strengthFillClass)}
-                            style={{ width: `${strength.score}%` }}
-                          />
-                        </div>
-                        <span className={styles.strengthLabel} style={{ color: strength.color }}>
-                          {strength.label}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className={styles.actions} onClick={(e) => e.stopPropagation()}>
-                      {/* Toggle password visibility */}
                       <button
-                        className="btn-icon"
                         type="button"
-                        onClick={() => onTogglePasswordReveal(item.id)}
-                        title={passwordRevealedId === item.id ? "隐藏密码" : "显示密码"}
-                        aria-label={passwordRevealedId === item.id ? "隐藏密码" : "显示密码"}
+                        className={styles.cardMain}
+                        onClick={() => onEdit(item)}
+                        aria-label={`编辑 ${item.title}`}
                       >
-                        {passwordRevealedId === item.id ? <EyeOff size={14} /> : <Eye size={14} />}
+                        <span className={styles.cardIndex}>{String(index + 1).padStart(2, "0")}</span>
+                        <div className={styles.cardIdentity}>
+                          <div className={styles.cellName}>{item.title}</div>
+                          <div className={styles.cellOrigin}>
+                            {item.origin}
+                            {item.folder ? <span className={styles.folderTag}>{item.folder}</span> : null}
+                          </div>
+                        </div>
                       </button>
 
-                      {/* Copy username */}
-                      {item.username ? (
+                      <div className={styles.cardSeal} aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                      </div>
+                    </div>
+
+                    <div className={styles.cardBody}>
+                      <div className={styles.secretPanel}>
+                        <div className={styles.secretLine}>
+                          <span className={styles.secretLabel}>用户</span>
+                          <span className={styles.cellText}>{item.username || "无用户名"}</span>
+                        </div>
+                        <div className={styles.secretLine}>
+                          <span className={styles.secretLabel}>密码</span>
+                          <span
+                            className={cn(
+                              styles.cellPassword,
+                              passwordRevealedId === item.id && styles.cellPasswordRevealed,
+                            )}
+                          >
+                            {passwordRevealedId === item.id ? item.password : "••••••••••••"}
+                          </span>
+                        </div>
+                        <div className={styles.strengthContainer} aria-label={`密码强度 ${strength.label}`}>
+                          <progress className={cn(styles.strengthBar, strengthToneClass)} value={strength.score} max={100} />
+                          <span className={cn(styles.strengthLabel, strengthToneClass)}>
+                            {strength.label}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className={styles.actions} onClick={(e) => e.stopPropagation()}>
+                        {/* Toggle password visibility */}
                         <button
-                          className="btn-icon"
+                          className={styles.actionButton}
                           type="button"
-                          onClick={() => handleCopy(item.username, `user-${item.id}`, onCopyUsername, item.id)}
-                          title="复制用户名"
-                          aria-label="复制用户名"
+                          onClick={() => onTogglePasswordReveal(item.id)}
+                          title={passwordRevealedId === item.id ? "隐藏密码" : "显示密码"}
+                          aria-label={`${passwordRevealedId === item.id ? "隐藏" : "显示"} ${item.title} 的密码`}
+                          aria-pressed={passwordRevealedId === item.id}
                         >
-                          {copiedField === `user-${item.id}` ? (
-                            <Check size={14} className="btn-icon--success" />
+                          {passwordRevealedId === item.id ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+
+                        {/* Copy username */}
+                        {item.username ? (
+                          <button
+                            className={styles.actionButton}
+                            type="button"
+                            onClick={() => handleCopy(item.username, `user-${item.id}`, onCopyUsername, item.id)}
+                            title="复制用户名"
+                            aria-label={copiedField === `user-${item.id}` ? `已复制 ${item.title} 的用户名` : `复制 ${item.title} 的用户名`}
+                          >
+                            {copiedField === `user-${item.id}` ? (
+                              <Check size={14} className={styles.actionSuccessIcon} />
+                            ) : (
+                              <Copy size={14} />
+                            )}
+                          </button>
+                        ) : null}
+
+                        {/* Copy password */}
+                        <button
+                          className={styles.actionButton}
+                          type="button"
+                          onClick={() => handleCopy(item.password, `pass-${item.id}`, onCopyPassword, item.id)}
+                          title="复制密码"
+                          aria-label={copiedField === `pass-${item.id}` ? `已复制 ${item.title} 的密码` : `复制 ${item.title} 的密码`}
+                        >
+                          {copiedField === `pass-${item.id}` ? (
+                            <Check size={14} className={styles.actionSuccessIcon} />
                           ) : (
                             <Copy size={14} />
                           )}
                         </button>
-                      ) : null}
 
-                      {/* Copy password */}
-                      <button
-                        className="btn-icon"
-                        type="button"
-                        onClick={() => handleCopy(item.password, `pass-${item.id}`, onCopyPassword, item.id)}
-                        title="复制密码"
-                        aria-label="复制密码"
-                      >
-                        {copiedField === `pass-${item.id}` ? (
-                          <Check size={14} className="btn-icon--success" />
-                        ) : (
-                          <Copy size={14} />
-                        )}
-                      </button>
-
-                      {/* Edit */}
-                      <button
-                        className="btn-icon"
-                        type="button"
-                        onClick={() => onEdit(item)}
-                        title="编辑凭据"
-                        aria-label="编辑凭据"
-                      >
-                        <Pencil size={14} />
-                      </button>
-
-                      {/* Delete (with confirm) */}
-                      {deleteConfirmId === item.id ? (
-                        <div className={styles.deleteConfirm}>
-                          <span>删除？</span>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            type="button"
-                            onClick={() => onDelete(item.id)}
-                            disabled={loading}
-                          >
-                            确认
-                          </button>
-                          <button className="btn-icon" type="button" onClick={onDeleteCancel}>
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ) : (
+                        {/* Edit */}
                         <button
-                          className="btn-icon btn-icon--danger"
+                          className={cn(styles.actionButton, styles.actionButtonEdit)}
                           type="button"
-                          onClick={() => onDeleteConfirm(item.id)}
-                          title="删除凭据"
-                          aria-label="删除凭据"
+                          onClick={() => onEdit(item)}
+                          title="编辑凭据"
+                          aria-label="编辑凭据"
                         >
-                          <Trash2 size={14} />
+                          <Pencil size={14} />
                         </button>
-                      )}
+
+                        {/* Delete (with confirm) */}
+                        {deleteConfirmId === item.id ? (
+                          <div className={styles.deleteConfirm} role="alert">
+                            <span>删除？</span>
+                            <button
+                              className={styles.deleteConfirmButton}
+                              type="button"
+                              onClick={() => onDelete(item.id)}
+                              disabled={loading}
+                            >
+                              确认
+                            </button>
+                            <button
+                              className={styles.deleteCancelButton}
+                              type="button"
+                              onClick={onDeleteCancel}
+                              aria-label="取消删除"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className={cn(styles.actionButton, styles.actionButtonDanger)}
+                            type="button"
+                            onClick={() => onDeleteConfirm(item.id)}
+                            title="删除凭据"
+                            aria-label="删除凭据"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </article>
                 );
               })}
-            </>
+            </div>
           ) : (
             <div className={styles.emptyState}>
-              <Sparkles size={24} />
-              <p>
-                {searchQuery
-                  ? "没有匹配的凭据。"
-                  : filterMode !== "all"
-                    ? "当前筛选条件下没有凭据。"
-                    : folderFilter !== null
-                      ? folderFilter === ""
-                        ? "未分类文件夹为空。"
-                        : `文件夹"${folderFilter}"中没有凭据。`
-                      : "暂无凭据，点击上方按钮添加。"}
-              </p>
+              <div className={styles.emptyPixelLedger} aria-hidden="true">
+                <span className={styles.emptyLedgerBlock} />
+                <span className={styles.emptyLedgerBlock} />
+                <span className={styles.emptyLedgerBlock} />
+                <span className={styles.emptyKeySlot}>
+                  <Sparkles size={18} />
+                </span>
+              </div>
+              <span className={styles.emptyStatus}>{emptyStateCopy.status}</span>
+              <h3>{emptyStateCopy.title}</h3>
+              <p>{emptyStateCopy.body}</p>
+              <button className={styles.emptyAction} type="button" onClick={onAdd}>
+                写入第一枚凭据
+              </button>
             </div>
           )}
         </div>

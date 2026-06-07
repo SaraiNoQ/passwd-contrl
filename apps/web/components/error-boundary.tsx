@@ -27,33 +27,266 @@ interface ErrorBoundaryState {
   errorKind: ErrorKind;
 }
 
-const ERROR_MESSAGES: Record<ErrorKind, { title: string; description: string; icon: ReactNode }> = {
+const ERROR_MESSAGES: Record<
+  ErrorKind,
+  { title: string; description: string; status: string; icon: ReactNode }
+> = {
   crypto: {
-    title: "加密模块加载失败",
-    description: "加密服务无法初始化。WebAssembly 可能被浏览器扩展或安全策略阻止，请检查后重试。",
+    title: "密钥引擎停机",
+    description: "加密服务无法初始化。WebAssembly 可能被浏览器扩展或安全策略阻止，当前密文账本已暂停解锁。",
+    status: "密钥停机",
     icon: <ShieldAlert size={36} aria-hidden="true" />
   },
   network: {
-    title: "网络连接失败",
-    description: "无法连接到服务器。请检查网络连接或防火墙设置。",
+    title: "同步链路断开",
+    description: "无法连接到服务器。请检查网络连接或防火墙设置，本地密码库仍保持封存状态。",
+    status: "链路断开",
     icon: <WifiOff size={36} aria-hidden="true" />
   },
   auth: {
-    title: "身份验证失败",
-    description: "登录状态已过期或凭证无效，请重新登录。",
+    title: "身份节点失效",
+    description: "登录状态已过期或凭证无效。请重新登录，让设备重新加入你的授权链路。",
+    status: "会话失效",
     icon: <ShieldAlert size={36} aria-hidden="true" />
   },
   sync: {
-    title: "同步失败",
-    description: "与服务器同步时发生错误，请稍后重试。",
+    title: "区块同步暂停",
+    description: "与服务器同步时发生错误。你的本地更改仍在队列中，稍后可以重新推送。",
+    status: "同步暂停",
     icon: <RefreshCw size={36} aria-hidden="true" />
   },
   unknown: {
-    title: "应用程序错误",
-    description: "发生了意外错误。请尝试刷新页面，如果问题持续请联系支持。",
+    title: "账本界面异常",
+    description: "发生了意外错误。请先重试或刷新页面；如果问题持续，请保留当前设备状态再联系支持。",
+    status: "界面异常",
     icon: <AlertTriangle size={36} aria-hidden="true" />
   }
 };
+
+const ERROR_BOUNDARY_CSS = `
+  .error-boundary {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 24px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.92) 0 0.5rem, transparent 0.55rem),
+      radial-gradient(circle at 82% 76%, rgba(255, 255, 255, 0.8) 0 0.42rem, transparent 0.48rem),
+      linear-gradient(var(--color-paper-white) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-paper-white) 1px, transparent 1px),
+      var(--color-cloud-mist);
+    background-size: 160px 160px, 128px 128px, 24px 24px, 24px 24px, auto;
+    color: var(--color-graphite-ink);
+    font-family: var(--font-family);
+  }
+
+  .error-boundary__panel {
+    position: relative;
+    display: flex;
+    width: min(100%, 560px);
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    padding: 56px 40px 40px;
+    overflow: hidden;
+    border: 1px solid var(--color-cloud-mist);
+    border-radius: 16px;
+    background:
+      linear-gradient(90deg, rgba(227, 241, 254, 0.62) 1px, transparent 1px) 0 0 / 8px 8px,
+      linear-gradient(180deg, rgba(227, 241, 254, 0.42), rgba(255, 255, 255, 0) 46%),
+      var(--color-paper-white);
+    box-shadow: var(--shadow-elevated);
+    text-align: center;
+    animation: error-panel-enter 320ms steps(5, end) both;
+  }
+
+  .error-boundary__panel::before {
+    position: absolute;
+    top: 18px;
+    left: 24px;
+    width: 10px;
+    height: 10px;
+    background: var(--color-signal-orange);
+    box-shadow:
+      16px 0 0 var(--color-cloud-mist),
+      32px 0 0 var(--color-cloud-mist);
+    content: "";
+    image-rendering: pixelated;
+  }
+
+  .error-boundary__panel::after {
+    position: absolute;
+    right: 24px;
+    bottom: 22px;
+    width: 56px;
+    height: 32px;
+    background:
+      linear-gradient(var(--color-cloud-mist) 0 0) 0 16px / 8px 8px no-repeat,
+      linear-gradient(var(--color-paper-white) 0 0) 8px 16px / 40px 8px no-repeat,
+      linear-gradient(var(--color-cloud-mist) 0 0) 48px 16px / 8px 8px no-repeat,
+      linear-gradient(var(--color-paper-white) 0 0) 16px 8px / 24px 8px no-repeat,
+      linear-gradient(var(--color-paper-white) 0 0) 24px 0 / 16px 8px no-repeat;
+    content: "";
+    opacity: 0.82;
+    pointer-events: none;
+  }
+
+  .error-boundary__status {
+    margin: 0;
+    color: var(--color-signal-orange);
+    font-family: var(--font-display);
+    font-size: 36px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .error-boundary__icon {
+    display: grid;
+    width: 80px;
+    height: 80px;
+    place-items: center;
+    border: 1px solid var(--color-signal-orange);
+    border-radius: 12px;
+    background: var(--color-paper-white);
+    color: var(--color-signal-orange);
+    box-shadow:
+      inset 0 0 0 8px rgba(227, 241, 254, 0.56),
+      8px 8px 0 var(--color-cloud-mist);
+    image-rendering: pixelated;
+  }
+
+  .error-boundary__title {
+    margin: 0;
+    color: var(--color-graphite-ink);
+    font-family: var(--font-display);
+    font-size: clamp(36px, 8vw, 48px);
+    font-weight: 400;
+    line-height: 0.95;
+    letter-spacing: -0.025em;
+  }
+
+  .error-boundary__description {
+    max-width: 390px;
+    margin: -4px 0 0;
+    color: var(--color-slate-pencil);
+    font-family: var(--font-family);
+    font-size: var(--text-body-size);
+    line-height: 1.75;
+  }
+
+  .error-boundary__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  .error-boundary__button {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-family: var(--font-family);
+    font-size: var(--text-button-size);
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      transform 140ms steps(2, end),
+      border-color 140ms ease,
+      background-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .error-boundary__button:hover {
+    transform: translateY(-2px);
+  }
+
+  .error-boundary__button:active {
+    transform: translateY(0);
+  }
+
+  .error-boundary__button:focus-visible {
+    outline: 3px solid rgba(255, 94, 36, 0.22);
+    outline-offset: 3px;
+    box-shadow: var(--shadow-orange-ring);
+  }
+
+  .error-boundary__button--primary {
+    border: 1px solid var(--color-signal-orange);
+    background: var(--color-signal-orange);
+    color: var(--color-text-inverse);
+    box-shadow:
+      rgba(255, 94, 36, 0.17) 0px 0.5px 0.5px 0.5px inset,
+      rgba(153, 37, 18, 0.2) 0px -1px 0.5px 0px inset;
+  }
+
+  .error-boundary__button--secondary {
+    border: 1px solid var(--color-cloud-mist);
+    background: var(--color-paper-white);
+    color: var(--color-graphite-ink);
+    box-shadow: 0 3px 0 var(--color-cloud-mist);
+  }
+
+  .error-boundary__button--secondary:hover {
+    border-color: var(--color-signal-orange);
+    background: rgba(255, 94, 36, 0.08);
+  }
+
+  @keyframes error-panel-enter {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 520px) {
+    .error-boundary {
+      padding: 16px;
+    }
+
+    .error-boundary__panel {
+      gap: 18px;
+      padding: 40px 24px 28px;
+    }
+
+    .error-boundary__status {
+      font-size: 36px;
+    }
+
+    .error-boundary__actions {
+      flex-direction: column;
+    }
+
+    .error-boundary__button {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .error-boundary__panel {
+      animation: none;
+    }
+
+    .error-boundary__button {
+      transition: none;
+    }
+
+    .error-boundary__button:hover {
+      transform: none;
+    }
+  }
+`;
 
 function classifyError(error: Error | null): ErrorKind {
   if (!error) return "unknown";
@@ -151,140 +384,55 @@ export default class ErrorBoundary extends Component<
       const config = ERROR_MESSAGES[errorKind];
 
       return (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "100vh",
-            background: "var(--color-bg-root)",
-            color: "var(--color-text-primary)",
-            fontFamily: "var(--font-family)",
-            padding: "24px"
-          }}
-        >
+        <>
+          <style>{ERROR_BOUNDARY_CSS}</style>
           <div
-            style={{
-              background: "var(--color-bg-panel)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-lg)",
-              padding: "48px 40px",
-              maxWidth: "480px",
-              width: "100%",
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "20px"
-            }}
+            className="error-boundary"
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+            aria-labelledby="error-boundary-title"
+            aria-describedby="error-boundary-description"
           >
-            {/* Icon */}
-            <div
-              style={{
-                width: "72px",
-                height: "72px",
-                borderRadius: "50%",
-                background:
-                  errorKind === "crypto" || errorKind === "auth"
-                    ? "rgba(251, 113, 133, 0.12)"
-                    : errorKind === "network"
-                      ? "rgba(245, 158, 11, 0.12)"
-                      : "rgba(148, 163, 184, 0.12)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color:
-                  errorKind === "crypto" || errorKind === "auth"
-                    ? "var(--color-danger)"
-                    : errorKind === "network"
-                      ? "var(--color-warning)"
-                      : "var(--color-text-muted)"
-              }}
-            >
-              {config.icon}
-            </div>
+            <main className="error-boundary__panel">
+              <p className="error-boundary__status" aria-hidden="true">
+                {config.status}
+              </p>
 
-            {/* Title */}
-            <h1
-              style={{
-                fontSize: "var(--text-page-title-size)",
-                fontWeight: "var(--text-page-title-weight)",
-                lineHeight: "var(--text-page-title-height)",
-                margin: 0
-              }}
-            >
-              {config.title}
-            </h1>
+              <div className="error-boundary__icon">{config.icon}</div>
 
-            {/* Description */}
-            <p
-              style={{
-                fontSize: "var(--text-body-size)",
-                lineHeight: "var(--text-body-height)",
-                color: "var(--color-text-muted)",
-                maxWidth: "360px",
-                margin: 0
-              }}
-            >
-              {config.description}
-            </p>
+              <h1 id="error-boundary-title" className="error-boundary__title">
+                {config.title}
+              </h1>
 
-            {/* Actions */}
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                marginTop: "4px",
-                flexWrap: "wrap",
-                justifyContent: "center"
-              }}
-            >
-              <button
-                type="button"
-                onClick={this.handleRetry}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  background:
-                    "linear-gradient(135deg, var(--color-primary), #06b6d4)",
-                  color: "var(--color-text-inverse)",
-                  border: "none",
-                  borderRadius: "var(--radius-md)",
-                  padding: "10px 20px",
-                  fontSize: "var(--text-button-size)",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  minHeight: "40px"
-                }}
+              <p
+                id="error-boundary-description"
+                className="error-boundary__description"
               >
-                <RefreshCw size={16} aria-hidden="true" />
-                重试
-              </button>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  background: "var(--color-bg-panel-soft)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "10px 20px",
-                  fontSize: "var(--text-button-size)",
-                  fontWeight: 600,
-                  color: "var(--color-text-secondary)",
-                  cursor: "pointer",
-                  minHeight: "40px"
-                }}
-              >
-                <Wifi size={16} aria-hidden="true" />
-                刷新页面
-              </button>
-            </div>
+                {config.description}
+              </p>
+
+              <div className="error-boundary__actions">
+                <button
+                  type="button"
+                  className="error-boundary__button error-boundary__button--primary"
+                  onClick={this.handleRetry}
+                >
+                  <RefreshCw size={16} aria-hidden="true" />
+                  重试
+                </button>
+                <button
+                  type="button"
+                  className="error-boundary__button error-boundary__button--secondary"
+                  onClick={() => window.location.reload()}
+                >
+                  <Wifi size={16} aria-hidden="true" />
+                  刷新页面
+                </button>
+              </div>
+            </main>
           </div>
-        </div>
+        </>
       );
     }
 

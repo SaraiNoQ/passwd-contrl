@@ -1,28 +1,78 @@
 .container {
+  --mascot-body: var(--color-signal-orange, #ff5e24);
+  --mascot-paper: var(--color-paper-white, #ffffff);
+  --mascot-ink: var(--color-graphite-ink, #232629);
+  --mascot-blush: #ffb09c;
+  --mascot-key: var(--color-signal-orange, #ff5e24);
+  --mascot-key-light: #ffd2c1;
+  --mascot-alert: var(--color-danger, #ef4444);
+  --mascot-muted: var(--color-slate-pencil, #5c6066);
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 90;
+  bottom: -18px;
+  right: -18px;
+  z-index: 20;
   pointer-events: auto;
   cursor: pointer;
   user-select: none;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
-  transition: filter 0.2s;
+  filter: drop-shadow(0 6px 0 rgba(92, 96, 102, 0.16));
+  opacity: 0.92;
+  transform: scale(0.62);
+  transform-origin: right bottom;
+  transition: filter 160ms steps(2, end), opacity 160ms steps(2, end);
 }
 
 .container:hover {
-  filter: drop-shadow(0 6px 16px rgba(255,94,36,0.3));
+  filter: drop-shadow(0 8px 0 rgba(255, 94, 36, 0.22));
+  opacity: 1;
 }
 
 .mascot {
   position: relative;
   image-rendering: pixelated;
-  transition: transform 0.15s ease-out;
+}
+
+.spriteStage {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  position: relative;
+  transform: perspective(120px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transform-style: preserve-3d;
+  transition: transform 120ms steps(3, end);
+  image-rendering: pixelated;
 }
 
 .svg {
   display: block;
   image-rendering: pixelated;
+}
+
+.svg rect {
+  shape-rendering: crispEdges;
+}
+
+.pixelBody {
+  fill: var(--mascot-body);
+}
+
+.pixelWhite {
+  fill: var(--mascot-paper);
+}
+
+.pixelInk {
+  fill: var(--mascot-ink);
+}
+
+.pixelBlush {
+  fill: var(--mascot-blush);
+}
+
+.keyGold {
+  fill: var(--mascot-key);
+}
+
+.keyHighlight {
+  fill: var(--mascot-key-light);
+  opacity: 0.9;
 }
 
 .bubbleWrap {
@@ -38,11 +88,11 @@
 
 .key {
   transform-origin: calc(14 * 6px + 3px) calc(10 * 6px + 3px);
-  transition: transform 0.3s ease;
+  transition: transform 180ms steps(3, end);
 }
 
 .container:hover .key {
-  animation: keySpin 1.2s ease-in-out infinite;
+  animation: keySpin 1200ms steps(5, end) infinite;
 }
 
 @keyframes keySpin {
@@ -59,7 +109,7 @@
 
 .eyes {
   transform-origin: 30px 39px; /* roughly center of eye row */
-  animation: blink 4s ease-in-out infinite;
+  animation: blink 4200ms steps(2, end) infinite;
 }
 
 @keyframes blink {
@@ -75,21 +125,26 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  font-family: var(--font-display, system-ui);
+  --hx: 0px;
+  --hy: -48px;
+  --burst-delay: 0ms;
+  font-family: var(--font-body, var(--font-manrope-variable, system-ui));
   font-size: 16px;
-  color: #ff5e24;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--mascot-body);
   pointer-events: none;
   opacity: 0;
-  animation: heartPop 0.7s ease-out forwards;
-  animation-delay: calc(var(--i, 0) * 0.05s);
+  animation: heartPop 700ms steps(7, end) forwards;
+  animation-delay: var(--burst-delay);
 }
 
-.heartBurst:nth-child(1) { --i: 0; }
-.heartBurst:nth-child(2) { --i: 1; }
-.heartBurst:nth-child(3) { --i: 2; }
-.heartBurst:nth-child(4) { --i: 3; }
-.heartBurst:nth-child(5) { --i: 4; }
-.heartBurst:nth-child(6) { --i: 5; }
+.heartPath0 { --hx: -30px; --hy: -58px; --burst-delay: 0ms; }
+.heartPath1 { --hx: -16px; --hy: -48px; --burst-delay: 45ms; }
+.heartPath2 { --hx: 4px; --hy: -64px; --burst-delay: 90ms; }
+.heartPath3 { --hx: 20px; --hy: -44px; --burst-delay: 135ms; }
+.heartPath4 { --hx: 34px; --hy: -56px; --burst-delay: 180ms; }
+.heartPath5 { --hx: -2px; --hy: -36px; --burst-delay: 225ms; }
 
 @keyframes heartPop {
   0% {
@@ -111,7 +166,7 @@
    ============================================ */
 
 .idle .mascot {
-  animation: breathe 3s ease-in-out infinite;
+  animation: breathe 3000ms steps(5, end) infinite;
 }
 @keyframes breathe {
   0%, 100% { transform: translateY(0); }
@@ -119,7 +174,7 @@
 }
 
 .sleeping .mascot {
-  animation: breathe 4s ease-in-out infinite;
+  animation: breathe 4000ms steps(5, end) infinite;
 }
 .sleeping .svg {
   opacity: 0.8;
@@ -132,11 +187,12 @@
 }
 .zzz {
   position: absolute;
-  font-family: var(--font-display);
+  font-family: var(--font-body, var(--font-manrope-variable, system-ui));
   font-size: 14px;
-  color: var(--color-primary);
-  letter-spacing: 2px;
-  animation: floatZ 2s ease-out infinite;
+  font-weight: 800;
+  color: var(--mascot-body);
+  letter-spacing: 0.04em;
+  animation: floatZ 2000ms steps(5, end) infinite;
   opacity: 0;
 }
 .zzz:nth-child(1) { top: 0; right: 0; animation-delay: 0s; }
@@ -149,7 +205,7 @@
 }
 
 .walking .mascot {
-  animation: patrol 2s ease-in-out infinite;
+  animation: patrol 2000ms steps(6, end) infinite;
 }
 @keyframes patrol {
   0%, 100% { transform: translateX(0); }
@@ -158,7 +214,7 @@
 }
 
 .working .mascot {
-  animation: workWobble 0.6s ease-in-out infinite;
+  animation: workWobble 600ms steps(3, end) infinite;
 }
 @keyframes workWobble {
   0%, 100% { transform: rotate(0deg); }
@@ -167,7 +223,7 @@
 }
 
 .excited .mascot {
-  animation: jump 0.4s ease-in-out 3;
+  animation: jump 400ms steps(4, end) 3;
 }
 @keyframes jump {
   0%, 100% { transform: translateY(0) scale(1); }
@@ -182,7 +238,7 @@
   opacity: 0;
 }
 .excited .sparkles {
-  animation: sparklePop 0.4s ease-out 3;
+  animation: sparklePop 400ms steps(3, end) 3;
 }
 @keyframes sparklePop {
   0% { opacity: 0; }
@@ -193,21 +249,31 @@
   position: absolute;
   width: 6px;
   height: 6px;
-  background: var(--color-primary);
+  background: var(--mascot-body);
   image-rendering: pixelated;
-  animation: twinkle 0.4s ease-out infinite;
+  animation: twinkle 400ms steps(3, end) infinite;
 }
+
+.sparkle0 { left: 16px; top: 2px; animation-delay: 0ms; }
+.sparkle1 { left: 88px; top: 10px; animation-delay: 80ms; }
+.sparkle2 { left: 6px; top: 56px; animation-delay: 160ms; }
+.sparkle3 { left: 104px; top: 62px; animation-delay: 240ms; }
+.sparkle4 { left: 36px; top: 102px; animation-delay: 320ms; }
+.sparkle5 { left: 76px; top: 96px; animation-delay: 400ms; }
+
 @keyframes twinkle {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.3; transform: scale(1.5); }
 }
 
 .error .mascot {
-  animation: errorShake 0.4s ease-in-out 2;
+  animation: errorShake 400ms steps(4, end) 2;
 }
-.error .svg {
-  filter: hue-rotate(-30deg) saturate(1.5);
+
+.error .pixelBody {
+  fill: var(--mascot-alert);
 }
+
 @keyframes errorShake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-5px); }
@@ -221,9 +287,13 @@
   width: 12px;
   height: 12px;
   border-radius: 2px;
-  background: var(--color-danger);
+  background: var(--mascot-body);
   image-rendering: pixelated;
-  animation: dotPulse 1s ease-in-out infinite;
+  animation: dotPulse 1000ms steps(2, end) infinite;
+}
+
+.error .dot {
+  background: var(--mascot-alert);
 }
 @keyframes dotPulse {
   0%, 100% { opacity: 1; }
@@ -235,9 +305,39 @@
    ============================================ */
 
 @media (max-width: 768px) {
-  .container { bottom: 72px; right: 12px; }
+  .container { bottom: 72px; right: 12px; transform: none; }
   .svg { width: 48px; height: auto; }
 }
 @media (max-width: 480px) {
   .container { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container,
+  .spriteStage,
+  .key {
+    transition: none;
+  }
+
+  .container:hover .key,
+  .eyes,
+  .heartBurst,
+  .idle .mascot,
+  .sleeping .mascot,
+  .zzz,
+  .walking .mascot,
+  .working .mascot,
+  .excited .mascot,
+  .excited .sparkles,
+  .sparkle,
+  .error .mascot,
+  .dot {
+    animation: none;
+  }
+
+  .heartBurst,
+  .sparkles,
+  .zzz {
+    display: none;
+  }
 }

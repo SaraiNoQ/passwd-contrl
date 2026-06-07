@@ -1,0 +1,476 @@
+.workspace {
+  display: grid;
+  gap: 24px;
+}
+
+.relayMap {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px 40px;
+  padding: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, rgba(227, 241, 254, 0.68) 1px, transparent 1px) 0 0 / 16px 16px,
+    linear-gradient(0deg, rgba(227, 241, 254, 0.68) 1px, transparent 1px) 0 0 / 16px 16px,
+    rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow-elevated);
+}
+
+.pixelCloudA,
+.pixelCloudB {
+  position: absolute;
+  z-index: 0;
+  background: var(--color-paper-white);
+  box-shadow:
+    16px 0 var(--color-paper-white),
+    32px 0 var(--color-paper-white),
+    8px 8px var(--color-paper-white),
+    24px 8px var(--color-paper-white),
+    40px 8px var(--color-cloud-mist),
+    16px 16px var(--color-cloud-mist),
+    32px 16px var(--color-cloud-mist);
+  width: 8px;
+  height: 8px;
+  opacity: 0.76;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.pixelCloudA {
+  top: 18px;
+  right: 210px;
+}
+
+.pixelCloudB {
+  right: 72px;
+  bottom: 34px;
+  transform: scale(0.75);
+  opacity: 0.5;
+}
+
+.mapIntro,
+.syncAction,
+.topology,
+.mapFooter {
+  position: relative;
+  z-index: 1;
+}
+
+.mapIntro {
+  max-width: 680px;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.mapIntro h2 {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: clamp(44px, 6vw, 64px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 0.86;
+}
+
+.mapIntro p {
+  max-width: 620px;
+  margin-top: 16px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.syncAction {
+  align-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  background: var(--color-primary);
+  color: var(--color-paper-white);
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: var(--shadow-orange-ring);
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.syncAction:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.syncAction:disabled {
+  cursor: wait;
+  opacity: 0.66;
+}
+
+.spinning {
+  animation: relaySpin 0.9s steps(8, end) infinite;
+}
+
+.topology {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 48px minmax(150px, 1fr) 48px minmax(150px, 1fr) 48px minmax(150px, 1fr);
+  align-items: center;
+}
+
+.topologyNode {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 4px 12px;
+  min-height: 142px;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+.relayNode {
+  border-color: var(--color-primary-border);
+}
+
+.nodeIndex {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  color: var(--color-border-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.nodeIcon {
+  grid-row: 1 / 4;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background: var(--color-cloud-mist);
+  color: var(--color-text-secondary);
+}
+
+.toneactive {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.tonesuccess {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.tonewarning {
+  background: var(--color-primary-soft);
+  color: var(--color-warning);
+}
+
+.tonemuted {
+  color: var(--color-text-muted);
+}
+
+.nodeLabel {
+  align-self: end;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.topologyNode strong {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topologyNode small {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connector {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  height: 16px;
+  border-top: 2px solid var(--color-border-strong);
+}
+
+.connector i {
+  width: 6px;
+  height: 6px;
+  margin-top: -7px;
+  border-radius: 1px;
+  background: var(--color-primary);
+  animation: packetTravel 1.8s steps(3, end) infinite;
+}
+
+.connector i:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.connector i:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+.mapFooter {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mapFooter span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.warning {
+  color: var(--color-warning);
+}
+
+.lastReceipt {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.bayGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.32fr) minmax(320px, 0.68fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.deviceBay {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.authGate {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 132px;
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-bg-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+.authGate > span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  background: var(--color-cloud-mist);
+  color: var(--color-text-secondary);
+}
+
+.authGate strong {
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.authGate p {
+  margin-top: 5px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.receiptBay {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-width: 0;
+}
+
+.bridgeBay {
+  grid-column: 2;
+  grid-row: 1;
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, var(--color-cloud-mist) 0 4px, transparent 4px),
+    var(--color-bg-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+.bayHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bayHeader span {
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.bayHeader h3 {
+  margin-top: 7px;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.11;
+}
+
+.bayHeader .bridgeSignal {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  letter-spacing: normal;
+}
+
+.bayHeader .bridgeSignalLive {
+  border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+  color: var(--color-success);
+}
+
+.bridgeNotice {
+  margin: 18px 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.bridgeLedger {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.bridgeLedger div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.bridgeLedger dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bridgeLedger dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes relaySpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes packetTravel {
+  0%,
+  100% { opacity: 0.18; }
+  50% { opacity: 1; }
+}
+
+@media (max-width: 1080px) {
+  .topology {
+    overflow-x: auto;
+    grid-template-columns: 180px 48px 180px 48px 180px 48px 180px;
+    padding-bottom: 10px;
+    scroll-snap-type: x proximity;
+  }
+
+  .topologyNode {
+    scroll-snap-align: start;
+  }
+
+  .bayGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .bridgeBay {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .deviceBay,
+  .receiptBay {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .relayMap {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 24px 18px;
+  }
+
+  .syncAction {
+    justify-self: start;
+  }
+
+  .mapIntro h2 {
+    font-size: 48px;
+  }
+
+  .mapFooter {
+    align-items: flex-start;
+  }
+
+  .lastReceipt {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning,
+  .connector i {
+    animation: none;
+  }
+}

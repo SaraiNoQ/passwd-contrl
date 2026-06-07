@@ -12,6 +12,7 @@ import { useCallback, useState } from "react";
 import { Modal } from "../ui/modal";
 import { Button } from "../ui/button";
 import styles from "./recovery-modal.module.css";
+import { printRecoveryCode } from "./recovery-print";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,45 +48,14 @@ export function RecoveryModal({
   }, [onCopy]);
 
   const handlePrint = useCallback(() => {
-    const printWindow = window.open("", "_blank", "width=400,height=300");
-    if (!printWindow) return;
-    printWindow.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <title>Obscura — 恢复码</title>
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; text-align: center; }
-    h1 { font-size: 18px; color: #1a1a1a; margin-bottom: 24px; }
-    .code {
-      font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-      font-size: 15px; letter-spacing: 0.5px;
-      background: #f5f5f5; padding: 16px 20px; border-radius: 8px;
-      word-break: break-all; margin: 20px 0; border: 1px solid #ddd;
-    }
-    .warning { color: #666; font-size: 12px; margin-top: 24px; line-height: 1.6; }
-    .label { font-size: 13px; color: #888; margin-bottom: 8px; }
-  </style>
-</head>
-<body>
-  <h1>Obscura 恢复码</h1>
-  <p class="label">Recovery Code:</p>
-  <div class="code">${recoveryCode}</div>
-  <p class="warning">
-    Store this code in a safe offline location.<br />
-    This code will not be shown again.
-  </p>
-</body>
-</html>`);
-    printWindow.document.close();
-    printWindow.print();
+    printRecoveryCode(recoveryCode);
   }, [recoveryCode]);
 
   return (
     <Modal
       open={isOpen}
       onClose={onClose}
-      title="恢复码"
-      className="pixel-border pixel-scanlines"
+      title="离线恢复区块"
       footer={
         <Button
           variant="primary"
@@ -98,16 +68,17 @@ export function RecoveryModal({
       }
     >
       {/* Primary warning */}
-      <div className={`${styles.warningBox} pixel-border`}>
+      <div className={styles.warningBox}>
         <AlertTriangle size={16} />
         <span>
-          请将恢复码保存在安全位置。它可用于在忘记主密码时恢复密码库。此恢复码不会再次显示。
+          请将备用密钥分片保存在安全的离线位置。它可用于忘记主密码时解封密码库，且不会再次显示。
         </span>
       </div>
 
       {/* Recovery code display */}
-      <h4 className={styles.sectionTitle}>您的恢复码</h4>
-      <div className={`${styles.codeDisplay} pixel-border`}>
+      <h4 className={styles.sectionTitle}>备用密钥分片</h4>
+      <div className={styles.codeDisplay}>
+        <span className={styles.codeRail} aria-hidden="true" />
         <code className={styles.code}>{recoveryCode}</code>
         <div className={styles.codeActions}>
           <button
@@ -118,7 +89,7 @@ export function RecoveryModal({
             aria-label="复制恢复码"
           >
             {copied ? (
-              <Check size={14} style={{ color: "var(--color-success)" }} />
+              <Check size={14} className={styles.successIcon} />
             ) : (
               <Copy size={14} />
             )}
@@ -138,15 +109,15 @@ export function RecoveryModal({
       <hr className={styles.divider} />
 
       {/* Offline storage guidance */}
-      <div className={`${styles.offlineSection} pixel-border`}>
+      <div className={styles.offlineSection}>
         <p className={styles.offlineHeading}>
           <ShieldAlert size={16} />
-          离线保存建议
+          离线分片保存建议
         </p>
         <ul className={styles.offlineList}>
           <li className={styles.offlineItem}>
             <Check size={12} />
-            <span>写在纸上并保存在安全位置（如保险箱）</span>
+            <span>写在纸上并放入保险箱或其他离线保管处</span>
           </li>
           <li className={styles.offlineItem}>
             <XIcon size={12} />
@@ -158,7 +129,7 @@ export function RecoveryModal({
           </li>
           <li className={styles.offlineItem}>
             <XIcon size={12} />
-            <span>恢复码不会上传到服务器，丢失后无法找回</span>
+            <span>备用分片不会上传到服务器，丢失后无法找回</span>
           </li>
         </ul>
       </div>
@@ -170,7 +141,7 @@ export function RecoveryModal({
           checked={confirmed}
           onChange={(e) => onConfirmChange(e.target.checked)}
         />
-        我已将恢复码保存在安全的离线位置
+        我已将备用密钥分片保存在安全的离线位置
       </label>
     </Modal>
   );

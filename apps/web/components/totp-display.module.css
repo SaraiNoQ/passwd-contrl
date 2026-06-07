@@ -1,0 +1,251 @@
+.beacon {
+  align-items: stretch;
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 12px;
+  box-shadow: var(--shadow-panel);
+  color: var(--color-graphite-ink);
+  display: grid;
+  flex: 1;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.beacon::after {
+  background: var(--color-signal-orange);
+  content: "";
+  height: 3px;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 44px;
+}
+
+.signal {
+  align-items: center;
+  background: var(--color-cloud-mist);
+  border-right: 1px solid var(--color-paper-white);
+  display: flex;
+  justify-content: center;
+  min-height: 72px;
+  overflow: hidden;
+  position: relative;
+}
+
+.signalCore {
+  background: var(--color-signal-orange);
+  box-shadow:
+    0 -6px 0 -2px var(--color-paper-white),
+    0 6px 0 -2px var(--color-paper-white),
+    -6px 0 0 -2px var(--color-paper-white),
+    6px 0 0 -2px var(--color-paper-white);
+  height: 8px;
+  position: relative;
+  width: 8px;
+  z-index: 1;
+}
+
+.signalRay {
+  border: 2px solid var(--color-paper-white);
+  height: 28px;
+  opacity: 0.9;
+  position: absolute;
+  transform: rotate(45deg);
+  width: 28px;
+}
+
+.readout {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px 9px;
+}
+
+.readoutMeta {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.channel {
+  color: var(--color-slate-pencil);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.timer {
+  color: var(--color-ash-mist);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.timerValue {
+  color: var(--color-graphite-ink);
+  font-variant-numeric: tabular-nums;
+  margin-right: 2px;
+}
+
+.code {
+  color: var(--color-graphite-ink);
+  font-family: var(--font-mono);
+  font-size: clamp(18px, 4vw, 24px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: clip;
+  transition: color var(--transition-normal);
+  white-space: nowrap;
+}
+
+.progress {
+  appearance: none;
+  background: var(--color-cloud-mist);
+  border: 0;
+  border-radius: 0;
+  height: 4px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.progress::-webkit-progress-bar {
+  background: var(--color-cloud-mist);
+}
+
+.progress::-webkit-progress-value {
+  background: var(--color-graphite-ink);
+  transition: width 1s linear;
+}
+
+.progress::-moz-progress-bar {
+  background: var(--color-graphite-ink);
+  transition: width 1s linear;
+}
+
+.copyButton {
+  align-items: center;
+  align-self: stretch;
+  background: var(--color-paper-white);
+  border: 0;
+  border-left: 1px solid var(--color-cloud-mist);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--color-slate-pencil);
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 800;
+  gap: 3px;
+  justify-content: center;
+  min-height: 72px;
+  min-width: 56px;
+  padding: 8px;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.copyButton:hover {
+  background: var(--color-cloud-mist);
+  color: var(--color-graphite-ink);
+}
+
+.copyButton:focus-visible {
+  box-shadow: var(--shadow-orange-ring);
+  outline: none;
+  position: relative;
+  z-index: 2;
+}
+
+.copyButtonCopied {
+  color: var(--color-graphite-ink);
+}
+
+.beaconExpiring .code,
+.beaconExpiring .timerValue {
+  color: var(--color-signal-orange);
+}
+
+.beaconExpiring .progress::-webkit-progress-value {
+  background: var(--color-signal-orange);
+}
+
+.beaconExpiring .progress::-moz-progress-bar {
+  background: var(--color-signal-orange);
+}
+
+.beaconExpiring .signalCore {
+  animation: beacon-pulse 0.8s steps(2, end) infinite;
+}
+
+.srOnly {
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@keyframes beacon-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (max-width: 440px) {
+  .beacon {
+    grid-template-columns: 44px minmax(0, 1fr) 48px;
+  }
+
+  .beacon::after {
+    width: 44px;
+  }
+
+  .channel {
+    font-size: 12px;
+  }
+
+  .timer {
+    font-size: 12px;
+  }
+
+  .code {
+    font-size: 18px;
+    letter-spacing: 0.1em;
+  }
+
+  .copyButton {
+    min-width: 48px;
+  }
+
+  .copyLabel {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beaconExpiring .signalCore {
+    animation: none;
+  }
+
+  .code,
+  .copyButton,
+  .progress::-webkit-progress-value,
+  .progress::-moz-progress-bar {
+    transition: none;
+  }
+}

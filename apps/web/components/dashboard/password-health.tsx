@@ -6,6 +6,7 @@ import type { VaultItem } from "../../lib/local-vault";
 import { isLogin } from "../../lib/item-types";
 import { isWeakPassword } from "../../app/vault-provider";
 import { getPasswordAge } from "../../lib/password-aging";
+import { cn } from "../../lib/utils";
 import styles from "./password-health.module.css";
 
 /* ---------------------------------------------------------------------------
@@ -64,9 +65,9 @@ function getRiskReasons(
 
 function getRiskReasonLabel(reason: RiskReason): string {
   switch (reason) {
-    case "weak": return "弱密码";
-    case "duplicate": return "重复密码";
-    case "old": return "过期密码";
+    case "weak": return "弱密钥";
+    case "duplicate": return "复用密钥";
+    case "old": return "陈旧密钥";
     case "non-https": return "非 HTTPS";
     case "breached": return "已泄露";
   }
@@ -82,6 +83,12 @@ function getRiskTagClass(reason: RiskReason): string | undefined {
   }
 }
 
+function riskScoreClass(score: number): string {
+  if (score >= 60) return styles.riskScoreHigh ?? "";
+  if (score >= 30) return styles.riskScoreMedium ?? "";
+  return styles.riskScoreMuted ?? "";
+}
+
 /* ---------------------------------------------------------------------------
    Circular Gauge
    --------------------------------------------------------------------------- */
@@ -92,28 +99,26 @@ const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
 function ScoreGauge({ score }: { score: number }) {
   const offset = GAUGE_CIRCUMFERENCE * (1 - score / 100);
 
-  const { gaugeFillGreen, gaugeFillYellow, gaugeFillRed, scoreGradeGreen, scoreGradeYellow, scoreGradeRed, scoreLayout, gaugeWrap, gauge, gaugeSvg, gaugeTrack, gaugeFill, gaugeCenter, gaugeScore, gaugeLabel, scoreDetails, scoreGrade } = styles;
-
   let fillClass: string | undefined;
   let grade: string;
   let gradeClass: string | undefined;
   let summary: string;
 
   if (score >= 71) {
-    fillClass = gaugeFillGreen;
+    fillClass = styles.gaugeFillGreen;
     grade = "优秀";
-    gradeClass = scoreGradeGreen;
-    summary = "密码安全状况良好，继续保持！";
+    gradeClass = styles.scoreGradeGreen;
+    summary = "风险账本保持清爽，继续让每个站点拥有独立钥匙。";
   } else if (score >= 41) {
-    fillClass = gaugeFillYellow;
+    fillClass = styles.gaugeFillYellow;
     grade = "一般";
-    gradeClass = scoreGradeYellow;
-    summary = "存在一些安全风险，建议尽快改善。";
+    gradeClass = styles.scoreGradeYellow;
+    summary = "账本里有几枚密钥需要重铸，建议尽快处理。";
   } else {
-    fillClass = gaugeFillRed;
+    fillClass = styles.gaugeFillRed;
     grade = "危险";
-    gradeClass = scoreGradeRed;
-    summary = "密码安全状况较差，强烈建议立即采取行动。";
+    gradeClass = styles.scoreGradeRed;
+    summary = "风险区块堆积过高，请优先重铸高风险密钥。";
   }
 
   return (
@@ -133,7 +138,7 @@ function ScoreGauge({ score }: { score: number }) {
               r={GAUGE_RADIUS}
             />
             <circle
-              className={`${styles.gaugeFill} ${fillClass}`}
+              className={cn(styles.gaugeFill, fillClass)}
               cx="70"
               cy="70"
               r={GAUGE_RADIUS}
@@ -143,14 +148,14 @@ function ScoreGauge({ score }: { score: number }) {
           </svg>
           <div className={styles.gaugeCenter}>
             <span className={styles.gaugeScore}>{score}</span>
-            <span className={styles.gaugeLabel}>安全评分</span>
+            <span className={styles.gaugeLabel}>账本评分</span>
           </div>
         </div>
       </div>
 
       <div className={styles.scoreDetails}>
-        <h3>密码健康概览</h3>
-        <span className={`${styles.scoreGrade} ${gradeClass}`}>
+        <h3>风险账本概览</h3>
+        <span className={cn(styles.scoreGrade, gradeClass)}>
           {grade} · {score} 分
         </span>
         <p className={styles.scoreSummary}>{summary}</p>
@@ -261,20 +266,35 @@ export function PasswordHealth({
     return (
       <div className={styles.container}>
         <div className={styles.sectionHeader}>
-          <h2>密码健康</h2>
+          <div>
+            <span className={styles.sectionKicker}>HEALTH</span>
+            <h2>风险账本</h2>
+          </div>
         </div>
         <div className={styles.emptyState}>
-          <ShieldCheck size={32} />
-          <p>还没有凭据。添加凭据后将显示密码健康分析。</p>
+          <div className={styles.emptyPixelVault} aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className={styles.emptyStateCopy}>
+            <span>密钥槽位未铸造</span>
+            <h3>密文账本尚未开铸</h3>
+            <p>添加第一条密码后，Obscura 会把强度、重复、过期与 HTTPS 风险写进本地健康账本。</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`${styles.container} pixel-border pixel-scanlines`} style={{ padding: 'var(--space-6)' }}>
+    <div className={styles.container}>
       <div className={styles.sectionHeader}>
-        <h2>密码健康</h2>
+        <div>
+          <span className={styles.sectionKicker}>HEALTH</span>
+          <h2>风险账本</h2>
+        </div>
+        <span className={styles.vaultCount}>共 {items.length} 枚密文条目</span>
       </div>
 
       {/* Section 1: Overall Security Score */}
@@ -282,20 +302,20 @@ export function PasswordHealth({
 
       {/* Breach check card */}
       {onCheckBreach ? (
-        <div className={`${styles.breachCheckCard} pixel-border`}>
+        <div className={styles.breachCheckCard}>
           <div className={styles.breachCheckInfo}>
             <ShieldAlert size={18} />
             <div>
-              <div className={styles.breachCheckTitle}>数据泄露检测</div>
+              <div className={styles.breachCheckTitle}>泄露预言机</div>
               <div className={styles.breachCheckDesc}>
-                使用 Have I Been Pwned 匿名接口检测密码是否已在已知数据泄露中暴露。仅发送密码哈希前缀，不会向第三方发送完整密码。
+                使用 Have I Been Pwned 匿名接口扫描密钥是否出现在已知泄露区块中。仅发送密码哈希前缀，不会向第三方发送完整密码。
               </div>
             </div>
           </div>
           <div className={styles.breachCheckRight}>
             {breachChecking && breachProgress ? (
               <span className={styles.breachCheckProgress}>
-                正在检测 {breachProgress.checked}/{breachProgress.total}...
+                正在扫描 {breachProgress.checked}/{breachProgress.total}...
               </span>
             ) : null}
             <button
@@ -305,7 +325,7 @@ export function PasswordHealth({
               disabled={breachChecking}
             >
               <ShieldAlert size={14} />
-              {breachChecking ? "检测中..." : "检测泄露"}
+              {breachChecking ? "扫描中..." : "扫描泄露"}
             </button>
           </div>
         </div>
@@ -316,59 +336,59 @@ export function PasswordHealth({
         <div className={styles.breachBannerDanger}>
           <AlertTriangle size={16} />
           <span>
-            发现 {breachedCount} 个密码已在数据泄露中暴露，请立即更换。
+            发现 {breachedCount} 枚密钥已进入泄露区块，请立即重铸。
           </span>
         </div>
       ) : breachedIds && breachedCount === 0 && !breachChecking ? (
         <div className={styles.breachBannerSafe}>
           <CheckCircle2 size={16} />
-          <span>未在已知数据泄露中发现您的密码。</span>
+          <span>未在已知泄露区块中发现你的密钥。</span>
         </div>
       ) : null}
 
       {/* Section 2: Risk Breakdown Cards */}
       <div className={styles.riskGrid}>
-        <div className={`${styles.riskCard} pixel-border`}>
+        <div className={styles.riskCard}>
           <div className={styles.riskCardHeader}>
-            <span className={styles.riskCardTitle}>弱密码</span>
+            <span className={styles.riskCardTitle}>弱密钥</span>
           </div>
-          <span className={`${styles.riskCardCount} ${weakCount > 0 ? styles.riskCardCountRed : styles.riskCardCountGreen}`}>
+          <span className={cn(styles.riskCardCount, weakCount > 0 ? styles.riskCardCountRed : styles.riskCardCountGreen)}>
             {weakCount}
           </span>
           <span className={styles.riskCardSuggestion}>
-            {weakCount > 0 ? "建议更换为强密码" : "所有密码强度达标"}
+            {weakCount > 0 ? "建议重铸为高熵密钥" : "所有密钥强度达标"}
           </span>
         </div>
 
-        <div className={`${styles.riskCard} pixel-border`}>
+        <div className={styles.riskCard}>
           <div className={styles.riskCardHeader}>
-            <span className={styles.riskCardTitle}>重复密码</span>
+            <span className={styles.riskCardTitle}>复用密钥</span>
           </div>
-          <span className={`${styles.riskCardCount} ${duplicateItemCount > 0 ? styles.riskCardCountYellow : styles.riskCardCountGreen}`}>
+          <span className={cn(styles.riskCardCount, duplicateItemCount > 0 ? styles.riskCardCountYellow : styles.riskCardCountGreen)}>
             {duplicateItemCount}
           </span>
           <span className={styles.riskCardSuggestion}>
-            {duplicateItemCount > 0 ? "建议为每个网站使用不同密码" : "没有重复使用的密码"}
+            {duplicateItemCount > 0 ? "建议为每个站点铸造独立密钥" : "没有重复使用的密钥"}
           </span>
         </div>
 
-        <div className={`${styles.riskCard} pixel-border`}>
+        <div className={styles.riskCard}>
           <div className={styles.riskCardHeader}>
-            <span className={styles.riskCardTitle}>过期密码</span>
+            <span className={styles.riskCardTitle}>陈旧密钥</span>
           </div>
-          <span className={`${styles.riskCardCount} ${countColorClass(oldCount, items.length)}`}>
+          <span className={cn(styles.riskCardCount, countColorClass(oldCount, items.length))}>
             {oldCount}
           </span>
           <span className={styles.riskCardSuggestion}>
-            {oldCount > 0 ? "建议定期更新密码" : "所有凭据都在近期更新过"}
+            {oldCount > 0 ? "建议定期重铸密钥" : "所有条目都在近期铸写过"}
           </span>
         </div>
 
-        <div className={`${styles.riskCard} pixel-border`}>
+        <div className={styles.riskCard}>
           <div className={styles.riskCardHeader}>
             <span className={styles.riskCardTitle}>非 HTTPS</span>
           </div>
-          <span className={`${styles.riskCardCount} ${nonHttpsCount > 0 ? styles.riskCardCountRed : styles.riskCardCountGreen}`}>
+          <span className={cn(styles.riskCardCount, nonHttpsCount > 0 ? styles.riskCardCountRed : styles.riskCardCountGreen)}>
             {nonHttpsCount}
           </span>
           <span className={styles.riskCardSuggestion}>
@@ -377,15 +397,15 @@ export function PasswordHealth({
         </div>
 
         {breachedIds !== undefined ? (
-          <div className={`${styles.riskCard} pixel-border`}>
+          <div className={styles.riskCard}>
             <div className={styles.riskCardHeader}>
-              <span className={styles.riskCardTitle}>泄露密码</span>
+              <span className={styles.riskCardTitle}>泄露密钥</span>
             </div>
-            <span className={`${styles.riskCardCount} ${breachedCount > 0 ? styles.riskCardCountRed : styles.riskCardCountGreen}`}>
+            <span className={cn(styles.riskCardCount, breachedCount > 0 ? styles.riskCardCountRed : styles.riskCardCountGreen)}>
               {breachedCount}
             </span>
             <span className={styles.riskCardSuggestion}>
-              {breachedCount > 0 ? "这些密码已出现在数据泄露中，请立即更换" : "未在已知泄露数据中发现您的密码"}
+              {breachedCount > 0 ? "这些密钥已进入泄露区块，请立即重铸" : "未在已知泄露区块中发现你的密钥"}
             </span>
           </div>
         ) : null}
@@ -393,18 +413,19 @@ export function PasswordHealth({
 
       {/* Section 3: Top Risk Items */}
       {topRisks.length > 0 ? (
-        <div>
-          <div className={styles.sectionHeader} style={{ marginBottom: 12 }}>
-            <h2>高风险凭据</h2>
-            <span className="stat-card-label" style={{ fontSize: 12 }}>
-              共 {topRisks.length} 项
-            </span>
+        <div className={styles.riskLedger}>
+          <div className={styles.riskLedgerHeader}>
+            <div>
+              <span className={styles.sectionKicker}>FIX LIST</span>
+              <h3>高风险密钥队列</h3>
+            </div>
+            <span className={styles.vaultCount}>共 {topRisks.length} 项</span>
           </div>
           <div className={styles.riskTable}>
             <div className={styles.riskTableHeader}>
-              <span>凭据</span>
+              <span>密文条目</span>
               <span>风险原因</span>
-              <span>风险评分</span>
+              <span>账本评分</span>
               <span>操作</span>
             </div>
             {topRisks.map((risk) => {
@@ -412,6 +433,7 @@ export function PasswordHealth({
                 return (
               <div className={styles.riskRow} key={risk.item.id}>
                 <div>
+                  <span className={styles.mobileCellLabel}>密文条目</span>
                   <div className={styles.riskItemTitle}>{risk.item.title}</div>
                   <div className={styles.riskItemOrigin}>
                     {isLogin(risk.item) ? risk.item.origin : ""}
@@ -421,30 +443,21 @@ export function PasswordHealth({
                   </div>
                 </div>
                 <div className={styles.riskItemReasons}>
+                  <span className={styles.mobileCellLabel}>风险原因</span>
                   {risk.reasons.map((r) => (
-                    <span key={r} className={`${styles.riskTag} ${getRiskTagClass(r)}`}>
+                    <span key={r} className={cn(styles.riskTag, getRiskTagClass(r))}>
                       {getRiskReasonLabel(r)}
                     </span>
                   ))}
                 </div>
                 <div>
-                  <span
-                    className={styles.gaugeScore}
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 700,
-                      color:
-                        risk.riskScore >= 60
-                          ? "var(--color-danger)"
-                          : risk.riskScore >= 30
-                            ? "var(--color-warning)"
-                            : "var(--color-text-muted)"
-                    }}
-                  >
+                  <span className={styles.mobileCellLabel}>账本评分</span>
+                  <span className={cn(styles.riskScoreBadge, riskScoreClass(risk.riskScore))}>
                     {risk.riskScore}
                   </span>
                 </div>
                 <div className={styles.riskAction}>
+                  <span className={styles.mobileCellLabel}>操作</span>
                   <button
                     className={styles.riskActionBtn}
                     type="button"
@@ -461,9 +474,15 @@ export function PasswordHealth({
           </div>
         </div>
       ) : (
-        <div className={styles.emptyState} style={{ padding: 24 }}>
-          <ShieldCheck size={32} />
-          <p>未发现风险凭据，安全状况良好！</p>
+        <div className={styles.emptyState}>
+          <div className={styles.emptyPixelSeal} aria-hidden="true">
+            <ShieldCheck size={26} />
+          </div>
+          <div className={styles.emptyStateCopy}>
+            <span>风险账本为空</span>
+            <h3>没有待修复密钥</h3>
+            <p>当前密文账本未发现弱密钥、重复使用、陈旧记录或非 HTTPS 风险。继续保持每个站点一把独立钥匙。</p>
+          </div>
         </div>
       )}
     </div>

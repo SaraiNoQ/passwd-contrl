@@ -48,7 +48,6 @@ type StrengthLevel = "weak" | "fair" | "strong" | "very-strong";
 interface StrengthInfo {
   level: StrengthLevel;
   label: string;
-  color: string;
   percentage: number;
   entropy: number;
 }
@@ -60,15 +59,15 @@ function computeEntropy(length: number, charsetSize: number): number {
 
 function getStrength(entropy: number): StrengthInfo {
   if (entropy < 30) {
-    return { level: "weak", label: "弱", color: "var(--color-danger)", percentage: 25, entropy };
+    return { level: "weak", label: "弱", percentage: 25, entropy };
   }
   if (entropy < 50) {
-    return { level: "fair", label: "一般", color: "var(--color-warning)", percentage: 50, entropy };
+    return { level: "fair", label: "一般", percentage: 50, entropy };
   }
   if (entropy < 70) {
-    return { level: "strong", label: "强", color: "var(--color-success)", percentage: 75, entropy };
+    return { level: "strong", label: "强", percentage: 75, entropy };
   }
-  return { level: "very-strong", label: "非常强", color: "var(--color-primary)", percentage: 100, entropy };
+  return { level: "very-strong", label: "非常强", percentage: 100, entropy };
 }
 
 /* ---------------------------------------------------------------------------
@@ -133,6 +132,10 @@ export function PasswordGenerator({ onUse, showUseButton }: PasswordGeneratorPro
   const charset = useMemo(() => buildCharset(opts), [opts]);
   const charsetSize = useMemo(() => new Set(charset).size, [charset]);
   const strength = useMemo(() => getStrength(computeEntropy(password.length, charsetSize)), [password, charsetSize]);
+  const strengthToneClass = styles[`strengthTone${strength.level
+    .split("-")
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join("")}`] ?? "";
 
   const optionsValid = opts.includeUpper || opts.includeLower || opts.includeDigits || opts.includeSymbols;
 
@@ -146,20 +149,19 @@ export function PasswordGenerator({ onUse, showUseButton }: PasswordGeneratorPro
     setCopied(false);
   }, [opts, password, optionsValid]);
 
-  // Handle option change
-  const setOption = useCallback(<K extends keyof GeneratorOptions>(key: K, value: GeneratorOptions[K]) => {
-    setOpts((prev) => {
-      const next = { ...prev, [key]: value };
-      return next;
-    });
+  const applyOptions = useCallback((next: GeneratorOptions) => {
+    setOpts(next);
+    if (next.includeUpper || next.includeLower || next.includeDigits || next.includeSymbols) {
+      setPassword(generate(next));
+    } else {
+      setPassword("");
+    }
+    setCopied(false);
   }, []);
 
-  // Regenerate when options change
-  const regenerateOnChange = useCallback(() => {
-    if (!optionsValid) return;
-    setPassword(generate(opts));
-    setCopied(false);
-  }, [opts, optionsValid]);
+  const setOption = useCallback(<K extends keyof GeneratorOptions>(key: K, value: GeneratorOptions[K]) => {
+    applyOptions({ ...opts, [key]: value });
+  }, [applyOptions, opts]);
 
   // Copy to clipboard
   const handleCopy = useCallback(async () => {
@@ -191,204 +193,198 @@ export function PasswordGenerator({ onUse, showUseButton }: PasswordGeneratorPro
   const history = historyRef.current;
 
   return (
-    <div className={`${styles.container} pixel-border pixel-scanlines`}>
-      {/* Display area */}
-      <div className={styles.displayArea}>
-        <div className={styles.passwordDisplay}>
-          <span className={styles.passwordText}>{password || "请至少选择一种字符类型"}</span>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <div>
+          <p className={styles.eyebrow}>KEY FORGE</p>
+          <h3 className={styles.title}>密码生成器</h3>
         </div>
-
-        <div className={styles.displayActions}>
-          <button
-            className={styles.actionBtn}
-            type="button"
-            onClick={handleRegenerate}
-            disabled={!optionsValid}
-            title="重新生成"
-            aria-label="重新生成"
-          >
-            <Shuffle size={18} />
-          </button>
-          <button
-            className={cn(styles.actionBtn, copied && styles.actionBtnSuccess)}
-            type="button"
-            onClick={handleCopy}
-            disabled={!password}
-            title="复制密码"
-            aria-label="复制密码"
-          >
-            {copied ? <Check size={16} /> : <Copy size={16} />}
-          </button>
-          {showUseButton && onUse && password ? (
-            <button className={styles.useBtn} type="button" onClick={handleUse}>
-              使用此密码
-            </button>
-          ) : null}
+        <div className={styles.entropyBadge}>
+          <span>{Math.round(strength.entropy)}</span>
+          <small>位熵</small>
         </div>
       </div>
 
-      {/* Copy toast */}
-      {copied ? <div className={styles.toast}>已复制</div> : null}
+      <div className={styles.forgeGrid}>
+        <section className={styles.outputBay} aria-label="生成的密码">
+          <div className={styles.displayArea}>
+            <div className={styles.passwordDisplay} aria-live="polite">
+              <span className={styles.passwordText}>{password || "请至少选择一种字符类型"}</span>
+            </div>
 
-      {/* Strength meter */}
-      <div className={styles.strengthSection}>
-        <div className={styles.strengthBar}>
-          <div
-            className={styles.strengthFill}
-            style={{ width: `${strength.percentage}%`, backgroundColor: strength.color }}
-          />
-        </div>
-        <span className={styles.strengthLabel} style={{ color: strength.color }}>
-          {strength.label}
-        </span>
-        <span className={styles.entropyLabel}>{Math.round(strength.entropy)} 位熵</span>
-      </div>
-
-      {/* Options */}
-      <div className={styles.optionsSection}>
-        {/* Length slider */}
-        <div className={styles.lengthRow}>
-          <label className={styles.lengthLabel}>密码长度</label>
-          <span className={styles.lengthValue}>{opts.length}</span>
-        </div>
-        <input
-          className={styles.slider}
-          type="range"
-          min={8}
-          max={64}
-          value={opts.length}
-          onChange={(e) => {
-            setOption("length", Number(e.target.value));
-            regenerateOnChange();
-          }}
-        />
-
-        {/* Checkboxes */}
-        <div className={styles.checkboxGrid}>
-          <label className={styles.checkboxLabel}>
-            <input
-              type="checkbox"
-              checked={opts.includeUpper}
-              onChange={(e) => {
-                const val = e.target.checked;
-                setOption("includeUpper", val);
-                if (val || opts.includeLower || opts.includeDigits || opts.includeSymbols) {
-                  regenerateOnChange();
-                }
-              }}
-            />
-            大写字母 (A-Z)
-          </label>
-          <label className={styles.checkboxLabel}>
-            <input
-              type="checkbox"
-              checked={opts.includeLower}
-              onChange={(e) => {
-                const val = e.target.checked;
-                setOption("includeLower", val);
-                if (val || opts.includeUpper || opts.includeDigits || opts.includeSymbols) {
-                  regenerateOnChange();
-                }
-              }}
-            />
-            小写字母 (a-z)
-          </label>
-          <label className={styles.checkboxLabel}>
-            <input
-              type="checkbox"
-              checked={opts.includeDigits}
-              onChange={(e) => {
-                const val = e.target.checked;
-                setOption("includeDigits", val);
-                if (val || opts.includeUpper || opts.includeLower || opts.includeSymbols) {
-                  regenerateOnChange();
-                }
-              }}
-            />
-            数字 (0-9)
-          </label>
-          <label className={styles.checkboxLabel}>
-            <input
-              type="checkbox"
-              checked={opts.includeSymbols}
-              onChange={(e) => {
-                const val = e.target.checked;
-                setOption("includeSymbols", val);
-                if (val || opts.includeUpper || opts.includeLower || opts.includeDigits) {
-                  regenerateOnChange();
-                }
-              }}
-            />
-            特殊符号 (!@#$%^&*)
-          </label>
-        </div>
-
-        {/* Toggle toggles */}
-        <div className={styles.toggleRow}>
-          <label className={styles.toggleLabel}>
-            <span>排除相似字符</span>
-            <input
-              type="checkbox"
-              className={styles.toggle}
-              checked={opts.excludeSimilar}
-              onChange={(e) => {
-                setOption("excludeSimilar", e.target.checked);
-                regenerateOnChange();
-              }}
-            />
-            <span className={styles.toggleHint}>i, l, 1, L, o, 0, O</span>
-          </label>
-          <label className={styles.toggleLabel}>
-            <span>排除歧义字符</span>
-            <input
-              type="checkbox"
-              className={styles.toggle}
-              checked={opts.excludeAmbiguous}
-              onChange={(e) => {
-                setOption("excludeAmbiguous", e.target.checked);
-                regenerateOnChange();
-              }}
-            />
-            <span className={styles.toggleHint}>&#123;&#125;[]()/\&#39;&quot;`~,;.&lt;&gt;</span>
-          </label>
-        </div>
-      </div>
-
-      {/* History dropdown */}
-      {history.length > 0 ? (
-        <div className={styles.historySection}>
-          <button
-            className={styles.historyToggle}
-            type="button"
-            onClick={() => setHistoryOpen((v) => !v)}
-          >
-            历史记录
-            <ChevronDown
-              size={14}
-              className={cn(styles.historyChevron, historyOpen && styles.historyChevronOpen)}
-            />
-          </button>
-          {historyOpen ? (
-            <div className={styles.historyDropdown}>
-              {history.map((pw, idx) => (
-                <button
-                  key={`${pw.slice(0, 8)}-${idx}`}
-                  className={styles.historyItem}
-                  type="button"
-                  onClick={() => handleSelectHistory(pw)}
-                >
-                  <span className={styles.historyPassword}>{pw.slice(0, 32)}{pw.length > 32 ? "..." : ""}</span>
+            <div className={styles.displayActions}>
+              <button
+                className={styles.actionBtn}
+                type="button"
+                onClick={handleRegenerate}
+                disabled={!optionsValid}
+                title="重新生成"
+                aria-label="重新生成"
+              >
+                <Shuffle size={18} />
+              </button>
+              <button
+                className={cn(styles.actionBtn, copied && styles.actionBtnSuccess)}
+                type="button"
+                onClick={handleCopy}
+                disabled={!password}
+                title="复制密码"
+                aria-label={copied ? "密码已复制" : "复制密码"}
+              >
+                {copied ? <Check size={16} /> : <Copy size={16} />}
+              </button>
+              {showUseButton && onUse && password ? (
+                <button className={styles.useBtn} type="button" onClick={handleUse}>
+                  使用此密码
                 </button>
-              ))}
+              ) : null}
+            </div>
+          </div>
+
+          {copied ? <div className={styles.toast} role="status">已复制</div> : null}
+
+          <div className={styles.strengthSection}>
+            <span className={cn(styles.strengthLabel, strengthToneClass)}>
+              {strength.label}
+            </span>
+            <progress
+              className={cn(styles.strengthBar, strengthToneClass)}
+              value={strength.percentage}
+              max={100}
+              aria-label={`密码强度 ${strength.label}，约 ${Math.round(strength.entropy)} 位熵`}
+            />
+            <span className={styles.entropyLabel}>{charsetSize} 字符池</span>
+          </div>
+
+          {/* History dropdown */}
+          {history.length > 0 ? (
+            <div className={styles.historySection}>
+              <button
+                className={styles.historyToggle}
+                type="button"
+                onClick={() => setHistoryOpen((v) => !v)}
+                aria-expanded={historyOpen}
+              >
+                历史记录
+                <ChevronDown
+                  size={14}
+                  className={cn(styles.historyChevron, historyOpen && styles.historyChevronOpen)}
+                />
+              </button>
+              {historyOpen ? (
+                <div className={styles.historyDropdown}>
+                  {history.map((pw, idx) => (
+                    <button
+                      key={`${pw.slice(0, 8)}-${idx}`}
+                      className={styles.historyItem}
+                      type="button"
+                      onClick={() => handleSelectHistory(pw)}
+                    >
+                      <span className={styles.historyPassword}>{pw.slice(0, 32)}{pw.length > 32 ? "..." : ""}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
-        </div>
-      ) : null}
+        </section>
 
-      {/* Options validation warning */}
-      {!optionsValid ? (
-        <div className={styles.warning}>请至少选择一种字符类型</div>
-      ) : null}
+        <section className={styles.controlBay} aria-label="密钥材料">
+          <div className={styles.optionsSection}>
+            <div className={styles.lengthRow}>
+              <label className={styles.lengthLabel}>密码长度</label>
+              <span className={styles.lengthValue}>{opts.length}</span>
+            </div>
+            <input
+              className={styles.slider}
+              type="range"
+              aria-label="密码长度"
+              min={8}
+              max={64}
+              value={opts.length}
+              onChange={(e) => {
+                const length = Number(e.target.value);
+                applyOptions({ ...opts, length });
+              }}
+            />
+
+            <div className={styles.checkboxGrid}>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={opts.includeUpper}
+                  onChange={(e) => {
+                    setOption("includeUpper", e.target.checked);
+                  }}
+                />
+                大写字母 (A-Z)
+              </label>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={opts.includeLower}
+                  onChange={(e) => {
+                    setOption("includeLower", e.target.checked);
+                  }}
+                />
+                小写字母 (a-z)
+              </label>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={opts.includeDigits}
+                  onChange={(e) => {
+                    setOption("includeDigits", e.target.checked);
+                  }}
+                />
+                数字 (0-9)
+              </label>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={opts.includeSymbols}
+                  onChange={(e) => {
+                    setOption("includeSymbols", e.target.checked);
+                  }}
+                />
+                特殊符号 (!@#$%^&*)
+              </label>
+            </div>
+
+            <div className={styles.toggleRow}>
+              <label className={styles.toggleLabel}>
+                <span>排除相似字符</span>
+                <input
+                  type="checkbox"
+                  className={styles.toggle}
+                  checked={opts.excludeSimilar}
+                  onChange={(e) => {
+                    setOption("excludeSimilar", e.target.checked);
+                  }}
+                />
+                <span className={styles.toggleHint}>i, l, 1, L, o, 0, O</span>
+              </label>
+              <label className={styles.toggleLabel}>
+                <span>排除歧义字符</span>
+                <input
+                  type="checkbox"
+                  className={styles.toggle}
+                  checked={opts.excludeAmbiguous}
+                  onChange={(e) => {
+                    setOption("excludeAmbiguous", e.target.checked);
+                  }}
+                />
+                <span className={styles.toggleHint}>&#123;&#125;[]()/\&#39;&quot;`~,;.&lt;&gt;</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Options validation warning */}
+          {!optionsValid ? (
+            <div className={styles.warning} role="alert">请至少选择一种字符类型</div>
+          ) : null}
+        </section>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { generateTotp } from "../lib/totp";
+import styles from "./totp-display.module.css";
 
 interface TotpDisplayProps {
   secret: string;
@@ -44,61 +45,54 @@ export function TotpDisplay({ secret }: TotpDisplayProps) {
 
   const progress = remaining / 30;
   const isLow = remaining <= 5;
+  const formattedCode = `${code.slice(0, 3)} ${code.slice(3)}`;
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      {/* Countdown ring */}
-      <svg width="36" height="36" viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
-        <circle
-          cx="18" cy="18" r="15"
-          fill="none"
-          stroke="var(--color-border)"
-          strokeWidth="3"
-        />
-        <circle
-          cx="18" cy="18" r="15"
-          fill="none"
-          stroke={isLow ? "var(--color-error)" : "var(--color-primary)"}
-          strokeWidth="3"
-          strokeDasharray={`${progress * 94.25} 94.25`}
-          strokeLinecap="round"
-          transform="rotate(-90 18 18)"
-          style={{ transition: "stroke-dasharray 1s linear" }}
-        />
-        <text x="18" y="22" textAnchor="middle" fontSize="10" fill="var(--color-text-secondary)">
-          {remaining}
-        </text>
-      </svg>
+    <div className={`${styles.beacon} ${isLow ? styles.beaconExpiring : ""}`}>
+      <div className={styles.signal} aria-hidden="true">
+        <span className={styles.signalCore} />
+        <span className={styles.signalRay} />
+      </div>
 
-      {/* Code display */}
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 20,
-          fontWeight: 600,
-          letterSpacing: 4,
-          color: isLow ? "var(--color-error)" : "var(--color-text)",
-          transition: "color 0.3s"
-        }}
-      >
-        {code.slice(0, 3)} {code.slice(3)}
-      </span>
+      <div className={styles.readout}>
+        <div className={styles.readoutMeta}>
+          <span className={styles.channel}>TOTP BEACON</span>
+          <span className={styles.timer}>
+            <span className={styles.timerValue}>{remaining}</span>
+            秒后换码
+          </span>
+        </div>
 
-      {/* Copy button */}
+        <output
+          className={styles.code}
+          aria-label={`当前动态验证码：${code.split("").join(" ")}`}
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {formattedCode}
+        </output>
+
+        <progress
+          className={styles.progress}
+          value={progress}
+          max={1}
+          aria-label={`验证码剩余 ${remaining} 秒`}
+        />
+      </div>
+
       <button
         type="button"
         onClick={() => void handleCopy()}
-        aria-label="复制验证码"
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          padding: 4,
-          color: copied ? "var(--color-success)" : "var(--color-text-secondary)"
-        }}
+        aria-label={copied ? "验证码已复制" : "复制动态验证码"}
+        className={`${styles.copyButton} ${copied ? styles.copyButtonCopied : ""}`}
       >
-        {copied ? <Check size={16} /> : <Copy size={16} />}
+        {copied ? <Check size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}
+        <span className={styles.copyLabel}>{copied ? "已复制" : "复制"}</span>
       </button>
+
+      <span className={styles.srOnly} aria-live="polite" aria-atomic="true">
+        {copied ? "动态验证码已复制到剪贴板" : ""}
+      </span>
     </div>
   );
 }

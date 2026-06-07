@@ -4,138 +4,405 @@
   gap: 24px;
 }
 
+.commandDeck {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(480px, 1.28fr);
+  align-items: center;
+  gap: 40px;
+  min-height: 0;
+  padding: 22px 24px;
+  background:
+    linear-gradient(90deg, var(--color-primary) 0 4px, transparent 4px),
+    var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-panel);
+}
+
+.commandCopy {
+  position: relative;
+  z-index: 1;
+  max-width: 520px;
+}
+
+.commandKicker {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--color-primary);
+  font: 800 12px/1 var(--font-family);
+  letter-spacing: 1.8px;
+}
+
+.commandCopy h2 {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 1.11;
+  letter-spacing: -0.025em;
+}
+
+.commandCopy p {
+  max-width: 480px;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 .quickActions {
-  display: flex;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  flex-wrap: wrap;
+}
+
+.quickActionBtn,
+.quickActionPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.quickActionBtn:focus-visible,
+.quickActionPrimary:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-orange-ring);
 }
 
 .quickActionBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  padding: 10px 18px;
-  border-radius: var(--radius-sm);
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  min-height: 40px;
-  white-space: nowrap;
-  box-shadow: var(--shadow-panel);
 }
 
 .quickActionBtn:hover {
   border-color: var(--color-primary-border);
   color: var(--color-primary);
+  transform: translateY(-1px);
 }
 
-.quickActionBtn svg { flex-shrink: 0; opacity: 0.7; }
+.quickActionBtn svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.quickActionPrimary {
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: #fff;
+  box-shadow: var(--shadow-orange-ring);
+}
+
+.quickActionPrimary:hover {
+  transform: translateY(-1px);
+}
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.75fr);
+  gap: 24px;
+  align-items: start;
+}
 
 .activitySection {
+  position: sticky;
+  top: 92px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: var(--space-6);
-}
-
-.activitySection > .activityList {
-  margin: 0 calc(-1 * var(--space-6));
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
+  gap: 20px;
+  padding: 24px;
+  background: var(--color-bg-panel);
+  border: 1px solid #e3f1fe;
+  border-radius: 16px;
+  box-shadow: var(--shadow-panel);
 }
 
 .activityHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 16px;
+}
+
+.activityHeader span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--color-primary);
+  font: 800 12px/1 var(--font-family);
+  letter-spacing: 2px;
 }
 
 .activityHeader h3 {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 400;
-  letter-spacing: -0.3px;
   color: var(--color-text-primary);
+  font-family: var(--font-family);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.activityHeader small {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: right;
 }
 
 .activityList {
-  background: var(--color-bg-panel);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-panel);
+  display: flex;
+  flex-direction: column;
 }
 
 .activityItem {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px var(--space-6);
+  gap: 12px;
+  padding: 14px 0;
   border-bottom: 1px solid var(--color-border);
-  transition: background var(--transition-fast);
 }
 
-.activityItem:last-child { border-bottom: none; }
-.activityItem:hover { background: var(--color-bg-hover); }
+.activityItem:last-child {
+  border-bottom: none;
+}
 
-.activityIcon {
+.activityItem:hover .activityDesc {
+  color: var(--color-primary);
+}
+
+.activityIconPush,
+.activityIconPull,
+.activityIconConflict,
+.activityIconError,
+.activityIconDevice {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.activityIconPush { background: var(--color-primary-soft); color: var(--color-primary); }
-.activityIconPull { background: var(--color-primary-soft); color: var(--color-primary); }
-.activityIconConflict { background: var(--color-warning-soft); color: var(--color-warning); }
-.activityIconError { background: var(--color-danger-soft); color: var(--color-danger); }
-.activityIconDevice { background: var(--color-success-soft); color: var(--color-success); }
+.activityIconPush,
+.activityIconPull {
+  background: color-mix(in srgb, var(--color-cloud-mist) 48%, var(--color-bg-panel));
+  color: var(--color-text-secondary);
+}
 
-.activityInfo { flex: 1; min-width: 0; }
+.activityIconConflict {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.activityIconError {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.activityIconDevice {
+  background: color-mix(in srgb, var(--color-cloud-mist) 48%, var(--color-bg-panel));
+  color: var(--color-text-secondary);
+}
+
+.activityInfo {
+  flex: 1;
+  min-width: 0;
+}
 
 .activityDesc {
+  overflow: hidden;
+  color: var(--color-text-secondary);
   font-size: 13px;
   font-weight: 500;
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--transition-fast);
 }
 
 .activityTime {
-  font-size: 12px;
-  color: var(--color-text-muted);
   margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 12px;
 }
 
 .activityCount {
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 1px;
-  color: var(--color-text-muted);
-  white-space: nowrap;
   flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
 }
 
 .activityEmpty {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  background:
+    linear-gradient(90deg, rgba(227, 241, 254, 0.54) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(227, 241, 254, 0.54) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 12px 12px;
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.74);
+}
+
+.activityEmpty::after {
+  position: absolute;
+  right: -18px;
+  bottom: -18px;
+  width: 78px;
+  height: 78px;
+  background: var(--color-cloud-mist);
+  border: 1px solid rgba(92, 96, 102, 0.22);
+  clip-path: polygon(0 36%, 36% 36%, 36% 0, 64% 0, 64% 36%, 100% 36%, 100% 64%, 64% 64%, 64% 100%, 36% 100%, 36% 64%, 0 64%);
+  content: "";
+  opacity: 0.72;
+}
+
+.emptyLedgerArt {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
-  color: var(--color-text-muted);
+  gap: 8px;
+}
+
+.emptyLedgerBlock {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  background: var(--color-cloud-mist);
+  border: 1px solid rgba(92, 96, 102, 0.34);
+  box-shadow: inset 0 -4px 0 rgba(255, 255, 255, 0.74);
+  animation: ledgerBlink 1.8s steps(2, end) infinite;
+}
+
+.emptyLedgerBlock:nth-child(2) {
+  animation-delay: 0.25s;
+}
+
+.emptyLedgerBlock:nth-child(3) {
+  background: rgba(255, 94, 36, 0.14);
+  border-color: rgba(255, 94, 36, 0.34);
+  animation-delay: 0.5s;
+}
+
+.emptyLedgerBlock + .emptyLedgerBlock::before {
+  position: absolute;
+  left: -9px;
+  top: 15px;
+  width: 8px;
+  height: 4px;
+  background: var(--color-slate-pencil);
+  content: "";
+  opacity: 0.58;
+}
+
+.activityEmptyCopy {
+  position: relative;
+  z-index: 1;
+}
+
+.activityEmptyCopy span {
+  display: block;
+  color: var(--color-signal-orange);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
+}
+
+.activityEmptyCopy h4 {
+  color: var(--color-graphite-ink);
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.11;
+  margin: 0;
+}
+
+.activityEmptyCopy p {
+  color: var(--color-slate-pencil);
   font-size: 13px;
+  line-height: 1.6;
+  margin: 10px 0 0;
+}
+
+.activityEmptyAction {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 14px;
+  background: var(--color-signal-orange);
+  border: 1px solid var(--color-signal-orange);
+  border-radius: 6px;
+  color: var(--color-paper-white);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.activityEmptyAction:hover {
+  box-shadow: var(--shadow-orange-ring);
+  transform: translateY(-1px);
+}
+
+.activityEmptyAction:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-orange-ring);
+}
+
+@keyframes ledgerBlink {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emptyLedgerBlock {
+    animation: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .dashboardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .activitySection {
+    position: static;
+  }
 }
 
 @media (max-width: 768px) {
-  .quickActions { gap: 6px; }
-  .quickActionBtn { font-size: 12px; padding: 8px 14px; min-height: 36px; }
+  .commandDeck {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 22px 20px;
+  }
+
+  .commandCopy h2 {
+    font-size: 36px;
+  }
+
+  .quickActions {
+    grid-template-columns: 1fr;
+  }
 }

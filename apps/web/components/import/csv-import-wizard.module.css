@@ -3,30 +3,44 @@
  * --------------------------------------------------------------------------- */
 
 .panel {
-  background: var(--color-bg-panel);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-cloud-mist) 50%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--color-cloud-mist) 50%, transparent) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 16px 16px;
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 16px;
+  box-shadow: var(--shadow-panel);
   padding: var(--space-6);
 }
 
 .panelHeader {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-cloud-mist) 62%, var(--color-paper-white)), var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+  padding: var(--space-4);
 }
 
 .panelTitle {
+  align-items: center;
   font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.11;
   color: var(--color-text-primary);
+  display: flex;
+  gap: var(--space-2);
   margin: 0;
 }
 
 .panelTitleIcon {
-  vertical-align: -4px;
-  margin-right: var(--space-2);
+  flex-shrink: 0;
 }
 
 /* ---------------------------------------------------------------------------
@@ -34,10 +48,14 @@
  * --------------------------------------------------------------------------- */
 
 .stepIndicator {
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 14px;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-6);
+  padding: var(--space-3);
   font-size: 13px;
   color: var(--color-text-muted);
 }
@@ -49,33 +67,41 @@
 }
 
 .stepDot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 600;
-  background: var(--color-border-strong);
+  background: color-mix(in srgb, var(--color-cloud-mist) 56%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
   color: var(--color-text-muted);
-  transition: var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .stepDotActive {
   background: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-orange-ring);
   color: var(--color-text-inverse);
 }
 
 .stepDotCompleted {
-  background: var(--color-success);
-  color: var(--color-text-inverse);
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
 }
 
 .stepLabel {
-  font-family: var(--font-display);
+  font-family: var(--font-family);
   color: var(--color-text-muted);
-  font-weight: 400;
+  font-weight: 800;
 }
 
 .stepLabelActive {
@@ -84,7 +110,7 @@
 }
 
 .stepChevron {
-  color: var(--color-border);
+  color: var(--color-cloud-mist);
 }
 
 /* ---------------------------------------------------------------------------
@@ -93,16 +119,23 @@
 
 .sectionTitle {
   font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.11;
   color: var(--color-text-primary);
   margin: 0 0 var(--space-2);
 }
 
 .description {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.6;
   color: var(--color-text-muted);
   margin: 0 0 20px;
+}
+
+.descriptionSpaced {
+  margin-bottom: var(--space-4);
 }
 
 /* ---------------------------------------------------------------------------
@@ -116,24 +149,38 @@
 }
 
 .sourceCard {
-  background: var(--color-bg-panel-soft);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 12px;
   padding: var(--space-4);
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
   display: flex;
   align-items: center;
   gap: var(--space-3);
   font-family: inherit;
   font-size: inherit;
+  min-height: 44px;
   text-align: left;
   color: var(--color-text-primary);
 }
 
-.sourceCardSelected {
-  background: var(--color-primary-soft);
+.sourceCard:hover {
   border-color: var(--color-primary-border);
+  transform: translateY(-1px);
+}
+
+.sourceCard:focus-visible {
+  box-shadow: var(--shadow-orange-ring);
+  outline: none;
+}
+
+.sourceCardSelected {
+  background: color-mix(in srgb, var(--color-cloud-mist) 42%, var(--color-paper-white));
+  border-color: var(--color-primary);
 }
 
 .sourceCardIcon {
@@ -150,7 +197,7 @@
 
 .sourceCardName {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 800;
   color: var(--color-text-primary);
 }
 
@@ -173,13 +220,19 @@
   align-items: center;
   gap: 6px;
   padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   border: none;
-  transition: var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
   font-family: inherit;
+  min-height: 44px;
 }
 
 .primaryButton {
@@ -212,15 +265,15 @@
  * --------------------------------------------------------------------------- */
 
 .warningBox {
-  background: var(--color-warning-soft);
-  border: 1px solid var(--color-warning-border);
-  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-paper-white));
+  border: 1px solid var(--color-primary-border);
+  border-radius: 12px;
   padding: var(--space-3);
   display: flex;
   gap: 10px;
   align-items: flex-start;
   font-size: 13px;
-  color: var(--color-warning);
+  color: var(--color-primary);
   line-height: 20px;
 }
 
@@ -242,9 +295,9 @@
 
 .infoBox {
   margin-top: var(--space-4);
-  background: var(--color-primary-soft);
-  border: 1px solid var(--color-primary-border);
-  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-cloud-mist) 42%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 12px;
   padding: var(--space-3);
   font-size: 13px;
   color: var(--color-text-secondary);
@@ -269,7 +322,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px var(--space-2);
+  padding: 3px var(--space-2);
   border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 500;
@@ -277,14 +330,14 @@
 
 .validationBadgeOk {
   composes: validationBadge;
-  background: var(--color-success-soft);
-  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-cloud-mist) 46%, var(--color-paper-white));
+  color: var(--color-text-primary);
 }
 
 .validationBadgeWarning {
   composes: validationBadge;
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
 }
 
 .validationBadgeError {
@@ -315,9 +368,9 @@
  * --------------------------------------------------------------------------- */
 
 .tableWrapper {
-  background: var(--color-bg-panel-soft);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 14px;
   overflow: hidden;
 }
 
@@ -329,7 +382,8 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--color-text-muted);
-  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-cloud-mist) 42%, var(--color-paper-white));
+  border-bottom: 1px solid var(--color-cloud-mist);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -346,7 +400,7 @@
   padding: var(--space-2) var(--space-3);
   font-size: 13px;
   color: var(--color-text-secondary);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-cloud-mist);
 }
 
 .tableCellEllipsis {
@@ -358,6 +412,10 @@
 .tableCellPassword {
   color: var(--color-text-muted);
   font-family: var(--font-mono);
+}
+
+.tableValidationCell {
+  min-width: 0;
 }
 
 .tableMoreInfo {
@@ -372,16 +430,50 @@
  * --------------------------------------------------------------------------- */
 
 .dropZone {
-  border: 2px dashed var(--color-border-strong);
-  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-cloud-mist) 30%, var(--color-paper-white));
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 14px;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  min-height: 164px;
   padding: 40px;
+  position: relative;
   text-align: center;
   cursor: pointer;
-  transition: border-color var(--transition-fast);
-  color: var(--color-text-muted);
-  background: transparent;
-  font-family: inherit;
+  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
   width: 100%;
+}
+
+.dropZone::before,
+.dropZone::after {
+  content: "";
+  height: 10px;
+  position: absolute;
+  width: 10px;
+}
+
+.dropZone::before {
+  background: var(--color-primary);
+  left: var(--space-4);
+  top: var(--space-4);
+}
+
+.dropZone::after {
+  background: var(--color-cloud-mist);
+  bottom: var(--space-4);
+  right: var(--space-4);
+}
+
+.dropZone:hover {
+  background: color-mix(in srgb, var(--color-cloud-mist) 44%, var(--color-paper-white));
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.dropZone:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-orange-ring);
+  outline: none;
 }
 
 .dropZoneIcon {
@@ -413,6 +505,7 @@
   display: flex;
   gap: var(--space-4);
   font-size: 13px;
+  flex-wrap: wrap;
 }
 
 .parseStat {
@@ -426,11 +519,11 @@
 }
 
 .parseStatSuccess {
-  color: var(--color-success);
+  color: var(--color-text-primary);
 }
 
 .parseStatWarning {
-  color: var(--color-warning);
+  color: var(--color-primary);
 }
 
 /* ---------------------------------------------------------------------------
@@ -439,10 +532,14 @@
 
 .confirmSummary {
   margin-top: var(--space-4);
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   font-size: 13px;
+  padding: var(--space-4);
 }
 
 .confirmRow {
@@ -460,11 +557,11 @@
 }
 
 .confirmValueSuccess {
-  color: var(--color-success);
+  color: var(--color-text-primary);
 }
 
 .confirmValueWarning {
-  color: var(--color-warning);
+  color: var(--color-primary);
 }
 
 /* ---------------------------------------------------------------------------
@@ -476,7 +573,7 @@
   justify-content: space-between;
   align-items: center;
   padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-cloud-mist);
 }
 
 .navBarLeft {
@@ -495,10 +592,118 @@
   margin-bottom: var(--space-6);
 }
 
+.ledgerHint {
+  align-items: center;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 0 var(--space-4);
+}
+
+.ledgerHint span {
+  background:
+    linear-gradient(90deg, var(--color-primary) 0 10px, transparent 10px 14px, var(--color-cloud-mist) 14px 100%);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
+  height: 10px;
+}
+
 /* ---------------------------------------------------------------------------
  * File step: drop zone wrapper
  * --------------------------------------------------------------------------- */
 
 .dropZoneWrapper {
   margin-top: var(--space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sourceCard,
+  .dropZone,
+  .stepDot {
+    transition: none;
+  }
+
+  .sourceCard:hover,
+  .dropZone:hover {
+    transform: none;
+  }
+}
+
+.hiddenFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .panel {
+    padding: var(--space-4);
+  }
+
+  .stepIndicator {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .stepChevron {
+    display: none;
+  }
+
+  .stepItem {
+    min-height: 44px;
+  }
+
+  .tableHeader {
+    display: none;
+  }
+
+  .tableRow {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+    padding: var(--space-4);
+  }
+
+  .tableCellEllipsis,
+  .tableCellPassword,
+  .tableValidationCell {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: var(--space-2);
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .tableCellEllipsis::before,
+  .tableCellPassword::before,
+  .tableValidationCell::before {
+    content: attr(data-label);
+    color: var(--color-text-muted);
+    font-family: var(--font-family);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+  }
+
+  .dropZone {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .parseStats,
+  .navBar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .navBarLeft,
+  .navBarRight,
+  .primaryButton,
+  .primaryButtonDisabled,
+  .secondaryButton,
+  .ghostButton {
+    width: 100%;
+  }
 }

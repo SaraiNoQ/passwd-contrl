@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, ChevronRight, FileText, Globe, Upload, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, Globe, Upload, X } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { parsePasswordCsv } from "../../lib/csv-import";
 import type { ImportLoginRow } from "@zero-vault/shared";
@@ -37,7 +37,7 @@ const BROWSER_SOURCES: BrowserSource[] = [
   { id: "firefox", name: "Firefox", description: "Firefox 密码管理器" }
 ];
 
-const WIZARD_STEPS = ["选择来源", "选择文件", "预览校验", "确认导入"] as const;
+const WIZARD_STEPS = ["定位源库", "投递 CSV", "扫描密文", "铸入账本"] as const;
 
 
 // ---------------------------------------------------------------------------
@@ -188,11 +188,16 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
   const renderSourceStep = () => (
     <div>
       <h3 className={styles.sectionTitle}>
-        选择浏览器来源
+        定位浏览器源库
       </h3>
       <p className={styles.description}>
-        选择导出 CSV 的浏览器。不同浏览器的 CSV 格式可能略有不同。
+        选择明文 CSV 的来源，Obscura 会按浏览器格式打开对应的解析槽位。
       </p>
+      <div className={styles.ledgerHint} aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
       <div className={styles.sourceList}>
         {BROWSER_SOURCES.map((source) => (
           <button
@@ -219,10 +224,10 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
   const renderFileStep = () => (
     <div>
       <h3 className={styles.sectionTitle}>
-        选择 CSV 文件
+        投递 CSV 明文文件
       </h3>
       <p className={styles.description}>
-        从 {BROWSER_SOURCES.find((s) => s.id === selectedSource)?.name ?? "浏览器"} 导出的 CSV 文件。
+        从 {BROWSER_SOURCES.find((s) => s.id === selectedSource)?.name ?? "浏览器"} 导出的 CSV 会先在本地内存扫描，再进入铸造队列。
       </p>
 
       <div className={styles.warningBox}>
@@ -239,15 +244,15 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
         <button type="button" className={styles.dropZone} onClick={handleDropZoneClick}>
           <Upload size={24} className={styles.dropZoneIcon} />
           <div className={styles.dropZoneFile}>
-            {fileName ?? "点击选择 CSV 文件"}
+            {fileName ?? "点击投递 CSV 文件"}
           </div>
-          <div className={styles.dropZoneHint}>支持 .csv 格式</div>
+          <div className={styles.dropZoneHint}>支持 .csv 格式，解析过程不上云</div>
         </button>
         <input
           ref={fileInputRef}
           type="file"
           accept=".csv,text/csv"
-          style={{ display: "none" }}
+          className={styles.hiddenFileInput}
           onChange={handleFileInput}
           aria-label="选择 CSV 文件"
         />
@@ -260,7 +265,7 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
       {parsedRows.length > 0 && !parseError ? (
         <div className={styles.parseStats}>
           <span className={styles.parseStatSuccess}>
-            <Check size={14} className={styles.parseStatIcon} /> 已解析 {parsedRows.length} 条记录
+            <Check size={14} className={styles.parseStatIcon} /> 已扫描 {parsedRows.length} 条待铸记录
           </span>
           {rejectedCount > 0 ? (
             <span className={styles.parseStatWarning}>
@@ -275,10 +280,10 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
   const renderPreviewStep = () => (
     <div>
       <h3 className={styles.sectionTitle}>
-        预览与校验
+        扫描密文铸件
       </h3>
-      <p className={styles.description} style={{ marginBottom: 16 }}>
-        以下是解析结果，请检查校验状态后再继续。
+      <p className={`${styles.description} ${styles.descriptionSpaced}`}>
+        以下是解析结果，请检查校验状态后再继续铸入本地密码库。
       </p>
 
       {/* Stats summary */}
@@ -297,43 +302,49 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
 
       {/* Validation legend */}
       <div className={styles.validationLegend}>
-        校验维度：URL 有效、HTTPS、用户名存在、密码存在、重复项
+        铸造校验：URL 有效、HTTPS、用户名存在、密码存在、重复项
       </div>
 
       {/* Preview table */}
-      <div className={styles.tableWrapper}>
-        <div className={styles.tableHeader}>
-          <span>名称</span>
-          <span>网址</span>
-          <span>用户名</span>
-          <span>密码</span>
-          <span>校验</span>
+      <div className={styles.tableWrapper} role="table" aria-label="CSV 导入预览">
+        <div className={styles.tableHeader} role="row">
+          <span role="columnheader">名称</span>
+          <span role="columnheader">网址</span>
+          <span role="columnheader">用户名</span>
+          <span role="columnheader">密码</span>
+          <span role="columnheader">校验</span>
         </div>
-        <div className={styles.tableBody}>
+        <div className={styles.tableBody} role="rowgroup">
           {validationEntries.slice(0, 50).map((entry) => (
-            <div key={entry.index} className={styles.tableRow}>
+            <div key={entry.index} className={styles.tableRow} role="row">
               <span
                 className={styles.tableCellEllipsis}
+                role="cell"
+                data-label="名称"
                 title={entry.row.title ?? ""}
               >
                 {entry.row.title ?? "(无标题)"}
               </span>
               <span
                 className={styles.tableCellEllipsis}
+                role="cell"
+                data-label="网址"
                 title={entry.row.origin}
               >
                 {entry.row.origin}
               </span>
               <span
                 className={styles.tableCellEllipsis}
+                role="cell"
+                data-label="用户名"
                 title={entry.row.username}
               >
                 {entry.row.username}
               </span>
-              <span className={styles.tableCellPassword}>
+              <span className={styles.tableCellPassword} role="cell" data-label="密码">
                 {"*".repeat(Math.min(entry.row.password.length, 8))}
               </span>
-              <span>
+              <span className={styles.tableValidationCell} role="cell" data-label="校验">
                 {entry.issues.length === 0 ? (
                   <span className={styles.validationBadgeOk}>通过</span>
                 ) : (
@@ -357,10 +368,10 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
   const renderConfirmStep = () => (
     <div>
       <h3 className={styles.sectionTitle}>
-        确认导入
+        确认铸入密文账本
       </h3>
       <p className={styles.description}>
-        即将导入 {stats.valid} 条有效凭据到密码库。
+        即将把 {stats.valid} 条有效凭据铸入本地密码库。
         {stats.withErrors > 0 ? ` ${stats.withErrors} 条有错误的记录将被跳过。` : ""}
       </p>
 
@@ -379,7 +390,7 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
           <strong>Obscura 不会上传明文 CSV。</strong>
         </p>
         <p className={styles.infoBoxDesc}>
-          所有数据在浏览器内存中加密后写入本地密码库。
+          所有数据在浏览器内存中加密后写入本地密文账本。
         </p>
       </div>
 
@@ -411,12 +422,17 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
   // Render -------------------------------------------------------------------
 
   return (
-    <div role="dialog" aria-label="CSV 导入向导" className={styles.panel}>
+    <section
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="csv-import-wizard-title"
+      className={styles.panel}
+    >
       {/* Header */}
       <div className={styles.panelHeader}>
-        <h2 className={styles.panelTitle}>
-          <FileText size={20} className={styles.panelTitleIcon} />
-          CSV 导入
+        <h2 id="csv-import-wizard-title" className={styles.panelTitle}>
+          <PixelImportLedgerIcon className={styles.panelTitleIcon} />
+          CSV 铸账导入
         </h2>
         <button type="button" className={styles.ghostButton} onClick={onCancel} aria-label="取消导入">
           <X size={16} />
@@ -424,9 +440,14 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
       </div>
 
       {/* Step indicator */}
-      <div className={styles.stepIndicator}>
+      <div className={styles.stepIndicator} role="list" aria-label="CSV 导入进度">
         {WIZARD_STEPS.map((label, i) => (
-          <div key={label} className={styles.stepItem}>
+          <div
+            key={label}
+            className={styles.stepItem}
+            role="listitem"
+            aria-current={i === step ? "step" : undefined}
+          >
             <div className={`${styles.stepDot}${i < step ? ` ${styles.stepDotCompleted}` : i === step ? ` ${styles.stepDotActive}` : ""}`}>
               {i < step ? <Check size={14} /> : i + 1}
             </div>
@@ -468,12 +489,35 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
           ) : (
             <button type="button" className={styles.primaryButton} onClick={handleConfirmImport}>
               <Upload size={14} />
-              确认导入
+              确认铸入
             </button>
           )}
         </div>
       </div>
-    </div>
+    </section>
+  );
+}
+
+function PixelImportLedgerIcon({ className }: { className?: string | undefined }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      shapeRendering="crispEdges"
+    >
+      <rect x="5" y="3" width="12" height="3" fill="#5c6066" opacity="0.36" />
+      <rect x="3" y="5" width="16" height="16" fill="#ffffff" />
+      <rect x="3" y="5" width="3" height="16" fill="#5c6066" opacity="0.35" />
+      <rect x="6" y="5" width="13" height="3" fill="#5c6066" opacity="0.35" />
+      <rect x="18" y="8" width="3" height="13" fill="#5c6066" opacity="0.35" />
+      <rect x="6" y="21" width="15" height="2" fill="#5c6066" opacity="0.35" />
+      <rect x="8" y="10" width="8" height="2" fill="#ff5e24" />
+      <rect x="8" y="14" width="10" height="2" fill="#e3f1fe" />
+      <rect x="8" y="18" width="6" height="2" fill="#ff5e24" />
+    </svg>
   );
 }
 

@@ -1,75 +1,97 @@
 .badge {
   align-items: center;
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
   display: inline-flex;
-  font-family: var(--font-display);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 1.5px;
+  font-family: var(--font-manrope-variable, var(--font-family));
+  font-size: 12px;
+  font-weight: 800;
   gap: var(--space-1);
-  line-height: 1;
-  padding: 3px 8px;
+  letter-spacing: 0.02em;
+  line-height: 1.33;
+  min-height: 28px;
+  padding: 5px 9px;
+  position: relative;
   white-space: nowrap;
 }
 
+.badge::before {
+  background: currentColor;
+  content: "";
+  height: 4px;
+  opacity: 0.34;
+  width: 4px;
+}
+
 .locked {
-  background: var(--color-danger-soft);
-  border: 1px solid var(--color-danger-border);
-  color: var(--color-danger);
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(35, 38, 41, 0.04) 1px, transparent 1px),
+    var(--color-cloud-mist);
+  background-size: 8px 8px, 8px 8px, auto;
+  color: var(--color-graphite-ink);
 }
 
 .unlocked {
-  background: var(--color-success-soft);
-  border: 1px solid rgba(22, 163, 74, 0.25);
-  color: var(--color-success);
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(35, 38, 41, 0.04) 1px, transparent 1px),
+    var(--color-cloud-mist);
+  background-size: 8px 8px, 8px 8px, auto;
+  color: var(--color-graphite-ink);
 }
 
 .synced {
-  background: var(--color-success-soft);
-  border: 1px solid rgba(22, 163, 74, 0.25);
-  color: var(--color-success);
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(35, 38, 41, 0.04) 1px, transparent 1px),
+    var(--color-cloud-mist);
+  background-size: 8px 8px, 8px 8px, auto;
+  color: var(--color-graphite-ink);
 }
 
 .pending {
-  background: var(--color-warning-soft);
-  border: 1px solid var(--color-warning-border);
-  color: var(--color-warning);
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
 }
 
 .conflict {
   background: var(--color-danger-soft);
-  border: 1px solid var(--color-danger-border);
+  border-color: var(--color-danger-border);
   color: var(--color-danger);
 }
 
 .offline {
-  background: var(--color-bg-panel-soft);
-  border: 1px solid var(--color-border);
+  background: var(--color-paper-white);
   color: var(--color-text-muted);
 }
 
 .blocked {
   background: var(--color-danger-soft);
-  border: 1px solid var(--color-danger-border);
+  border-color: var(--color-danger-border);
   color: var(--color-danger);
 }
 
 .fillable {
   background: var(--color-primary-soft);
-  border: 1px solid var(--color-primary-border);
+  border-color: var(--color-primary-border);
   color: var(--color-primary);
 }
 
 .similar {
-  background: var(--color-warning-soft);
-  border: 1px solid var(--color-warning-border);
-  color: var(--color-warning);
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
 }
 
 .trusted {
-  background: var(--color-success-soft);
-  border: 1px solid rgba(22, 163, 74, 0.25);
-  color: var(--color-success);
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(35, 38, 41, 0.04) 1px, transparent 1px),
+    var(--color-cloud-mist);
+  background-size: 8px 8px, 8px 8px, auto;
+  color: var(--color-graphite-ink);
 }
 
 .icon {

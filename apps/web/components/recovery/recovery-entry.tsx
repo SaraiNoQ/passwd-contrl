@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, KeyRound, RotateCcw, ShieldAlert } from "lucide-react";
+import { AlertTriangle, KeyRound, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -133,12 +133,23 @@ export function RecoveryEntry({
     <div className={styles.panel}>
       {/* Header */}
       <div className={styles.header}>
-        <div className={styles.iconCircle}>
-          <RotateCcw size={24} />
+        <div className={styles.iconBadge} aria-hidden="true">
+          <svg width="38" height="38" viewBox="0 0 38 38" shapeRendering="crispEdges">
+            <rect x="6" y="8" width="12" height="4" fill="#e3f1fe" />
+            <rect x="18" y="8" width="12" height="4" fill="#ff5e24" />
+            <rect x="4" y="12" width="28" height="18" fill="#ffffff" />
+            <rect x="4" y="12" width="4" height="18" fill="#5c6066" opacity="0.35" />
+            <rect x="8" y="12" width="24" height="4" fill="#5c6066" opacity="0.35" />
+            <rect x="30" y="16" width="4" height="14" fill="#5c6066" opacity="0.35" />
+            <rect x="8" y="30" width="26" height="4" fill="#5c6066" opacity="0.35" />
+            <rect x="12" y="18" width="10" height="4" fill="#ff5e24" />
+            <rect x="22" y="22" width="8" height="4" fill="#e3f1fe" />
+            <rect x="16" y="26" width="4" height="4" fill="#ff5e24" />
+          </svg>
         </div>
-        <h2 className={styles.title}>恢复密码库</h2>
+        <h2 className={styles.title}>解封离线恢复区块</h2>
         <p className={styles.subtitle}>
-          输入您的恢复码和新主密码来恢复密码库访问权限。
+          输入备用密钥分片，并设置新的主密码，重新解封本地密码库访问权限。
         </p>
       </div>
 
@@ -147,7 +158,7 @@ export function RecoveryEntry({
         <div className={styles.warningBox}>
           <ShieldAlert size={14} />
           <span>
-            正在查找恢复包...
+            正在查找离线恢复区块...
           </span>
         </div>
       )}
@@ -155,7 +166,7 @@ export function RecoveryEntry({
         <div className={styles.warningBox}>
           <ShieldAlert size={14} />
           <span>
-            未找到恢复包。请确认您已登录且之前设置过恢复码。
+            未找到离线恢复区块。请确认您已登录且之前设置过备用密钥分片。
           </span>
         </div>
       )}
@@ -171,11 +182,11 @@ export function RecoveryEntry({
       {/* Form */}
       <form className={styles.form} onSubmit={(e) => void handleSubmit(e)}>
         <Input
-          label="恢复码"
+          label="备用密钥分片"
           type="text"
           value={recoveryCode}
           onChange={(e) => setRecoveryCode(e.target.value)}
-          placeholder="输入您的恢复码"
+          placeholder="输入您的恢复分片"
           autoComplete="off"
           spellCheck={false}
           disabled={noPacket || packetLoading}
@@ -210,7 +221,7 @@ export function RecoveryEntry({
             disabled={noPacket || packetLoading}
           >
             <KeyRound size={16} />
-            恢复密码库
+            解封密码库
           </Button>
 
           {onCancel && (

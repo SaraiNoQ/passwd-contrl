@@ -20,15 +20,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Jersey+10&family=Manrope:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
-        {/* Theme init — prevents flash of wrong theme */}
+        {/* Theme init — DESIGN.md defines Obscura as a light Cloud Mist interface. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                var theme = localStorage.getItem('obscura-theme');
-                if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                  document.documentElement.setAttribute('data-theme', 'dark');
-                }
+                document.documentElement.removeAttribute('data-theme');
               })();
             `,
           }}
@@ -38,10 +35,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ErrorBoundary>
           <VaultProvider>{children}</VaultProvider>
         </ErrorBoundary>
-        {/* Pixel cloud decorations */}
-        <div className="pixel-cloud pixel-cloud--tr" aria-hidden="true" />
-        <div className="pixel-cloud pixel-cloud--bl" aria-hidden="true" />
-        <div className="pixel-cat" aria-hidden="true" />
       </body>
     </html>
   );

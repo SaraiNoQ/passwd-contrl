@@ -1,19 +1,20 @@
 "use client";
 
 import { Check, Copy, KeyRound, Printer, ShieldAlert } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import styles from "./recovery-setup.module.css";
+import { printRecoveryCode } from "./recovery-print";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 const STEPS = [
-  { label: "生成", number: 1 },
-  { label: "保存", number: 2 },
-  { label: "确认", number: 3 },
+  { label: "铸造", number: 1 },
+  { label: "离线保存", number: 2 },
+  { label: "回读", number: 3 },
 ] as const;
 
 export interface RecoverySetupProps {
@@ -38,6 +39,8 @@ export function RecoverySetup({
   const [currentStep, setCurrentStep] = useState(0);
   const [verificationInput, setVerificationInput] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const workbenchRef = useRef<HTMLElement>(null);
 
   // Auto-advance to save step when recovery code becomes available
   useEffect(() => {
@@ -53,50 +56,25 @@ export function RecoverySetup({
     }
   }, [currentStep]);
 
+  useEffect(() => {
+    workbenchRef.current?.focus({ preventScroll: true });
+  }, [currentStep]);
+
   const handleCopy = useCallback(async () => {
     if (!recoveryCode) return;
     try {
       await navigator.clipboard.writeText(recoveryCode);
       setCopied(true);
+      setCopyError(false);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard API may fail silently
+      setCopyError(true);
     }
   }, [recoveryCode]);
 
   const handlePrint = useCallback(() => {
     if (!recoveryCode) return;
-    const printWindow = window.open("", "_blank", "width=400,height=300");
-    if (!printWindow) return;
-    printWindow.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <title>Obscura — 恢复码</title>
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; text-align: center; }
-    h1 { font-size: 18px; color: #1a1a1a; margin-bottom: 24px; }
-    .code {
-      font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-      font-size: 15px; letter-spacing: 0.5px;
-      background: #f5f5f5; padding: 16px 20px; border-radius: 8px;
-      word-break: break-all; margin: 20px 0; border: 1px solid #ddd;
-    }
-    .warning { color: #666; font-size: 12px; margin-top: 24px; line-height: 1.6; }
-    .label { font-size: 13px; color: #888; margin-bottom: 8px; }
-  </style>
-</head>
-<body>
-  <h1>Obscura 恢复码</h1>
-  <p class="label">Recovery Code:</p>
-  <div class="code">${recoveryCode}</div>
-  <p class="warning">
-    Store this code in a safe offline location.<br />
-    This code will not be shown again.
-  </p>
-</body>
-</html>`);
-    printWindow.document.close();
-    printWindow.print();
+    printRecoveryCode(recoveryCode);
   }, [recoveryCode]);
 
   // Verification: user must enter the last 8 characters
@@ -110,9 +88,9 @@ export function RecoverySetup({
   // ---------------------------------------------------------------------------
 
   const renderStepIndicator = () => (
-    <div className={styles.stepIndicator}>
+    <div className={styles.stepIndicator} role="list" aria-label="恢复分片保存流程">
       {STEPS.map((step, i) => (
-        <div key={step.label} className={styles.stepItem}>
+        <div key={step.label} className={styles.stepItem} role="listitem">
           <div
             className={`${styles.stepCircle} ${
               i < currentStep
@@ -121,6 +99,7 @@ export function RecoverySetup({
                   ? styles.active
                   : ""
             }`}
+            aria-current={i === currentStep ? "step" : undefined}
           >
             {i < currentStep ? <Check size={14} /> : step.number}
           </div>
@@ -150,11 +129,11 @@ export function RecoverySetup({
   const renderGenerateStep = () => (
     <div className={styles.stepContent}>
       <p className={styles.description}>
-        生成恢复码以在忘记主密码时恢复访问权限。恢复码不会上传到服务器，丢失后无法通过客服找回。
+        铸造一枚备用密钥分片，用于主密码遗失时解封密码库。分片不会上传到服务器。
       </p>
-      <div className={`${styles.warning} pixel-border`}>
+      <div className={styles.warning}>
         <ShieldAlert size={14} />
-        <span>恢复码不会上传到服务器，丢失后无法通过客服找回</span>
+        <span>备用分片只属于本机恢复区块，丢失后无法通过客服找回</span>
       </div>
     </div>
   );
@@ -162,13 +141,14 @@ export function RecoverySetup({
   const renderSaveStep = () => (
     <div className={styles.stepContent}>
       <p className={styles.description}>
-        请将恢复码保存在安全的离线位置。此恢复码不会再次显示。
+        请将备用密钥分片保存在安全的离线位置。此分片不会再次显示。
       </p>
-      <div className={`${styles.warning} pixel-border`}>
+      <div className={styles.warning}>
         <ShieldAlert size={14} />
-        <span>请立即保存恢复码，关闭后将无法再次查看</span>
+        <span>请立即抄写或打印分片，关闭后将无法再次查看</span>
       </div>
-      <div className={`${styles.codeDisplay} pixel-border pixel-scanlines`}>
+      <div className={styles.codeDisplay}>
+        <span className={styles.codeRail} aria-hidden="true" />
         <code className={styles.code}>{recoveryCode}</code>
         <div className={styles.codeActions}>
           <div className={styles.codeActionGroup}>
@@ -177,10 +157,10 @@ export function RecoverySetup({
               className={styles.codeActionBtn}
               onClick={() => void handleCopy()}
               title="复制恢复码"
-              aria-label="复制恢复码"
+              aria-label={copied ? "恢复码已复制" : "复制恢复码"}
             >
               {copied ? (
-                <Check size={14} style={{ color: "var(--color-success)" }} />
+                <Check size={14} className={styles.successIcon} />
               ) : (
                 <Copy size={14} />
               )}
@@ -198,14 +178,13 @@ export function RecoverySetup({
         </div>
       </div>
       {copied && (
-        <p
-          style={{
-            fontSize: "var(--text-caption-size)",
-            color: "var(--color-success)",
-            margin: "var(--space-1) 0",
-          }}
-        >
+        <p className={styles.copiedNotice} role="status">
           已复制到剪贴板
+        </p>
+      )}
+      {copyError && (
+        <p className={styles.verifyError} role="alert">
+          复制失败，请手动选中恢复码保存
         </p>
       )}
     </div>
@@ -214,18 +193,18 @@ export function RecoverySetup({
   const renderConfirmStep = () => (
     <div className={styles.stepContent}>
       <p className={styles.description}>
-        请输入恢复码的最后 8 个字符以确认您已安全保存。
+        请输入备用密钥分片的最后 8 个字符，确认离线区块已经被您保存。
       </p>
       <div className={styles.verifySection}>
         <label className={styles.verifyLabel} htmlFor="recovery-verify">
-          恢复码末尾 8 位
+          备用分片末尾 8 位
         </label>
         <Input
           id="recovery-verify"
           type="text"
           value={verificationInput}
           onChange={(e) => setVerificationInput(e.target.value)}
-          placeholder="输入最后 8 个字符"
+          placeholder="回读最后 8 个字符"
           autoComplete="off"
           spellCheck={false}
           maxLength={8}
@@ -273,12 +252,11 @@ export function RecoverySetup({
         <div className={styles.stepActions}>
           <Button
             variant="primary"
-            size="sm"
             loading={loading}
             onClick={onGenerateRecoveryCode}
           >
             <KeyRound size={16} />
-            生成恢复码
+            铸造恢复分片
           </Button>
         </div>
       );
@@ -289,14 +267,12 @@ export function RecoverySetup({
         <div className={styles.stepActions}>
           <Button
             variant="ghost"
-            size="sm"
             onClick={() => setCurrentStep(0)}
           >
             返回
           </Button>
           <Button
             variant="primary"
-            size="sm"
             onClick={() => setCurrentStep(2)}
           >
             下一步
@@ -306,18 +282,32 @@ export function RecoverySetup({
     }
 
     // currentStep === 2
+    if (!onConfirmSave) {
+      return (
+        <div className={styles.stepActions}>
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentStep(1)}
+          >
+            返回
+          </Button>
+          <span className={styles.localComplete} role="status">
+            {isVerificationValid ? "回读已完成" : "等待回读验证"}
+          </span>
+        </div>
+      );
+    }
+
     return (
       <div className={styles.stepActions}>
         <Button
           variant="ghost"
-          size="sm"
           onClick={() => setCurrentStep(1)}
         >
           返回
         </Button>
         <Button
           variant="primary"
-          size="sm"
           disabled={!isVerificationValid}
           onClick={onConfirmSave}
         >
@@ -333,21 +323,40 @@ export function RecoverySetup({
   // ---------------------------------------------------------------------------
 
   return (
-    <div className={`${styles.panel} pixel-border pixel-scanlines`}>
+    <div className={styles.panel}>
+      <span className={styles.pixelCloudA} aria-hidden="true" />
+      <span className={styles.pixelCloudB} aria-hidden="true" />
       <div className={styles.header}>
-        <svg width="20" height="22" viewBox="0 0 20 22" fill="none" aria-hidden="true">
-          <rect x="6" y="0" width="8" height="6" rx="1" fill="var(--color-primary)" />
-          <rect x="4" y="5" width="12" height="4" fill="var(--color-primary)" />
-          <rect x="4" y="9" width="12" height="12" rx="1" fill="var(--color-primary)" />
-          <rect x="7" y="12" width="6" height="6" fill="rgba(255,255,255,0.3)" />
-          <rect x="9" y="14" width="2" height="3" fill="var(--color-primary)" />
-        </svg>
-        <KeyRound size={18} />
-        <h3 className={styles.title}>恢复码</h3>
+        <div className={styles.headerCopy}>
+          <span className={styles.kicker}>RECOVERY SHARD / OFFLINE</span>
+          <h3 className={styles.title}>离线恢复区块</h3>
+          <p className={styles.lead}>
+            把一枚恢复分片铸到纸面世界。它不上传、不托管，只在你确认回读后完成封存。
+          </p>
+        </div>
+        <div className={styles.statusCard} aria-label="恢复分片状态">
+          <span className={styles.statusIcon} aria-hidden="true">
+            <KeyRound size={18} />
+          </span>
+          <span>
+            <small>当前节点</small>
+            <strong>{STEPS[currentStep]?.label ?? "等待"}</strong>
+          </span>
+        </div>
       </div>
-      {renderStepIndicator()}
-      {renderStepContent()}
-      {renderActions()}
+      <div className={styles.recoveryGrid}>
+        <aside className={styles.timeline} aria-label="恢复分片流程">
+          {renderStepIndicator()}
+          <div className={styles.timelineNote}>
+            <ShieldAlert size={14} />
+            离线保存完成前，不要关闭此页面。
+          </div>
+        </aside>
+        <section className={styles.workbench} aria-live="polite" tabIndex={-1} ref={workbenchRef}>
+          {renderStepContent()}
+          {renderActions()}
+        </section>
+      </div>
     </div>
   );
 }

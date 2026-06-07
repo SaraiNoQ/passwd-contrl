@@ -31,9 +31,9 @@ export function useExtensionBridge() {
     return {
       configured: capabilities.configured,
       runtimeAvailable: capabilities.runtimeAvailable,
-      communication: capabilities.runtimeAvailable ? "Ready" : "Not connected",
-      lastPublish: "No publish yet",
-      lastClear: "No clear yet"
+      communication: capabilities.runtimeAvailable ? "已就绪" : "未连接",
+      lastPublish: "尚未发布",
+      lastClear: "尚未清除"
     };
   });
 

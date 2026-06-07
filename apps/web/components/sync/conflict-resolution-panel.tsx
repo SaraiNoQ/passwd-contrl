@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ChevronDown, ChevronUp, Clock, Copy, Download, FileText, GitMerge, RefreshCw, SkipForward } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Clock, Copy, Download, GitMerge, RefreshCw, SkipForward } from "lucide-react";
 import { useCallback, useState } from "react";
 import styles from "./conflict-resolution-panel.module.css";
 
@@ -120,46 +120,58 @@ export default function ConflictResolutionPanel({
 
   if (isEmpty) {
     return (
-      <div className={`${styles.card} pixel-border pixel-scanlines`}>
+      <div className={styles.card}>
         <div className={styles.empty}>
+          <span className={styles.emptyMap} aria-hidden="true" />
           <span className={styles.emptyIcon}>
             <GitMerge size={24} />
           </span>
-          <p className={styles.emptyText}>无冲突需要解决</p>
+          <h2 className={styles.emptyTitle}>分叉账本为空</h2>
+          <p className={styles.emptyText}>当前没有需要仲裁的同步分叉，所有密文区块都停在同一条链路上。</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`${styles.card} pixel-border pixel-scanlines`}>
+    <div className={styles.card}>
       {/* Header */}
       <div className={styles.header}>
-        <h2 className={styles.title}>
-          <span className={styles.titleIcon}>
-            <AlertTriangle size={18} />
-          </span>
-          冲突解决
-          <span className={styles.badge}>
-            {conflicts.length}
-          </span>
-        </h2>
+        <div>
+          <span className={styles.kicker}>分叉冲突仲裁</span>
+          <h2 className={styles.title}>
+            <span className={styles.titleIcon}>
+              <AlertTriangle size={18} />
+            </span>
+            密文分叉仲裁台
+          </h2>
+        </div>
+        <span className={styles.badge}>
+          {conflicts.length} 条分叉
+        </span>
       </div>
 
       <p className={styles.description}>
-        以下条目在本地和云端均有修改。请为每项选择处理方式，冲突解决不会自动覆盖任何版本。
+        以下密码区块在本地节点与云端节点同时发生修改。请为每条分叉选择仲裁方式，系统不会自动覆盖任何版本。
       </p>
+      <div className={styles.forkMap} aria-hidden="true">
+        <span className={styles.forkNode} />
+        <span className={styles.forkLine} />
+        <span className={styles.forkNode} />
+        <span className={styles.forkLine} />
+        <span className={styles.forkNodeActive} />
+      </div>
 
       {/* Bulk actions */}
       <div className={styles.bulkBar}>
-        <span className={styles.bulkLabel}>批量操作：</span>
+        <span className={styles.bulkLabel}>批量仲裁：</span>
         <button
           type="button"
           className={`${styles.bulkBtn} ${styles.bulkKeepLocal}`}
           onClick={() => handleBulkAction("keep-local")}
           disabled={loading}
         >
-          全部保留本地
+          全部保留本地链
         </button>
         <button
           type="button"
@@ -167,40 +179,58 @@ export default function ConflictResolutionPanel({
           onClick={() => handleBulkAction("accept-remote")}
           disabled={loading}
         >
-          全部采用云端
+          全部采用云端链
         </button>
       </div>
 
       {/* Bulk confirm dialog */}
       {showBulkConfirm ? (
-        <div className={styles.bulkConfirm}>
-          <span className={styles.bulkConfirmText}>
-            确认对 {conflicts.length} 项冲突执行「{actionLabel(showBulkConfirm)}」？
-          </span>
-          <div className={styles.bulkConfirmActions}>
-            <button
-              type="button"
-              className={styles.confirmOkBtn}
-              onClick={confirmBulkAction}
-            >
-              确认
-            </button>
-            <button
-              type="button"
-              className={styles.confirmCancelBtn}
-              onClick={cancelBulkAction}
-            >
-              取消
-            </button>
+        <div className={styles.bulkConfirmOverlay} onClick={cancelBulkAction}>
+          <div
+            className={styles.bulkConfirm}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-conflict-confirm-title"
+            aria-describedby="bulk-conflict-confirm-description"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.bulkConfirmHeader}>
+              <span className={styles.bulkConfirmIcon} aria-hidden="true">
+                <AlertTriangle size={18} />
+              </span>
+              <h3 className={styles.bulkConfirmTitle} id="bulk-conflict-confirm-title">
+                批量仲裁确认
+              </h3>
+            </div>
+            <p className={styles.bulkConfirmText} id="bulk-conflict-confirm-description">
+              确认对 {conflicts.length} 条分叉执行「{actionLabel(showBulkConfirm)}」？该操作会逐项触发当前冲突处理链路。
+            </p>
+            <div className={styles.bulkConfirmActions}>
+              <button
+                type="button"
+                className={styles.confirmCancelBtn}
+                onClick={cancelBulkAction}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className={styles.confirmOkBtn}
+                onClick={confirmBulkAction}
+              >
+                确认仲裁
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
 
       {/* Conflict list */}
-      <div>
+      <div className={styles.conflictList} role="list" aria-label="冲突分叉列表">
         {conflicts.map((conflict) => {
           const isExpanded = expandedComparison.has(conflict.itemId);
           const hasComparison = conflict.localFields || conflict.remoteFields;
+          const comparisonId = `conflict-comparison-${conflict.itemId}`;
           const allFieldKeys = hasComparison
             ? Array.from(
                 new Set([
@@ -211,12 +241,12 @@ export default function ConflictResolutionPanel({
             : [];
 
           return (
-            <div key={conflict.itemId} className={styles.conflictItem}>
+            <div key={conflict.itemId} className={styles.conflictItem} role="listitem">
               {/* Item info header */}
               <div className={styles.conflictHeader}>
                 <div className={styles.conflictTitleRow}>
                   <span className={styles.conflictIcon}>
-                    <FileText size={14} />
+                    <PixelForkRecordIcon />
                   </span>
                   <strong className={styles.conflictTitle}>
                     {conflict.title}
@@ -250,16 +280,18 @@ export default function ConflictResolutionPanel({
                     type="button"
                     className={styles.toggleCompareBtn}
                     onClick={() => toggleComparison(conflict.itemId)}
+                    aria-expanded={isExpanded}
+                    aria-controls={comparisonId}
                   >
                     {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    {isExpanded ? "收起对比" : "展开对比"}
+                    {isExpanded ? "收起分叉对比" : "展开分叉对比"}
                   </button>
                 </div>
               ) : null}
 
               {/* Side-by-side comparison */}
               {hasComparison && isExpanded ? (
-                <div className={styles.comparisonGrid}>
+                <div className={styles.comparisonGrid} id={comparisonId}>
                   {/* Comparison header */}
                   <div className={styles.comparisonHeader}>
                     <div className={styles.localHeader}>
@@ -279,6 +311,7 @@ export default function ConflictResolutionPanel({
                     return (
                       <div key={fieldKey} className={styles.comparisonRow}>
                         <div className={styles.comparisonCell}>
+                          <div className={styles.mobileVersionLabel}>本地版本</div>
                           <div className={styles.fieldName}>{fieldKey}</div>
                           <div
                             className={`${styles.fieldValue} ${isDifferent ? styles.fieldDiff : ""}`}
@@ -287,6 +320,7 @@ export default function ConflictResolutionPanel({
                           </div>
                         </div>
                         <div className={styles.comparisonCell}>
+                          <div className={styles.mobileVersionLabel}>云端版本</div>
                           <div className={styles.fieldName}>{fieldKey}</div>
                           <div
                             className={`${styles.fieldValue} ${isDifferent ? styles.fieldDiff : ""}`}
@@ -352,6 +386,28 @@ export default function ConflictResolutionPanel({
         })}
       </div>
     </div>
+  );
+}
+
+function PixelForkRecordIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      shapeRendering="crispEdges"
+    >
+      <rect x="1" y="2" width="5" height="5" fill="#e3f1fe" />
+      <rect x="2" y="3" width="3" height="3" fill="#ffffff" />
+      <rect x="10" y="2" width="5" height="5" fill="#ff5e24" />
+      <rect x="11" y="3" width="3" height="3" fill="#ffffff" opacity="0.75" />
+      <rect x="6" y="4" width="4" height="2" fill="#5c6066" />
+      <rect x="7" y="6" width="2" height="4" fill="#5c6066" />
+      <rect x="5" y="10" width="6" height="2" fill="#5c6066" />
+      <rect x="5" y="12" width="6" height="3" fill="#ffffff" />
+      <rect x="6" y="13" width="4" height="1" fill="#ff5e24" />
+    </svg>
   );
 }
 

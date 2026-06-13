@@ -1,0 +1,670 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--color-text-muted);
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-size: var(--text-heading-sm-size);
+  font-weight: var(--text-heading-sm-weight);
+  line-height: var(--text-heading-sm-height);
+  letter-spacing: var(--text-heading-sm-tracking);
+  color: var(--color-text-primary);
+}
+
+.subheading {
+  font-size: var(--text-body-sm-size);
+  color: var(--color-text-secondary);
+}
+
+.registerButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-paper-white);
+  font-size: var(--text-button-size);
+  font-weight: var(--text-button-weight);
+  line-height: var(--text-button-height);
+  box-shadow: var(--shadow-orange-ring);
+  transition: filter var(--transition-fast);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.registerButton:hover {
+  filter: brightness(1.05);
+}
+
+.registerButton:active {
+  transform: translateY(1px);
+}
+
+.registerButton:disabled {
+  background: color-mix(in srgb, var(--color-cloud-mist) 54%, var(--color-paper-white));
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  filter: none;
+  box-shadow: none;
+}
+
+/* ── Loading ───────────────────────────────────────────────────────────────── */
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  color: var(--color-text-muted);
+  font-size: var(--text-body-sm-size);
+}
+
+.loadingDots {
+  display: flex;
+  gap: 4px;
+}
+
+.loadingDots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.loadingDots span:nth-child(2) { animation-delay: 0.2s; }
+.loadingDots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes pulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Section ───────────────────────────────────────────────────────────────── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-body-sm-size);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sectionTitleIcon {
+  color: var(--color-text-muted);
+}
+
+/* ── Device cards ──────────────────────────────────────────────────────────── */
+
+.deviceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.deviceCard {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.032) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(35, 38, 41, 0.032) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 8px 8px, 8px 8px, auto;
+  transition: border-color var(--transition-fast);
+}
+
+.deviceCard:hover {
+  border-color: var(--color-border-strong);
+}
+
+.currentDevice {
+  border-color: var(--color-primary-border);
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.06) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 94, 36, 0.06) 1px, transparent 1px),
+    var(--color-primary-soft);
+  background-size: 8px 8px, 8px 8px, auto;
+}
+
+.pendingDevice {
+  border-color: var(--color-primary-border);
+  border-style: dashed;
+}
+
+.revokedDevice {
+  opacity: 0.6;
+}
+
+/* ── Device info ───────────────────────────────────────────────────────────── */
+
+.deviceInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.deviceTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.deviceIcon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.deviceIconPending {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.deviceIconCurrent {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.deviceIconRevoked {
+  flex-shrink: 0;
+  color: var(--color-danger);
+}
+
+.deviceName {
+  font-size: var(--text-body-sm-size);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.currentDeviceName {
+  color: var(--color-primary);
+}
+
+/* ── Badges ────────────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.33;
+  min-height: 22px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.badgeTrusted {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+}
+
+.badgePending {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+}
+
+.badgeRevoked {
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.badgeCurrent {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+}
+
+/* ── Device meta ───────────────────────────────────────────────────────────── */
+
+.deviceMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-caption-size);
+  color: var(--color-text-muted);
+}
+
+/* ── Expandable details ────────────────────────────────────────────────────── */
+
+.expandButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-caption-size);
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+
+.expandButton:hover {
+  color: var(--color-primary);
+}
+
+.detailsContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  padding-left: var(--space-5);
+  font-size: var(--text-caption-size);
+  color: var(--color-text-secondary);
+}
+
+.detailRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.detailLabel {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  min-width: 64px;
+}
+
+.detailValue {
+  word-break: break-all;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}
+
+/* ── Device actions ────────────────────────────────────────────────────────── */
+
+.deviceActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.approveButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-paper-white);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter var(--transition-fast), transform var(--transition-fast);
+}
+
+.approveButton:hover {
+  filter: brightness(1.05);
+}
+
+.approveButton:active {
+  transform: translateY(1px);
+}
+
+.approveButton:disabled {
+  background: color-mix(in srgb, var(--color-cloud-mist) 54%, var(--color-paper-white));
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  filter: none;
+}
+
+.rejectButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.rejectButton:hover {
+  background: rgba(220, 38, 38, 0.15);
+}
+
+.rejectButton:active {
+  transform: translateY(1px);
+}
+
+.rejectButton:disabled {
+  background: color-mix(in srgb, var(--color-cloud-mist) 54%, var(--color-paper-white));
+  border-color: var(--color-cloud-mist);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.revokeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.revokeButton:hover {
+  background: var(--color-danger-soft);
+}
+
+.revokeButton:active {
+  transform: translateY(1px);
+}
+
+.revokeButton:disabled {
+  border-color: var(--color-cloud-mist);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  background: transparent;
+}
+
+/* ── Confirm dialog ────────────────────────────────────────────────────────── */
+
+.confirmOverlay {
+  align-items: center;
+  background: var(--overlay-bg);
+  backdrop-filter: blur(3px);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: var(--space-4);
+  position: fixed;
+  z-index: 100;
+  animation: overlayIn 160ms steps(3, end);
+}
+
+.confirmDialog {
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.032) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(35, 38, 41, 0.032) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 8px 8px, 8px 8px, auto;
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 16px;
+  box-shadow: var(--shadow-elevated);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 420px;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  animation: modalIn 220ms steps(4, end);
+}
+
+.confirmDialog::before {
+  background: var(--color-primary);
+  content: "";
+  height: 3px;
+  left: 24px;
+  position: absolute;
+  right: 24px;
+  top: 0;
+}
+
+.confirmDialogDanger {
+  border-color: var(--color-danger-border);
+}
+
+.confirmDialogDanger::before {
+  background: var(--color-danger);
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.confirmHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5) 0;
+}
+
+.confirmIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.confirmIconDanger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.confirmTitle {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.confirmBody {
+  padding: 0 var(--space-5);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.confirmWarning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  color: var(--color-danger);
+  font-size: var(--text-caption-size);
+}
+
+.confirmActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-5) var(--space-4);
+}
+
+.cancelBtn {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(35, 38, 41, 0.035) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 8px 8px, 8px 8px, auto;
+  border: 1px solid var(--color-cloud-mist);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.cancelBtn:hover {
+  border-color: var(--color-border-strong);
+}
+
+.confirmBtn {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-paper-white);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-orange-ring);
+  transition: filter var(--transition-fast);
+}
+
+.confirmBtn:hover {
+  filter: brightness(1.05);
+}
+
+.confirmBtn:disabled {
+  background: color-mix(in srgb, var(--color-cloud-mist) 54%, var(--color-paper-white));
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  filter: none;
+  box-shadow: none;
+}
+
+.confirmBtnDanger {
+  background: var(--color-danger);
+  box-shadow: none;
+}
+
+.confirmBtnDanger:hover {
+  filter: brightness(1.1);
+}
+
+/* ── Empty state ───────────────────────────────────────────────────────────── */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+  gap: var(--space-2);
+}
+
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  margin-bottom: var(--space-1);
+}
+
+.emptyTitle {
+  font-size: var(--text-body-size);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.emptyText {
+  font-size: var(--text-body-sm-size);
+  color: var(--color-text-secondary);
+  max-width: 320px;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .deviceCard {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .deviceActions {
+    align-self: flex-end;
+  }
+
+  .confirmOverlay {
+    align-items: flex-end;
+    padding: var(--space-2);
+  }
+
+  .confirmDialog {
+    border-radius: var(--radius-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingDots span {
+    animation-duration: 2s;
+  }
+
+  .confirmOverlay,
+  .confirmDialog {
+    animation: none;
+  }
+
+  .approveButton:hover,
+  .rejectButton:hover,
+  .revokeButton:hover {
+    filter: none;
+    transform: none;
+  }
+}

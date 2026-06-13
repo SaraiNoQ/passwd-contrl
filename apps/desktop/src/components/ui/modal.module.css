@@ -1,0 +1,183 @@
+.overlay {
+  align-items: center;
+  background: var(--overlay-bg);
+  backdrop-filter: blur(3px);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: var(--space-4);
+  position: fixed;
+  z-index: 100;
+  animation: overlayIn 160ms steps(3, end);
+  will-change: backdrop-filter, opacity;
+}
+
+.modal {
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.032) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(35, 38, 41, 0.032) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 8px 8px, 8px 8px, auto;
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 16px;
+  box-shadow: var(--shadow-elevated);
+  display: grid;
+  gap: 0;
+  max-width: 500px;
+  max-height: min(760px, calc(100dvh - (var(--space-4) * 2)));
+  overflow: hidden;
+  position: relative;
+  width: min(100%, 500px);
+  animation: modalIn 220ms steps(4, end);
+  will-change: transform, opacity;
+}
+
+.modal::before {
+  background: var(--color-primary);
+  content: "";
+  height: 3px;
+  left: 24px;
+  position: absolute;
+  right: 24px;
+  top: 0;
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.danger {
+  border-color: var(--color-danger-border);
+}
+
+.header {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-cloud-mist) 42%, var(--color-paper-white));
+  border-bottom: 1px solid var(--color-cloud-mist);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  min-height: 72px;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+}
+
+.title {
+  color: var(--color-text-primary);
+  font-family: var(--font-manrope-variable, var(--font-family));
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: normal;
+  overflow-wrap: anywhere;
+}
+
+.closeBtn {
+  align-items: center;
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(35, 38, 41, 0.035) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 8px 8px, 8px 8px, auto;
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
+  color: var(--color-slate-pencil);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 44px;
+  justify-content: center;
+  min-width: 44px;
+  outline: none;
+  padding: 0;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.closeBtn:hover {
+  background: var(--color-cloud-mist);
+  border-color: var(--color-cloud-mist);
+  color: var(--color-graphite-ink);
+  transform: translateY(-1px);
+}
+
+.closeBtn:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-orange-ring);
+}
+
+.body {
+  color: var(--color-text-secondary);
+  font-family: var(--font-manrope-variable, var(--font-family));
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-6);
+  overscroll-behavior: contain;
+}
+
+.footer {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-cloud-mist) 24%, var(--color-paper-white));
+  border-top: 1px solid var(--color-cloud-mist);
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-6);
+}
+
+@media (max-width: 560px) {
+  .overlay {
+    align-items: flex-end;
+    padding: var(--space-2);
+  }
+
+  .modal {
+    border-radius: var(--radius-lg);
+    max-height: calc(100dvh - var(--space-4));
+  }
+
+  .header {
+    min-height: 64px;
+    padding-left: var(--space-4);
+  }
+
+  .body {
+    padding: var(--space-4);
+  }
+
+  .footer {
+    flex-wrap: wrap;
+    padding: var(--space-3) var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .modal {
+    animation: none;
+  }
+
+  .closeBtn {
+    transition: none;
+  }
+
+  .closeBtn:hover {
+    transform: none;
+  }
+}

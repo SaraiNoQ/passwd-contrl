@@ -79,8 +79,26 @@ When changing security-sensitive behavior, update all relevant docs and tests:
 - `apps/web` is the Web Vault.
 - `apps/worker-api` is the Cloudflare Worker sync API and must store encrypted blobs only.
 - `apps/extension` is the Manifest V3 browser extension.
+- `apps/desktop` is the macOS Desktop App (Tauri 2.x). See `docs/mac-dev/` for specs.
 - `packages/shared` owns DTOs and validation schemas.
 - `crates/crypto-core` owns KDF and AEAD primitives.
+
+## Desktop Development Documentation
+
+macOS desktop development specs are in `docs/mac-dev/`:
+
+| Document | Purpose |
+| --- | --- |
+| `docs/mac-dev/overview.md` | 项目概述、目标边界、框架选择分析 (Tauri vs Electron)、技术栈、文档索引 |
+| `docs/mac-dev/architecture.md` | 架构设计、数据流、Tauri command 桥接模式、目录结构 |
+| `docs/mac-dev/adapters.md` | adapter 模式：CryptoAdapter、SecureStore、CiphertextStore、ApiClient、SyncService |
+| `docs/mac-dev/code-sharing.md` | 与 Web/shared 的代码复用规则和隔离边界 |
+| `docs/mac-dev/macos-platform.md` | macOS 平台规范：Keychain、窗口管理、菜单栏、签名公证、安全特性、字体 |
+| `docs/mac-dev/ui-interaction.md` | 信息架构、页面结构、交互规范、视觉风格 |
+| `docs/mac-dev/sync-conflict.md` | 同步策略与冲突解决 |
+| `docs/mac-dev/security.md` | 安全规范（继承 AGENT.md + 桌面端特有规则） |
+| `docs/mac-dev/development-phases.md` | 开发阶段规划（Phase 0-7） |
+| `docs/mac-dev/quality.md` | PR 验收门槛与文档更新规则 |
 
 ## Coding Standards
 

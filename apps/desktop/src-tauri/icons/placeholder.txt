@@ -1,0 +1,13 @@
+Icons placeholder
+
+Generate icons by running:
+  pnpm tauri icon /path/to/your/icon.png
+
+This will create all required icon sizes:
+- 32x32.png
+- 128x128.png
+- 128x128@2x.png
+- icon.icns (macOS)
+- icon.ico (Windows)
+
+For now, the app will use default Tauri icons.

@@ -1,0 +1,28 @@
+[package]
+name = "zero-vault-desktop"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["lib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+crypto-core = { path = "../../../crates/crypto-core" }
+rusqlite = { version = "0.31", features = ["bundled"] }
+keyring = "2"
+zeroize = { version = "1", features = ["derive"] }
+base64ct = { version = "1", features = ["alloc"] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

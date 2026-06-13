@@ -1,6 +1,6 @@
 # Zero Vault 移动端开发规范
 
-Last updated: 2026-06-07
+Last updated: 2026-06-08
 
 本文档是 Zero Vault 移动端 App 开发的主规范。当前阶段只规划移动端开发方式，不创建 `apps/mobile`，不修改 `apps/web`，不调整现有 Web Vault 的前端显示效果。
 
@@ -203,46 +203,64 @@ MVP screen 建议：
 
 ## 开发流程
 
-### 阶段 0：规范文档
+### 阶段 0：规范文档 — 已完成
 
 - 新增本文档。
 - README Documentation 列表补充移动端规范链接。
 - 不创建 `apps/mobile`。
 - 不修改 Web UI。
 
-### 阶段 1：移动端 scaffold
+### 阶段 1：移动端 scaffold — 已完成
 
 - 创建 `apps/mobile` Expo + TypeScript 工程。
 - 接入 Expo Router、基础主题 token、safe area、基础页面壳。
 - 添加 `package.json` scripts：`dev`、`typecheck`、`test`。
 - 保持 workspace 与现有 pnpm 结构一致。
+- 目录结构：`app/`（路由）、`src/screens`、`src/components`、`src/lib/api`、`src/lib/crypto`、`src/lib/storage`、`src/lib/sync`、`src/state`、`src/theme`、`src/test`。
+- 暗色主题 token 独立于 Web CSS，参考 `docs/ui-development.md` 和 `docs/DESIGN.md`。
 
-### 阶段 2：API 与只读数据流
+### 阶段 2：API 与只读数据流 — 已完成
 
-- 实现 `MobileApiClient`。
-- 接入账号登录/session/current user。
-- 接入 sync pull，保存 ciphertext cache。
-- 建立凭据列表和详情页的 loading/error/empty/offline 状态。
+- 实现 `MobileApiClient`（`src/lib/api/mobile-api-client.ts`）。
+  - `loginDirect`（MVP 直接登录，待替换为 OPAQUE）。
+  - `loginStart`/`loginFinish`（OPAQUE 两步登录，预留接口）。
+  - `fetchCurrentUser`、`logout`。
+  - `pullItems`（拉取 item-level ciphertext）。
+  - `pushItemLevelSync`（预留，MVP 不使用）。
+  - 统一处理 401、403、离线、request_timeout。
+- 实现 `MobileSyncService`（`src/lib/sync/mobile-sync-service.ts`）。
+  - `pullAll`：拉取并缓存 ciphertext。
+  - `processPullResponse`：存储 ciphertext、更新 server revision。
+  - `markConflicts`：标记冲突项。
+- 接入凭据列表和详情页的 loading/error/empty/offline 状态。
 
-### 阶段 3：native crypto adapter
+### 阶段 3：native crypto adapter — 部分完成
 
-- 为 `crypto-core` 增加 UniFFI 移动端绑定构建流程。
-- 通过 Expo native module 暴露给 React Native。
-- 完成主密码解锁、item decrypt、错误归一化。
-- 为 crypto adapter 增加 tamper、wrong-key、round-trip 测试。
+- 定义 `MobileCryptoAdapter` 接口（`src/lib/crypto/mobile-crypto-adapter.ts`）。
+  - `deriveVaultKey`：从主密码派生 vault key。
+  - `decryptItem`：解密单个 item。
+  - `lock`：清理敏感状态。
+- 实现 `TestDoubleCryptoAdapter`（明确标记为非生产用途）。
+- 生产路径待接入 `crypto-core` UniFFI/Expo native module。
+- 为 crypto adapter 增加 round-trip、wrong-key 测试。
 
-### 阶段 4：本地安全与锁定
+### 阶段 4：本地安全与锁定 — 已完成
 
-- 实现 `MobileSecureStore` 与 `MobileCiphertextStore`。
-- 实现自动锁定、后台锁定、手动锁定。
-- 实现复制凭据安全提示和可用平台上的剪贴板清理。
+- 实现 `MobileSecureStore`（`src/lib/storage/mobile-secure-store.ts`）。
+  - `ExpoSecureStoreAdapter`：封装 Expo SecureStore。
+  - `InMemorySecureStore`：测试用内存存储。
+- 实现 `MobileCiphertextStore`（`src/lib/storage/mobile-ciphertext-store.ts`）。
+  - `InMemoryCiphertextStore`：保存 ciphertext、revision、lastSyncedAt、conflict marker。
+  - 生产待替换为 SQLite 实现。
+- 实现自动锁定（可配置时间）、手动锁定。
+- 实现复制凭据安全提示（"已复制，建议尽快粘贴并清除剪贴板"）。
 
-### 阶段 5：MVP 验收
+### 阶段 5：MVP 验收 — 进行中
 
-- 补齐手动同步状态。
+- 补齐手动同步状态（`SyncStatusScreen`）。
 - 冲突状态引导 Web 端处理。
-- 完成移动端 E2E smoke。
-- 完成 Web/shared/Rust 回归检查。
+- 完成 Web/shared/Rust 回归检查（全部通过）。
+- 待完成：移动端 E2E smoke。
 
 ## PR 验收门槛
 

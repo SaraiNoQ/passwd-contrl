@@ -1,0 +1,37 @@
+{
+  "name": "@zero-vault/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@zero-vault/shared": "workspace:*",
+    "expo": "~52.0.0",
+    "expo-clipboard": "~4.0.0",
+    "expo-constants": "~17.0.0",
+    "expo-linking": "~7.0.0",
+    "expo-router": "~4.0.0",
+    "expo-secure-store": "~14.0.0",
+    "expo-sqlite": "~15.0.0",
+    "expo-status-bar": "~2.0.0",
+    "react": "^18.3.1",
+    "react-native": "~0.76.0",
+    "react-native-safe-area-context": "~5.0.0",
+    "react-native-screens": "~4.0.0",
+    "zod": "^3.25.42"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-native": "^0.73.0",
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.9"
+  }
+}

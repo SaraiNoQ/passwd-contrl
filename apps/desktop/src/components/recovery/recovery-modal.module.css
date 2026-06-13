@@ -1,0 +1,128 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Warning box */
+
+.warningBox {
+  align-items: flex-start;
+  background:
+    linear-gradient(90deg, rgba(35, 38, 41, 0.06) 1px, transparent 1px) 0 0 / 12px 12px,
+    color-mix(in srgb, var(--color-cloud-mist) 42%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 10px;
+  color: var(--color-text-primary);
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: var(--space-3);
+  line-height: 1.55;
+  padding: var(--space-3);
+}
+
+.warningBox svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.errorBox {
+  align-items: flex-start;
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  border-radius: 10px;
+  color: var(--color-danger);
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: var(--space-3);
+  line-height: 1.55;
+  padding: var(--space-3);
+}
+
+.errorBox svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Input section */
+
+.inputSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.inputLabel {
+  align-items: center;
+  color: var(--color-text-primary);
+  display: flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: var(--space-2);
+}
+
+.inputLabel svg {
+  color: var(--color-primary);
+}
+
+/* Info box */
+
+.infoBox {
+  background: color-mix(in srgb, var(--color-cloud-mist) 34%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 10px;
+  padding: var(--space-3);
+}
+
+.infoBoxTitle {
+  align-items: center;
+  color: var(--color-text-primary);
+  display: flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+}
+
+.infoBoxTitle svg {
+  color: var(--color-primary);
+}
+
+.infoBoxList {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.infoBoxList li {
+  margin-bottom: var(--space-1);
+}
+
+.infoBoxList li:last-child {
+  margin-bottom: 0;
+}
+
+/* Actions */
+
+.actions {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .warningBox,
+  .errorBox,
+  .infoBox {
+    transition: none;
+  }
+}

@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-06-04
+Last updated: 2026-06-08
 
 Current target: a stable Web Vault + Chrome/Edge extension development build. Do not treat the current repository as production-ready.
 
@@ -15,7 +15,8 @@ Current target: a stable Web Vault + Chrome/Edge extension development build. Do
 | Phase 4: Item-Level Sync | Complete | Per-item encrypted sync backend, conflict detection, recovery codes, device trust backend, conflict resolution UI, device management UI, sync panel with activity log, ECDH device trust (X25519 keypair generation, vault key encryption/decryption, IndexedDB private key storage), device vault key sharing via `POST /devices/:id/share-key`. | Recovery flow end-to-end not manually verified. | Manual E2E verification. |
 | UI Refactor (UI-1 through UI-6) | Complete | Design system tokens, full component library, Web Shell (sidebar, top bar, locked state), credential workspace (sorting, strength, batch ops), CSV import wizard (5-step), recovery flow (3-step wizard + entry), sync/device page, conflict resolution, settings page, responsive layout, mobile navigation, ARIA accessibility. | None. | None. |
 | Phase 5: Production | Complete | Security audit completed, 299 tests passing, TypeScript clean, Worker API deployed to Cloudflare with D1/R2. Unified Worker API architecture: OPAQUE works in Workers via static WASM import. D1-backed rate limiting implemented. Browser E2E tests passing (vault creation, credential CRUD, search, password generator). Full Worker API route test coverage (vault, recovery, devices, auth). | npm audit has 12 vulnerabilities (mostly dev-only). | Upgrade vitest, add staging environment. |
-| Phase 6: Mobile | Planned | None. | Mobile work has not started. | Android/iOS crypto reuse via UniFFI after item-level sync stabilizes. |
+| Phase 6: Mobile | In Progress | Expo + TypeScript scaffold (`apps/mobile`), Expo Router, dark theme, 6 MVP screens, MobileApiClient, MobileCryptoAdapter (test double), MobileSecureStore, MobileCiphertextStore, MobileSyncService, auth/vault state management, 25 unit tests passing. | MVP uses test double crypto (not real crypto-core). OPAQUE login requires WASM port to RN. In-memory stores (not SQLite/SecureStore). No Android Autofill or iOS Credential Provider. | Wire real crypto-core via UniFFI/Expo native module. Implement OPAQUE client for RN. Add SQLite persistence. |
+| Phase 7: Desktop | Complete | Tauri 2.x + React macOS desktop app, full feature parity with web, 193+ tests passing. | None. | Notarization and DMG distribution. |
 
 ## Phase 0: Project Foundation
 
@@ -102,5 +103,27 @@ The UI refactor transforms the Web Vault and browser extension into a dark-theme
 
 ## Phase 6: Mobile
 
-- Not started.
-- Planned scope: Android Vault app, Android AutofillService, iOS/macOS Credential Provider Extension, Rust crypto reuse through UniFFI bindings.
+- **Status:** In Progress (MVP scaffold complete).
+- **Scope:** React Native + Expo + TypeScript mobile client at `apps/mobile`.
+- **Implemented:**
+  - Expo managed workflow with Expo Router file-based routing.
+  - Dark theme tokens independent from Web CSS (`src/theme/tokens.ts`).
+  - 6 MVP screens: Login, Unlock, VaultList, CredentialDetail, SyncStatus, Settings.
+  - MobileApiClient with `loginDirect`, `loginStart`, `loginFinish`, `fetchCurrentUser`, `logout`, `pullItems`, `pushItemLevelSync`.
+  - MobileCryptoAdapter interface with test double (NOT for production).
+  - MobileSecureStore with Expo SecureStore adapter and in-memory fallback.
+  - MobileCiphertextStore with in-memory implementation.
+  - MobileSyncService for item-level sync pull.
+  - Auth state and vault state management with auto-lock.
+  - 25 unit tests passing (API client, crypto adapter, ciphertext store, sync service).
+- **Remaining (MVP):**
+  - Wire real crypto-core via UniFFI/Expo native module (replace test double).
+  - Implement OPAQUE client protocol for React Native (replace direct login).
+  - Add SQLite persistence for ciphertext store.
+  - Add expo-secure-store persistence for secure store.
+  - Update `docs/mobile-development.md` Phase status.
+- **Remaining (Post-MVP):**
+  - Android AutofillService.
+  - iOS/macOS Credential Provider Extension.
+  - Rust crypto reuse through UniFFI bindings.
+  - E2E smoke tests.

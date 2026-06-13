@@ -1,0 +1,567 @@
+.wizardModal {
+  max-width: 680px;
+  width: min(100%, 680px);
+}
+
+/* Step indicator */
+
+.stepIndicator {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+  padding: var(--space-2) 0 var(--space-3);
+}
+
+.stepItem {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.stepDot {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-cloud-mist) 48%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  display: flex;
+  font-size: 12px;
+  font-weight: 800;
+  height: 32px;
+  justify-content: center;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  width: 32px;
+}
+
+.stepDotActive {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-orange-ring);
+  color: var(--color-paper-white);
+}
+
+.stepDotCompleted {
+  background: color-mix(in srgb, var(--color-cloud-mist) 54%, var(--color-paper-white));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.stepLabel {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.stepLabelActive {
+  color: var(--color-text-primary);
+}
+
+.stepConnector {
+  color: var(--color-cloud-mist);
+  flex-shrink: 0;
+}
+
+/* Workbench */
+
+.workbench {
+  min-height: 200px;
+}
+
+.stepContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.stepHeading {
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.stepDescription {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Source selection */
+
+.sourceSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sourceSectionTitle {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.sourceList {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.sourceCard {
+  align-items: center;
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-3);
+  transition: border-color var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
+}
+
+.sourceCard:hover {
+  border-color: var(--color-primary-border);
+  transform: translateY(-1px);
+}
+
+.sourceCard:focus-within {
+  box-shadow: var(--shadow-orange-ring);
+}
+
+.sourceCardSelected {
+  background: color-mix(in srgb, var(--color-cloud-mist) 34%, var(--color-paper-white));
+  border-color: var(--color-primary);
+}
+
+.sourceRadio {
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+  height: 20px;
+  margin: 0;
+  width: 20px;
+}
+
+.sourceName {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sourceDescription {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+.sourceCheck {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Drop zone */
+
+.dropZone {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-cloud-mist) 28%, var(--color-paper-white));
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 120px;
+  padding: var(--space-6);
+  text-align: center;
+  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+}
+
+.dropZone:hover {
+  background: color-mix(in srgb, var(--color-cloud-mist) 42%, var(--color-paper-white));
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.dropZone:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-orange-ring);
+  outline: none;
+}
+
+.dropZone svg {
+  color: var(--color-primary);
+}
+
+.dropZoneFileName {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.dropZoneHint {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.hiddenFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Parse status */
+
+.parseSuccess {
+  align-items: center;
+  color: var(--color-text-primary);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: var(--space-1);
+}
+
+.parseWarning {
+  align-items: center;
+  color: var(--color-primary);
+  display: inline-flex;
+  gap: var(--space-1);
+  margin-left: var(--space-3);
+}
+
+.parseError {
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0;
+}
+
+/* Warning/info boxes */
+
+.warningBox,
+.infoBox {
+  border-radius: 10px;
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.warningBox {
+  align-items: flex-start;
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary-border);
+  color: var(--color-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.warningBox svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.warningBoxTitle {
+  font-weight: 800;
+  margin: 0;
+}
+
+.warningBoxDesc {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: var(--space-1) 0 0;
+}
+
+.infoBox {
+  background: color-mix(in srgb, var(--color-cloud-mist) 34%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  color: var(--color-text-secondary);
+  flex-direction: column;
+  font-size: 13px;
+}
+
+.infoBox p {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.infoBox svg {
+  color: var(--color-primary);
+}
+
+.infoBoxStrong {
+  color: var(--color-text-primary);
+  font-weight: 800;
+}
+
+/* Preview table */
+
+.previewTableWrapper {
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.previewTableHeader,
+.previewTableRow {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 2fr 2fr 1.5fr 1fr 1.5fr;
+}
+
+.previewTableHeader {
+  background: color-mix(in srgb, var(--color-cloud-mist) 42%, var(--color-paper-white));
+  border-bottom: 1px solid var(--color-cloud-mist);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: var(--space-2) var(--space-3);
+}
+
+.previewTableBody {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.previewTableRow {
+  border-bottom: 1px solid var(--color-cloud-mist);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.previewTableRow:last-child {
+  border-bottom: none;
+}
+
+.previewTableCell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewTableMasked {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.previewValidationCell {
+  min-width: 0;
+}
+
+.previewTableMore {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  padding: var(--space-2);
+  text-align: center;
+}
+
+/* Stats & badges */
+
+.statsRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.statsTotal {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin-left: auto;
+}
+
+.badge {
+  align-items: center;
+  border-radius: 6px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  gap: var(--space-1);
+  padding: 3px var(--space-2);
+}
+
+.badgeOk { background: color-mix(in srgb, var(--color-cloud-mist) 48%, var(--color-paper-white)); color: var(--color-text-primary); }
+.badgeWarning { background: var(--color-primary-soft); color: var(--color-primary); }
+.badgeError { background: var(--color-danger-soft); color: var(--color-danger); }
+
+.validationLegend {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Field mapping */
+
+.mappingGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mappingRow {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 140px 1fr;
+  align-items: center;
+}
+
+.mappingLabel {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mappingSelect {
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  font-size: 13px;
+  min-height: 40px;
+  outline: none;
+  padding: var(--space-2) var(--space-3);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.mappingSelect:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-orange-ring);
+}
+
+/* Confirm summary */
+
+.confirmSummary {
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.confirmSummaryRow {
+  color: var(--color-text-secondary);
+  display: flex;
+  justify-content: space-between;
+}
+
+.confirmSummaryValue { color: var(--color-text-primary); font-weight: 800; }
+.confirmSummaryValid { color: var(--color-text-primary); font-weight: 800; }
+.confirmSummarySkip { color: var(--color-primary); font-weight: 800; }
+
+.confirmCheckbox {
+  align-items: center;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: var(--space-3);
+  min-height: 44px;
+  user-select: none;
+}
+
+.confirmCheckbox input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  height: 20px;
+  width: 20px;
+}
+
+/* Progress */
+
+.progressContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.progressBar {
+  background: color-mix(in srgb, var(--color-cloud-mist) 54%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  animation: progressIndeterminate 1.2s steps(6, end) infinite;
+  background:
+    repeating-linear-gradient(90deg, var(--color-primary) 0 12px, color-mix(in srgb, var(--color-primary) 66%, var(--color-paper-white)) 12px 18px);
+  border-radius: 4px;
+  height: 100%;
+  width: 40%;
+  will-change: transform;
+}
+
+@keyframes progressIndeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.resultStatus {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.resultStatusSuccess { color: var(--color-text-primary); font-weight: 800; }
+.resultStatusError { color: var(--color-danger); font-weight: 800; }
+
+/* Footer */
+
+.footer {
+  align-items: center;
+  border-top: 1px solid var(--color-cloud-mist);
+  display: flex;
+  justify-content: space-between;
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.footerActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .sourceCard,
+  .dropZone,
+  .stepDot {
+    transition: none;
+  }
+
+  .sourceCard:hover,
+  .dropZone:hover {
+    transform: none;
+  }
+
+  .progressBarFill {
+    animation: none;
+    margin-left: 0;
+    width: 100%;
+  }
+}

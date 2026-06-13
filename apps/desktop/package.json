@@ -1,0 +1,32 @@
+{
+  "name": "@zero-vault/desktop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-clipboard-manager": "^2.0.0",
+    "@zero-vault/shared": "workspace:*",
+    "lucide-react": "^1.17.0",
+    "zod": "^3.25.42"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "vitest": "^2.1.9",
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

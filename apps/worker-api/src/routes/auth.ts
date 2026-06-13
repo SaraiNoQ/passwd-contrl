@@ -308,6 +308,79 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
     return res;
   });
 
+  // ── POST /auth/login/direct ──────────────────────────────────────────────
+  // MVP direct login for desktop/mobile clients that cannot run OPAQUE WASM.
+  // TODO: Replace with OPAQUE login/start + login/finish once WASM is available
+  //       on all platforms. This endpoint will be removed at that point.
+
+  auth.post("/auth/login/direct", rateLimit({ max: 10 }), async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid_request" }, 400);
+    }
+
+    const { email, password } = body as { email?: string; password?: string };
+    if (!email || !password) {
+      return c.json({ error: "invalid_credentials" }, 401);
+    }
+
+    const store = new D1VaultStore(c.env.DB);
+
+    let user = await store.findUserByEmail(email);
+
+    if (!user) {
+      // Auto-create user for MVP demo login.
+      // Placeholder OPAQUE fields — these would be populated by real registration
+      // when the OPAQUE flow is available on all platforms.
+      user = await store.createUser({
+        email,
+        opaqueRegistrationRecord: "__mvp_direct_login__",
+        publicKeyBundle: "__mvp_placeholder__",
+        encryptedRecoveryPacket: {
+          alg: "XCHACHA20_POLY1305" as const,
+          nonce: "__mvp_placeholder__",
+          ciphertext: "__mvp_placeholder__",
+        },
+      });
+    }
+
+    const token = generateToken();
+    const csrfToken = generateToken();
+    const tokenHashValue = await hashToken(token);
+
+    await store.createSession({
+      userId: user.id,
+      tokenHash: tokenHashValue,
+      csrfToken,
+      expiresAt: sessionDaysFromNow(),
+    });
+
+    const response: SessionUserResponse = {
+      user: {
+        id: user.id,
+        email: user.email,
+        serverRevision: user.serverRevision,
+      },
+      csrfToken,
+    };
+
+    const res = c.json(response);
+    res.headers.set(
+      "Set-Cookie",
+      setCookie(SESSION_COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: c.env.ENVIRONMENT === "production",
+        sameSite: "Lax",
+        path: "/",
+        maxAge: SESSION_MAX_AGE,
+      })
+    );
+
+    return res;
+  });
+
   // ── GET /auth/me ─────────────────────────────────────────────────────────
 
   auth.get("/auth/me", async (c) => {

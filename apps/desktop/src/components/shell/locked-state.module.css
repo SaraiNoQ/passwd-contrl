@@ -1,0 +1,423 @@
+.lockedLayout {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  padding: clamp(32px, 5vw, 72px);
+  background: var(--color-bg-root);
+}
+
+/* ---- Control Deck ---- */
+
+.controlDeck {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 440px;
+  padding: 28px;
+  border: 1px solid var(--color-text-primary);
+  border-radius: 16px;
+  background: var(--color-bg-panel);
+  box-shadow:
+    12px 12px 0 color-mix(in srgb, var(--color-primary) 16%, transparent),
+    var(--shadow-elevated);
+}
+
+.controlDeck::before {
+  position: absolute;
+  top: -6px;
+  right: 36px;
+  width: 72px;
+  height: 6px;
+  background: var(--color-primary);
+  content: "";
+}
+
+.deckTopline {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--color-border);
+  color: var(--color-text-muted);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.deckTopline span:first-child {
+  color: var(--color-primary);
+}
+
+/* ---- Header ---- */
+
+.unlockCardHeader {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.headerIcon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  background: var(--color-primary);
+  color: var(--color-paper-white);
+  box-shadow: var(--shadow-orange-ring);
+}
+
+.unlockCardHeader h2 {
+  margin-top: 6px;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+.unlockCardHeader p {
+  margin-top: 10px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.cardEyebrow {
+  display: block;
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+}
+
+/* ---- Form ---- */
+
+.unlockForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inputLabel {
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.06em;
+}
+
+.inputField {
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  width: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.inputField::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.inputField:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-border-glow);
+}
+
+.inputError {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px var(--color-danger-soft);
+}
+
+/* ---- Primary submit button ---- */
+
+.primarySubmit {
+  width: 100%;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-signal-orange);
+  background: var(--color-signal-orange);
+  color: var(--color-paper-white);
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--shadow-orange-ring);
+  transition: filter var(--transition-fast), transform 140ms steps(2, end), opacity var(--transition-fast);
+}
+
+.primarySubmit:hover:not(:disabled) {
+  filter: saturate(1.08);
+  transform: translateY(-1px);
+}
+
+.primarySubmit:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+/* ---- Security strip ---- */
+
+.securityStrip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-panel-soft);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.securityStrip svg {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.securityStrip span {
+  display: flex;
+  flex-direction: column;
+}
+
+.securityStrip strong {
+  color: var(--color-text-primary);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+/* ---- Loading status ---- */
+
+.loadingStatus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-primary-border);
+  border-radius: 6px;
+  background: var(--color-bg-panel-soft);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.loadingSpinner {
+  animation: spin 1s linear infinite;
+  will-change: transform;
+}
+
+/* ---- Recovery section ---- */
+
+.recoveryToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.recoveryToggle:hover {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-cloud-mist) 52%, transparent);
+}
+
+.recoveryLinkText {
+  flex: 1;
+  text-align: left;
+}
+
+.toggleMark {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.recoveryForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-primary-border);
+  border-radius: 12px;
+  background: var(--color-bg-panel-soft);
+  animation: revealPanel 180ms ease-out both;
+}
+
+.recoveryHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--color-primary-border);
+}
+
+.recoveryHeading span {
+  color: var(--color-primary);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.recoveryHeading strong {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.recoverySubmit {
+  width: 100%;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-paper-white);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast), transform 140ms steps(2, end);
+}
+
+.recoverySubmit:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.recoverySubmit:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+/* ---- Error banner ---- */
+
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.errorBanner svg {
+  flex-shrink: 0;
+}
+
+/* ---- Pixel key SVG ---- */
+
+.pixelKeyWrapper {
+  display: grid;
+  place-items: center;
+  padding: 24px 0;
+}
+
+.pixelKey {
+  width: min(92%, 200px);
+  filter: drop-shadow(6px 6px 0 color-mix(in srgb, var(--color-text-primary) 13%, transparent));
+}
+
+/* ---- Animations ---- */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes revealPanel {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingSpinner {
+    animation: none;
+  }
+
+  .recoveryForm {
+    animation: none;
+  }
+
+  .primarySubmit,
+  .recoverySubmit,
+  .recoveryToggle {
+    transition: none;
+  }
+
+  .primarySubmit:hover:not(:disabled),
+  .recoverySubmit:hover:not(:disabled) {
+    transform: none;
+  }
+}

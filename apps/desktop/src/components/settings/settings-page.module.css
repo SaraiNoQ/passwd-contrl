@@ -1,0 +1,506 @@
+.page {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 960px;
+  padding: var(--space-4) 0;
+  position: relative;
+  width: 100%;
+}
+
+/* Hero banner */
+.hero {
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.1) 0 4px, transparent 4px),
+    linear-gradient(135deg, rgba(227, 241, 254, 0.82), rgba(255, 255, 255, 0.9)),
+    var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 16px;
+  box-shadow: var(--shadow-panel);
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
+  overflow: hidden;
+  padding: clamp(var(--space-5), 4vw, var(--space-8));
+  position: relative;
+}
+
+.hero::after {
+  animation: settingsScan 4.8s steps(8, end) infinite;
+  background: linear-gradient(90deg, transparent, rgba(255, 94, 36, 0.2), transparent);
+  content: "";
+  height: 2px;
+  inset: 0 auto auto 0;
+  position: absolute;
+  width: 100%;
+}
+
+.eyebrow {
+  color: var(--color-signal-orange);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  line-height: 1.5;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.heroTitle {
+  color: var(--color-graphite-ink);
+  font-family: var(--font-display);
+  font-size: clamp(36px, 6vw, 56px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 0.85;
+  margin: var(--space-2) 0 0;
+}
+
+.heroCopy {
+  color: var(--color-slate-pencil);
+  font-size: 14px;
+  line-height: 1.75;
+  margin: var(--space-4) 0 0;
+  max-width: 600px;
+  position: relative;
+  z-index: 1;
+}
+
+.heroSummary {
+  align-self: end;
+  display: grid;
+  gap: var(--space-3);
+  position: relative;
+  z-index: 1;
+}
+
+.heroSummary span {
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.14) 0 8px, transparent 8px),
+    color-mix(in srgb, var(--color-cloud-mist) 42%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 12px;
+  display: grid;
+  gap: var(--space-1);
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5);
+}
+
+.heroSummary small {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.heroSummary strong {
+  color: var(--color-graphite-ink);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+/* Card grid */
+.controlGrid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(2, 1fr);
+  position: relative;
+  z-index: 1;
+}
+
+.card {
+  background:
+    linear-gradient(90deg, rgba(227, 241, 254, 0.72), transparent 28%),
+    var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 16px;
+  box-shadow: var(--shadow-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--space-5);
+  position: relative;
+  z-index: 1;
+}
+
+.card::before {
+  background:
+    linear-gradient(90deg, var(--color-signal-orange) 0 10px, transparent 10px 18px, var(--color-cloud-mist) 18px 100%);
+  content: "";
+  height: 4px;
+  inset: 0 0 auto;
+  position: absolute;
+}
+
+.securityCard {
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.08), transparent 34%),
+    linear-gradient(90deg, rgba(227, 241, 254, 0.72), transparent 28%),
+    var(--color-paper-white);
+}
+
+.passwordCard {
+  grid-row: span 2;
+}
+
+.exportCard {
+  background:
+    linear-gradient(135deg, rgba(227, 241, 254, 0.9), rgba(255, 255, 255, 0.72) 42%),
+    var(--color-paper-white);
+}
+
+.aboutCard {
+  background:
+    linear-gradient(135deg, rgba(227, 241, 254, 0.86), rgba(255, 255, 255, 0.84) 48%),
+    var(--color-paper-white);
+}
+
+.dangerCard {
+  border-color: var(--color-danger-border);
+}
+
+.dangerCard::before {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--color-danger) 0 10px,
+      color-mix(in srgb, var(--color-danger) 12%, var(--color-paper-white)) 10px 18px
+    );
+}
+
+/* Card header */
+.cardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cardKicker {
+  color: var(--color-signal-orange);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  line-height: 1.5;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.cardTitle {
+  color: var(--color-graphite-ink);
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  margin: 0;
+}
+
+.cardDescription {
+  color: var(--color-slate-pencil);
+  font-size: 13px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* Setting row (auto-lock) */
+.settingRow {
+  align-items: center;
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.1) 0 4px, transparent 4px),
+    color-mix(in srgb, var(--color-cloud-mist) 34%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 12px;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  min-height: 76px;
+  padding: var(--space-4);
+}
+
+.rowLabel {
+  color: var(--color-graphite-ink);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.rowHint {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: var(--space-1) 0 0;
+}
+
+.select {
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%) right 15px center / 7px 7px no-repeat,
+    var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
+  color: var(--color-graphite-ink);
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 800;
+  min-height: 44px;
+  min-width: 120px;
+  outline: none;
+  padding: var(--space-3) var(--space-6) var(--space-3) var(--space-3);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.select:hover {
+  border-color: var(--color-signal-orange);
+}
+
+.select:focus-visible {
+  border-color: var(--color-signal-orange);
+  box-shadow: var(--shadow-orange-ring);
+}
+
+/* Password panel */
+.passwordPanel {
+  background: var(--color-paper-white);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.passwordForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.passwordActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.passwordError {
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.passwordSuccess {
+  background:
+    linear-gradient(90deg, var(--color-signal-orange) 0 4px, transparent 4px),
+    color-mix(in srgb, var(--color-cloud-mist) 42%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 6px;
+  color: var(--color-graphite-ink);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.5;
+  margin: 0;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+}
+
+/* Export */
+.exportActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.exportRow {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 12px;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  min-height: 76px;
+  padding: var(--space-4);
+}
+
+.exportWarning {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: var(--space-1) 0 0;
+}
+
+/* Danger zone */
+.dangerZone {
+  align-items: center;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-danger) 9%, transparent) 0 4px, transparent 4px),
+    var(--color-paper-white);
+  border: 1px solid var(--color-danger-border);
+  border-radius: 14px;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  min-height: 76px;
+  padding: var(--space-4);
+}
+
+.dangerTitle {
+  color: var(--color-danger);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.dangerDescription {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: var(--space-1) 0 0;
+}
+
+/* About */
+.aboutInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.aboutRow {
+  align-items: center;
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.1) 0 4px, transparent 4px),
+    color-mix(in srgb, var(--color-cloud-mist) 34%, var(--color-paper-white));
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+}
+
+.aboutLabel {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.aboutValue {
+  color: var(--color-graphite-ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+/* Modal overlay */
+.modalOverlay {
+  align-items: center;
+  background: rgba(35, 38, 41, 0.6);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 200;
+}
+
+.modal {
+  background: var(--color-bg-shell);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-elevated);
+  max-width: 440px;
+  padding: var(--space-6);
+  width: 90%;
+}
+
+.modalTitle {
+  color: var(--color-graphite-ink);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  margin: 0 0 var(--space-4);
+}
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.modalWarning {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.modalList {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.75;
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.modalIrreversible {
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.modalActions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+  margin-top: var(--space-5);
+}
+
+/* Animations */
+@keyframes settingsScan {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero::after {
+    animation: none;
+  }
+
+  .select {
+    transition: none;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .controlGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .settingRow,
+  .exportRow,
+  .dangerZone {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .select {
+    width: 100%;
+  }
+}

@@ -1,10 +1,10 @@
 # 桌面端概述
 
-Last updated: 2026-06-08
+Last updated: 2026-06-14
 
-本文档是 Zero Vault macOS 桌面端 App 开发的主规范。当前阶段只规划桌面端开发方式，不创建 `apps/desktop`，不修改 `apps/web`，不调整现有 Web Vault 的前端显示效果。
+本文档是 Zero Vault macOS 桌面端 App 开发的主规范。`apps/desktop` 已创建并进入实现阶段；桌面端改动仍不得修改 `apps/web`，不得调整现有 Web Vault 的前端显示效果。
 
-桌面端路线固定为 **Tauri 2.x + React + TypeScript**。当前产品阶段目标为 **功能对等 Web Vault**：桌面端可以完成 Web Vault 的全部功能，包括凭据增删改查、CSV 导入、恢复码、设备信任、冲突解决和同步管理。
+桌面端路线固定为 **Tauri 2.x + React + TypeScript**。当前产品阶段目标为 **接近 Web Vault 功能对等**：桌面端已接入凭据增删改查、CSV 导入、恢复码、设备信任、冲突解决和同步管理的主界面编排；发行前仍需 Tauri 真机 smoke、打包签名、公证和分发验证。
 
 ## 目标与边界
 
@@ -19,7 +19,7 @@ Last updated: 2026-06-08
 
 当前 MVP 包含：
 
-- 账号登录（OPAQUE 协议）与会话恢复。
+- OPAQUE 两步账号登录与会话恢复；不安全的 direct-login 默认不可用。
 - 主密码解锁与本地锁定。
 - 拉取、缓存、解密并展示密文条目。
 - 凭据列表、凭据详情、新增、编辑、删除凭据。
@@ -32,7 +32,7 @@ Last updated: 2026-06-08
 - 密码生成器。
 - 设置页面（自动锁定、master password 修改、导出等）。
 - 离线读取已缓存密文。
-- 手动同步与自动同步（可配置）。
+- 手动同步。离线写入队列与自动同步仍待完成。
 
 当前 MVP 不包含：
 
@@ -80,7 +80,7 @@ Last updated: 2026-06-08
 | 后端语言 | Rust | 共享 `crates/crypto-core` 作为原生库 |
 | 前端 | React 19 + CSS Modules | 复用 Web 设计系统 token |
 | 前端构建 | Vite SPA | `target: safari15`、`manualChunks`（react vendor 分离） |
-| 路由 | 状态导航（2 路由） | 与 Web 一致：`/` 和 `/vault` |
+| 路由 | 状态导航（桌面内部页面） | Dashboard、Credentials、Import、Recovery、Sync、Devices、Settings |
 | API 类型 | `packages/shared` | 复用 Zod schema 和 DTO 类型 |
 | 加密核心 | `crates/crypto-core`（原生 Rust） | 通过 Tauri command 直接 FFI，不使用 WASM |
 | 安全存储 | macOS Keychain | 通过 `security-framework` 或 `keyring` crate |

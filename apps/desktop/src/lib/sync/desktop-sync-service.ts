@@ -94,8 +94,12 @@ export class DesktopSyncServiceImpl implements DesktopSyncService {
    */
   async resolveConflict(
     itemId: string,
-    _strategy: "keep_local" | "accept_remote" | "create_copy" | "skip",
+    strategy: "keep_local" | "accept_remote" | "create_copy" | "skip",
   ): Promise<void> {
+    if (strategy === "skip") {
+      return;
+    }
+
     const conflicts = await this.ciphertextStore.getConflictIds();
     conflicts.delete(itemId);
     await this.ciphertextStore.setConflictIds(conflicts);

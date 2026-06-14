@@ -2,6 +2,7 @@
 
 import { AlertTriangle, KeyRound, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import type { RecoveryPacketEnvelope } from "@zero-vault/shared";
 import type { DesktopCryptoAdapter } from "../../lib/crypto/desktop-crypto-adapter";
 import { Modal } from "../ui/modal";
 import { Button } from "../ui/button";
@@ -18,12 +19,7 @@ export interface RecoveryModalProps {
   onRecover: (vaultKey: Uint8Array) => Promise<void>;
   cryptoAdapter: DesktopCryptoAdapter;
   /** The encrypted recovery packet stored locally. */
-  encryptedRecoveryPacket: {
-    alg: "AES_256_GCM";
-    nonce: string;
-    ciphertext: string;
-    kdfIterations?: number;
-  } | null;
+  encryptedRecoveryPacket: RecoveryPacketEnvelope | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +57,11 @@ export function RecoveryModal({
       return;
     }
 
+    if (encryptedRecoveryPacket.alg !== "AES_256_GCM") {
+      setError("恢复数据包格式不受支持。");
+      return;
+    }
+
     setRecovering(true);
     setError(null);
 
@@ -76,7 +77,7 @@ export function RecoveryModal({
 
       const derivedKey = await globalThis.crypto.subtle.importKey(
         "raw",
-        recoveryKey.buffer as ArrayBuffer,
+        recoveryKey.slice().buffer as ArrayBuffer,
         "AES-GCM",
         false,
         ["decrypt"],
@@ -90,7 +91,7 @@ export function RecoveryModal({
           additionalData: aad,
         },
         derivedKey,
-        ciphertextBytes.buffer as ArrayBuffer,
+        ciphertextBytes.slice().buffer as ArrayBuffer,
       );
 
       const vaultKey = new Uint8Array(plaintext);

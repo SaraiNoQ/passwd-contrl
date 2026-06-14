@@ -309,11 +309,17 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
   });
 
   // ── POST /auth/login/direct ──────────────────────────────────────────────
-  // MVP direct login for desktop/mobile clients that cannot run OPAQUE WASM.
-  // TODO: Replace with OPAQUE login/start + login/finish once WASM is available
-  //       on all platforms. This endpoint will be removed at that point.
+  // Development-only escape hatch. This endpoint does not verify a password and
+  // must never be reachable unless explicitly enabled for local test tooling.
 
   auth.post("/auth/login/direct", rateLimit({ max: 10 }), async (c) => {
+    const directLoginEnabled =
+      c.env.ALLOW_INSECURE_DIRECT_LOGIN === "true" &&
+      (c.env.ENVIRONMENT === "development" || c.env.ENVIRONMENT === "test");
+    if (!directLoginEnabled) {
+      return c.json({ error: "not_found" }, 404);
+    }
+
     let body: unknown;
     try {
       body = await c.req.json();

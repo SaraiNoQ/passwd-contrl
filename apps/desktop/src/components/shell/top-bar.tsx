@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock, RefreshCw, Search } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, type RefObject } from "react";
 import styles from "./top-bar.module.css";
 
 export interface TopBarProps {
@@ -15,6 +15,8 @@ export interface TopBarProps {
   onSync?: () => void;
   /** Auto-lock countdown in minutes (0 = disabled) */
   autoLockMinutes?: number;
+  /** Optional ref for global shortcuts. */
+  searchInputRef?: RefObject<HTMLInputElement | null>;
 }
 
 function formatAutoLockTime(minutes: number): string {
@@ -40,6 +42,7 @@ export const TopBar = memo(function TopBar({
   syncStatus,
   onSync,
   autoLockMinutes,
+  searchInputRef,
 }: TopBarProps) {
   const autoLockDisplay = useMemo(
     () => formatAutoLockTime(autoLockMinutes ?? 0),
@@ -56,6 +59,7 @@ export const TopBar = memo(function TopBar({
       <div className={styles.search}>
         <Search size={16} />
         <input
+          ref={searchInputRef}
           type="text"
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}

@@ -23,6 +23,8 @@ import type {
   ItemLevelSyncResponse,
 } from "@zero-vault/shared";
 
+const TEST_USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function createTestLoginItem(id: string): VaultItem {
@@ -161,7 +163,7 @@ describe("useVaultState — CRUD operations", () => {
       await unlockVault(secureStore, result);
 
       await act(async () => {
-        await result.current.addItem(item, "test-csrf");
+        await result.current.addItem(item, "test-csrf", TEST_USER_ID);
       });
 
       expect(createItem).toHaveBeenCalledTimes(1);
@@ -169,12 +171,13 @@ describe("useVaultState — CRUD operations", () => {
         "test-csrf",
         expect.objectContaining({
           id: itemId,
-          ownerUserId: "",
+          ownerUserId: TEST_USER_ID,
           revision: 0,
           baseItemRevision: 0,
           encryptedItemKey: expect.objectContaining({ alg: "XCHACHA20_POLY1305" }),
           encryptedPayload: expect.objectContaining({ alg: "XCHACHA20_POLY1305" }),
         }),
+        0,
       );
     });
 
@@ -188,7 +191,7 @@ describe("useVaultState — CRUD operations", () => {
       await unlockVault(secureStore, result);
 
       await act(async () => {
-        await result.current.addItem(item, "test-csrf");
+        await result.current.addItem(item, "test-csrf", TEST_USER_ID);
       });
 
       await waitFor(() => {
@@ -208,7 +211,7 @@ describe("useVaultState — CRUD operations", () => {
       await unlockVault(secureStore, result);
 
       await act(async () => {
-        await result.current.addItem(item, "test-csrf");
+        await result.current.addItem(item, "test-csrf", TEST_USER_ID);
       });
 
       const stored = await ciphertextStore.getById(itemId);
@@ -224,7 +227,11 @@ describe("useVaultState — CRUD operations", () => {
 
       // Don't unlock
       await act(async () => {
-        await result.current.addItem(createTestLoginItem("test"), "test-csrf");
+        await result.current.addItem(
+          createTestLoginItem("test"),
+          "test-csrf",
+          TEST_USER_ID,
+        );
       });
 
       expect(createItem).not.toHaveBeenCalled();
@@ -242,7 +249,7 @@ describe("useVaultState — CRUD operations", () => {
       await unlockVault(secureStore, result);
 
       await act(async () => {
-        await result.current.addItem(item, "test-csrf");
+        await result.current.addItem(item, "test-csrf", TEST_USER_ID);
       });
 
       expect(result.current.error).toBe("网络错误，请检查连接");
@@ -274,7 +281,7 @@ describe("useVaultState — CRUD operations", () => {
       await unlockVault(secureStore, result);
 
       await act(async () => {
-        await result.current.addItem(item, "test-csrf");
+        await result.current.addItem(item, "test-csrf", TEST_USER_ID);
       });
 
       expect(result.current.error).toBe("同步冲突，请手动解决");
@@ -299,7 +306,7 @@ describe("useVaultState — CRUD operations", () => {
         itemId,
         ciphertext: {
           id: itemId,
-          ownerUserId: "",
+          ownerUserId: TEST_USER_ID,
           revision: 1,
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
@@ -314,7 +321,7 @@ describe("useVaultState — CRUD operations", () => {
 
       const updated = { ...item, title: "Updated Title" };
       await act(async () => {
-        await result.current.updateItem(updated, "test-csrf");
+        await result.current.updateItem(updated, "test-csrf", TEST_USER_ID);
       });
 
       expect(updateItem).toHaveBeenCalledTimes(1);
@@ -322,9 +329,11 @@ describe("useVaultState — CRUD operations", () => {
         "test-csrf",
         expect.objectContaining({
           id: itemId,
+          ownerUserId: TEST_USER_ID,
           baseItemRevision: 1,
           revision: 2,
         }),
+        0,
       );
     });
 
@@ -339,13 +348,13 @@ describe("useVaultState — CRUD operations", () => {
 
       // Add item first
       await act(async () => {
-        await result.current.addItem(item, "test-csrf");
+        await result.current.addItem(item, "test-csrf", TEST_USER_ID);
       });
 
       // Update it
       const updated = { ...item, title: "New Title", updatedAt: "2026-06-08T00:00:00.000Z" };
       await act(async () => {
-        await result.current.updateItem(updated, "test-csrf");
+        await result.current.updateItem(updated, "test-csrf", TEST_USER_ID);
       });
 
       await waitFor(() => {
@@ -361,7 +370,11 @@ describe("useVaultState — CRUD operations", () => {
       const { result } = renderHook(() => useVaultState());
 
       await act(async () => {
-        await result.current.updateItem(createTestLoginItem("test"), "test-csrf");
+        await result.current.updateItem(
+          createTestLoginItem("test"),
+          "test-csrf",
+          TEST_USER_ID,
+        );
       });
 
       expect(updateItem).not.toHaveBeenCalled();
@@ -379,7 +392,7 @@ describe("useVaultState — CRUD operations", () => {
       await unlockVault(secureStore, result);
 
       await act(async () => {
-        await result.current.updateItem(item, "test-csrf");
+        await result.current.updateItem(item, "test-csrf", TEST_USER_ID);
       });
 
       expect(result.current.error).toBe("网络错误，请检查连接");
@@ -410,7 +423,7 @@ describe("useVaultState — CRUD operations", () => {
       await unlockVault(secureStore, result);
 
       await act(async () => {
-        await result.current.updateItem(item, "test-csrf");
+        await result.current.updateItem(item, "test-csrf", TEST_USER_ID);
       });
 
       expect(result.current.error).toBe("同步冲突，请手动解决");
@@ -430,11 +443,17 @@ describe("useVaultState — CRUD operations", () => {
       await unlockVault(secureStore, result);
 
       await act(async () => {
-        await result.current.deleteItem(itemId, "test-csrf");
+        await result.current.deleteItem(itemId, "test-csrf", TEST_USER_ID);
       });
 
       expect(deleteItem).toHaveBeenCalledTimes(1);
-      expect(deleteItem).toHaveBeenCalledWith("test-csrf", itemId, 0);
+      expect(deleteItem).toHaveBeenCalledWith(
+        "test-csrf",
+        itemId,
+        0,
+        TEST_USER_ID,
+        0,
+      );
     });
 
     it("removes item from local plaintext state", async () => {
@@ -450,14 +469,14 @@ describe("useVaultState — CRUD operations", () => {
 
       // Add item first
       await act(async () => {
-        await result.current.addItem(item, "test-csrf");
+        await result.current.addItem(item, "test-csrf", TEST_USER_ID);
       });
 
       expect(result.current.items).toHaveLength(1);
 
       // Delete it
       await act(async () => {
-        await result.current.deleteItem(itemId, "test-csrf");
+        await result.current.deleteItem(itemId, "test-csrf", TEST_USER_ID);
       });
 
       await waitFor(() => {
@@ -478,7 +497,7 @@ describe("useVaultState — CRUD operations", () => {
 
       // Add item first
       await act(async () => {
-        await result.current.addItem(item, "test-csrf");
+        await result.current.addItem(item, "test-csrf", TEST_USER_ID);
       });
 
       const storedBefore = await ciphertextStore.getById(itemId);
@@ -486,7 +505,7 @@ describe("useVaultState — CRUD operations", () => {
 
       // Delete it
       await act(async () => {
-        await result.current.deleteItem(itemId, "test-csrf");
+        await result.current.deleteItem(itemId, "test-csrf", TEST_USER_ID);
       });
 
       const storedAfter = await ciphertextStore.getById(itemId);
@@ -499,7 +518,7 @@ describe("useVaultState — CRUD operations", () => {
       const { result } = renderHook(() => useVaultState());
 
       await act(async () => {
-        await result.current.deleteItem("test-id", "test-csrf");
+        await result.current.deleteItem("test-id", "test-csrf", TEST_USER_ID);
       });
 
       expect(deleteItem).not.toHaveBeenCalled();
@@ -516,7 +535,7 @@ describe("useVaultState — CRUD operations", () => {
       await unlockVault(secureStore, result);
 
       await act(async () => {
-        await result.current.deleteItem(itemId, "test-csrf");
+        await result.current.deleteItem(itemId, "test-csrf", TEST_USER_ID);
       });
 
       expect(result.current.error).toBe("网络错误，请检查连接");
@@ -547,7 +566,7 @@ describe("useVaultState — CRUD operations", () => {
       await unlockVault(secureStore, result);
 
       await act(async () => {
-        await result.current.deleteItem(itemId, "test-csrf");
+        await result.current.deleteItem(itemId, "test-csrf", TEST_USER_ID);
       });
 
       expect(result.current.error).toBe("同步冲突，请手动解决");
@@ -565,15 +584,21 @@ describe("useVaultState — CRUD operations", () => {
 
       // Add item (which stores it with revision from server response)
       await act(async () => {
-        await result.current.addItem(item, "test-csrf");
+        await result.current.addItem(item, "test-csrf", TEST_USER_ID);
       });
 
       // Delete — should use the stored revision
       await act(async () => {
-        await result.current.deleteItem(itemId, "test-csrf");
+        await result.current.deleteItem(itemId, "test-csrf", TEST_USER_ID);
       });
 
-      expect(deleteItem).toHaveBeenCalledWith("test-csrf", itemId, expect.any(Number));
+      expect(deleteItem).toHaveBeenCalledWith(
+        "test-csrf",
+        itemId,
+        expect.any(Number),
+        TEST_USER_ID,
+        expect.any(Number),
+      );
       const calledRevision = (deleteItem as ReturnType<typeof vi.fn>).mock.calls[0]![2];
       expect(calledRevision).toBeGreaterThan(0);
     });

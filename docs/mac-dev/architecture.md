@@ -1,6 +1,6 @@
 # 桌面端架构设计
 
-Last updated: 2026-06-08
+Last updated: 2026-06-14
 
 ## Monorepo 位置
 
@@ -19,14 +19,18 @@ crates/crypto-core — Rust KDF 和 AEAD 原语 — 共享（原生库）
 ## 应用启动流程
 
 1. `main.tsx` 调用 `initializeApp()`（`src/lib/init.ts`）。
-2. `init.ts` 创建 `DesktopApiClient` 实例（默认 `http://localhost:8787`），注入到 `auth-state` 和 `vault-state`。
+2. `init.ts` 创建并注入生产 adapter：
+   - `DesktopApiClient`（默认 `http://localhost:8787`）。
+   - `TauriCryptoAdapter`（通过 Tauri IPC 调用 Rust crypto-core）。
+   - `KeychainAdapter`（macOS Keychain）。
+   - `SqliteCiphertextStore`（Tauri/Rust SQLite 密文缓存）。
 3. React 渲染 `<App />`：
    - `auth.restoreSession()` — 尝试恢复会话（`GET /auth/me`）。
    - `vault-state` 检测 `vault_salt` 是否存在 → 设置 `hasLocalVault`。
 
 ## 数据流
 
-1. 用户点击"演示登录" → `POST /auth/login/direct` → Worker API 创建用户 + session → 返回 `{user, csrfToken}` + `Set-Cookie`。
+1. 用户在登录表单输入 email/password → `POST /auth/login/direct` → Worker API 创建/恢复用户 session → 返回 `{user, csrfToken}` + `Set-Cookie`。
 2. 登录后进入 FORGE MODE 或 UNLOCK MODE（取决于 `hasLocalVault`）。
 3. 用户输入 master password。
 4. 桌面端通过 Tauri command 调用 Rust `derive_vault_key`（原生 FFI，非 WASM）。
@@ -40,6 +44,8 @@ crates/crypto-core — Rust KDF 和 AEAD 原语 — 共享（原生库）
 - Web 通过 `@zero-vault/crypto-core-wasm` 加载 WASM 加密模块。
 - 桌面端通过 Tauri `invoke` 命令系统直接调用 Rust 原生函数。
 - Tauri command 作为桥接层：Rust 后端暴露 `derive_vault_key`、`decrypt_item`、`encrypt_item` 等命令，前端通过 `@tauri-apps/api/core` 的 `invoke` 调用。
+- 桌面端不能直接 import Web 组件、CSS Modules、Next.js 页面或浏览器专用 hooks；Web 只作为视觉和交互参考。
+- 桌面端 UI 视觉以 `docs/DESIGN.md` 和当前 Web Vault 已落地界面为准，保持 Cloud Mist 亮色主题。
 
 ## Tauri Command 桥接模式
 

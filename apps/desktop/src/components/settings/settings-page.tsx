@@ -47,6 +47,7 @@ export function SettingsPage({
   // Delete account state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // --- Handlers ---
 
@@ -101,14 +102,15 @@ export function SettingsPage({
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!onDeleteAccount) return;
+    setDeleteError(null);
     setDeleteLoading(true);
     try {
       await onDeleteAccount();
-    } catch {
-      // Parent handles navigation / error display
+      setDeleteModalOpen(false);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "删除账户失败");
     } finally {
       setDeleteLoading(false);
-      setDeleteModalOpen(false);
     }
   }, [onDeleteAccount]);
 
@@ -124,7 +126,7 @@ export function SettingsPage({
             设置
           </h2>
           <p className={styles.heroCopy}>
-            管理自动锁定、主密码、数据导出和账户安全。所有操作均在本地完成，不涉及远程服务。
+            管理自动锁定、主密码、数据导出和账户安全。账户操作会通过受保护的远程 API 完成。
           </p>
         </div>
         <div className={styles.heroSummary} aria-label="当前设置摘要">
@@ -377,6 +379,11 @@ export function SettingsPage({
                 确认删除
               </Button>
             </div>
+            {deleteError && (
+              <p className={styles.passwordError} role="alert">
+                {deleteError}
+              </p>
+            )}
           </div>
         </div>
       )}

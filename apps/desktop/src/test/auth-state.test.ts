@@ -4,6 +4,22 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
+
+const opaqueMocks = vi.hoisted(() => ({
+  startLogin: vi.fn(() => ({
+    startLoginRequest: "opaque-start-request",
+    clientLoginState: "opaque-client-state",
+  })),
+  finishLogin: vi.fn(() => ({
+    finishLoginRequest: "opaque-finish-request",
+  })),
+}));
+
+vi.mock("@serenity-kit/opaque", () => ({
+  ready: Promise.resolve(),
+  client: opaqueMocks,
+}));
+
 import {
   useAuthState,
   configureApiClient,
@@ -17,7 +33,11 @@ function createMockClient(
   overrides: Partial<DesktopApiClient> = {},
 ): DesktopApiClient {
   return {
-    loginDirect: vi.fn().mockResolvedValue({
+    loginStart: vi.fn().mockResolvedValue({
+      loginSessionId: "11111111-1111-4111-8111-111111111111",
+      loginResponse: "opaque-login-response",
+    }),
+    loginFinish: vi.fn().mockResolvedValue({
       user: { id: "u1", email: "test@example.com", serverRevision: 1 },
       csrfToken: "csrf-abc",
     }),
@@ -85,14 +105,18 @@ describe("useAuthState", () => {
     expect(result.current.csrfToken).toBe("csrf-abc");
     expect(result.current.isLoading).toBe(false);
     expect(result.current.error).toBeNull();
-    expect(mockClient.loginDirect).toHaveBeenCalledWith(
+    expect(mockClient.loginStart).toHaveBeenCalledWith(
       "test@example.com",
-      "password123",
+      "opaque-start-request",
+    );
+    expect(mockClient.loginFinish).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      "opaque-finish-request",
     );
   });
 
   it("sets Chinese error on invalid_credentials", async () => {
-    (mockClient.loginDirect as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (mockClient.loginStart as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error("invalid_credentials"),
     );
     const { result } = renderHook(() => useAuthState());
@@ -107,7 +131,7 @@ describe("useAuthState", () => {
   });
 
   it("sets network error message on network_error", async () => {
-    (mockClient.loginDirect as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (mockClient.loginStart as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error("network_error"),
     );
     const { result } = renderHook(() => useAuthState());
@@ -120,7 +144,7 @@ describe("useAuthState", () => {
   });
 
   it("sets timeout error message", async () => {
-    (mockClient.loginDirect as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (mockClient.loginStart as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error("request_timeout"),
     );
     const { result } = renderHook(() => useAuthState());
@@ -133,7 +157,7 @@ describe("useAuthState", () => {
   });
 
   it("sets unknown error for non-Error throws", async () => {
-    (mockClient.loginDirect as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (mockClient.loginStart as ReturnType<typeof vi.fn>).mockRejectedValue(
       "string error",
     );
     const { result } = renderHook(() => useAuthState());
@@ -147,7 +171,7 @@ describe("useAuthState", () => {
 
   it("sets isLoading true while login is in progress", async () => {
     let resolveLogin!: (v: unknown) => void;
-    (mockClient.loginDirect as ReturnType<typeof vi.fn>).mockReturnValue(
+    (mockClient.loginFinish as ReturnType<typeof vi.fn>).mockReturnValue(
       new Promise((resolve) => {
         resolveLogin = resolve;
       }),
@@ -174,7 +198,7 @@ describe("useAuthState", () => {
   // ── clearError ─────────────────────────────────────────────────────
 
   it("clearError resets error to null", async () => {
-    (mockClient.loginDirect as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (mockClient.loginStart as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error("invalid_credentials"),
     );
     const { result } = renderHook(() => useAuthState());
@@ -290,7 +314,7 @@ describe("useAuthState", () => {
   // ── Error messages ─────────────────────────────────────────────────
 
   it("maps forbidden to Chinese error", async () => {
-    (mockClient.loginDirect as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (mockClient.loginStart as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error("forbidden"),
     );
     const { result } = renderHook(() => useAuthState());
@@ -303,7 +327,7 @@ describe("useAuthState", () => {
   });
 
   it("maps user_not_found to Chinese error", async () => {
-    (mockClient.loginDirect as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (mockClient.loginStart as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error("user_not_found"),
     );
     const { result } = renderHook(() => useAuthState());

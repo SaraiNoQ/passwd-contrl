@@ -6,4 +6,5 @@ export type Env = {
   CORS_ORIGIN?: string;
   SESSION_SECRET?: string;
   MAINTENANCE_TOKEN?: string;
+  ALLOW_INSECURE_DIRECT_LOGIN?: string;
 };

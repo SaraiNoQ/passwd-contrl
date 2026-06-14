@@ -474,6 +474,27 @@ describe("Auth routes", () => {
     });
   });
 
+  describe("POST /auth/login/direct", () => {
+    it("is unavailable unless the insecure development flag is explicit", async () => {
+      const res = await app.request(
+        "/auth/login/direct",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            email: "test@example.com",
+            password: "any-non-empty-password",
+          }),
+        },
+        createEnv(db),
+      );
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "not_found" });
+      expect(db._tables.sessions).toHaveLength(0);
+    });
+  });
+
   describe("GET /auth/session", () => {
     it("returns 401 when not authenticated", async () => {
       const res = await app.request("/auth/session", undefined, createEnv(db));

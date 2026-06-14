@@ -20,6 +20,8 @@ export interface LockedStateProps {
   error: string | null;
   /** Whether a local vault already exists (unlock mode) or needs creation (forge mode) */
   hasLocalVault: boolean;
+  /** Open the recovery-code modal for an existing local vault. */
+  onOpenRecovery?: () => void;
 }
 
 export function LockedState({
@@ -27,11 +29,10 @@ export function LockedState({
   isLoading,
   error,
   hasLocalVault,
+  onOpenRecovery,
 }: LockedStateProps) {
   const [masterPassword, setMasterPassword] = useState("");
   const [showRecoveryEntry, setShowRecoveryEntry] = useState(false);
-  const [recoveryCode, setRecoveryCode] = useState("");
-  const [recoveryPassword, setRecoveryPassword] = useState("");
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -41,8 +42,7 @@ export function LockedState({
 
   const handleRecoverySubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (recoveryPassword.length < 12) return;
-    await onUnlock(recoveryPassword);
+    onOpenRecovery?.();
   };
 
   return (
@@ -187,41 +187,15 @@ export function LockedState({
                   <span>RECOVERY CHANNEL</span>
                   <strong>恢复通道</strong>
                 </div>
-                <div className={styles.inputGroup}>
-                  <label className={styles.inputLabel} htmlFor="vault-recovery-code">
-                    恢复码
-                  </label>
-                  <input
-                    id="vault-recovery-code"
-                    className={styles.inputField}
-                    type="text"
-                    value={recoveryCode}
-                    onChange={(e) => setRecoveryCode(e.target.value)}
-                    placeholder="粘贴离线保存的恢复码"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className={styles.inputGroup}>
-                  <label className={styles.inputLabel} htmlFor="vault-recovery-password">
-                    新主密码
-                  </label>
-                  <input
-                    id="vault-recovery-password"
-                    className={styles.inputField}
-                    type="password"
-                    value={recoveryPassword}
-                    onChange={(e) => setRecoveryPassword(e.target.value)}
-                    placeholder="输入至少 12 个字符"
-                    minLength={12}
-                    autoComplete="new-password"
-                  />
-                </div>
+                <p className={styles.recoveryLinkText}>
+                  使用已设置的离线恢复码解封本地密码库。恢复码只在本设备内解密恢复包，不会发送到服务器。
+                </p>
                 <button
                   type="submit"
                   className={styles.recoverySubmit}
-                  disabled={isLoading || recoveryPassword.length < 12}
+                  disabled={isLoading || !onOpenRecovery}
                 >
-                  {isLoading ? "恢复中..." : "恢复密码库"}
+                  {isLoading ? "恢复中..." : "打开恢复码入口"}
                 </button>
               </form>
             ) : null}

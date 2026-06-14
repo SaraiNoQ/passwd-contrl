@@ -7,12 +7,20 @@
  * a circular import to the implementation.
  */
 
-import type { SessionUserResponse } from "@zero-vault/shared";
+import type {
+  LoginStartResponse,
+  SessionUserResponse,
+} from "@zero-vault/shared";
 
 export interface DesktopApiClient {
-  loginDirect(
+  loginStart(
     email: string,
-    password: string,
+    startLoginRequest: string,
+  ): Promise<LoginStartResponse>;
+
+  loginFinish(
+    loginSessionId: string,
+    finishLoginRequest: string,
   ): Promise<SessionUserResponse>;
 
   fetchCurrentUser(): Promise<SessionUserResponse>;

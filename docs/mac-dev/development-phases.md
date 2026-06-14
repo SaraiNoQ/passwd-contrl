@@ -1,6 +1,6 @@
 # 桌面端开发阶段规划
 
-Last updated: 2026-06-08
+Last updated: 2026-06-14
 
 ## 阶段 0：规范文档 — 已完成
 
@@ -110,7 +110,7 @@ Last updated: 2026-06-08
 - [x] 实现 `SyncPanel` — 同步状态、手动同步、活动日志时间线。
 - [x] 18 设备管理测试 + 25 冲突解决测试通过。
 
-## 阶段 7：打磨与收尾 — 已完成
+## 阶段 7：打磨与收尾 — 基础完成，发行前验证进行中
 
 - [x] 完善设置页面（自动锁定时间、master password 修改、CSV/加密导出、账户删除、关于信息）。14 测试通过。
 - [x] 实现自动锁定（vault-state 中 autoLockMinutes + 超时锁屏）。
@@ -119,6 +119,8 @@ Last updated: 2026-06-08
   - 自定义快捷键：Cmd+L（锁定）、Cmd+K（搜索）、Cmd+N（新建凭据）、Cmd+,（设置/偏好设置）、Cmd+S（同步）、Cmd+R（重新加载）。
   - 菜单事件通过 `app.emit()` 发送到前端。
 - [x] 更新 `docs/roadmap.md` 添加桌面端 phase。
+- [ ] Tauri 真机 smoke：登录、首次铸造、重启后 Keychain/SQLite 恢复、菜单快捷键、导入、恢复码、设备审批、同步冲突。
+- [ ] macOS 打包、签名、公证、DMG 分发。
 
 ## 阶段 7b：Bug 修复与性能优化 — 已完成 (2026-06-08)
 
@@ -128,11 +130,11 @@ Last updated: 2026-06-08
 
 **根因：** `configureApiClient()` 从未在生产代码中调用，`apiClient` 单例为 `null`。`getClient()` 抛出异常后 `getErrorMessage()` 找不到映射，fallback 到"发生了未知错误"。
 
-**另外：** `DesktopApiClient` 类缺少 `loginDirect()` 方法，即使配置了客户端也会 `TypeError`。
+**历史问题：** 当时 `DesktopApiClient` 缺少发行登录实现；该 direct-login 临时路径现已被 OPAQUE 两步登录替代。
 
 **修复：**
 - 新建 `src/lib/init.ts`（应用引导文件），创建 `DesktopApiClient` 实例并注入 `auth-state` 和 `vault-state`。
-- `src/lib/api/desktop-api-client.ts` — 添加 `loginDirect(email, password)` 方法（`POST /auth/login/direct`）。
+- `src/lib/api/desktop-api-client.ts` — 当前使用 `loginStart`/`loginFinish` OPAQUE 两步协议。
 - `src/lib/api/types.ts` — `logout` 返回类型 `Promise<void>` → `Promise<{ ok: true }>`（匹配实现）。
 - `src/main.tsx` — React 渲染前调用 `initializeApp()`。
 
@@ -193,6 +195,44 @@ Last updated: 2026-06-08
 ### 验证
 
 - 类型检查：通过
-- 桌面端测试：207/207 通过
+- 桌面端测试：210/210 通过（2026-06-14 最新验证）
 - Worker API 测试：149/149 通过
 - Vite 构建：通过（主包 178KB + react 12KB + CSS 59KB，无外部网络依赖）
+
+## 阶段 7c：主应用编排与文档校准 — 已完成 (2026-06-14)
+
+### 主应用编排
+
+- `App.tsx` 移除 dashboard/sync/devices 占位页，接入真实页面编排：
+  - Dashboard：显示条目数量、类型统计、同步状态、冲突数、设备数和自动锁定。
+  - Credentials：保留列表、详情、新增/编辑抽屉、删除确认。
+  - Import：接入 `CsvImportWizard`，导入后转为 login item 并通过现有加密/同步链路写入。
+  - Recovery：接入 `RecoverySetup` 和 `RecoveryModal`，由父级创建 AES-GCM recovery packet 并上传。
+  - Sync：接入 `SyncPanel` 与 `ConflictResolutionPanel`，读取本地 ciphertext store 快照。
+  - Devices：接入 `DeviceManagementPanel`，注册/审批/拒绝/撤销走现有 Worker API 设备信任协议。
+  - Settings：接入主密码本地 key-wrap 轮换、明文 CSV 风险确认、加密备份和 server-first 账户删除。
+- 登录页使用 email/password 表单和 OPAQUE `loginStart`/`loginFinish`。
+- `initializeApp()` 生产启动路径注入真实 `TauriCryptoAdapter`、`KeychainAdapter`、`SqliteCiphertextStore`，不再默认使用测试替身/内存存储。
+- 接入 Tauri 菜单事件和键盘快捷键：
+  - Cmd+N 新建凭据。
+  - Cmd+K 聚焦搜索。
+  - Cmd+L 锁定。
+  - Cmd+S 同步。
+  - Cmd+, 打开设置。
+  - 菜单导入 CSV、偏好设置、重新加载触发前端行为。
+
+### 协议对齐
+
+- `DesktopApiClient` 的设备信任路径与 Worker/Web 对齐：
+  - `POST /devices`
+  - `POST /devices/:id/reject`
+  - `POST /devices/:id/share-key`
+- 未新增服务端协议，未修改 Web 代码。
+
+### 验证
+
+- 类型检查：通过。
+- 构建：通过。
+- 桌面端测试：210/210 通过。
+- Worker API 测试：150/150 通过。
+- Vite production build：通过。

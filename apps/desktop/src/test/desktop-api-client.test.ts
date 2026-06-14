@@ -110,7 +110,7 @@ describe("DesktopApiClient", () => {
       const result = await client.pullItems();
 
       expect(fetch).toHaveBeenCalledWith(
-        `${BASE_URL}/vault/item-sync/pull`,
+        `${BASE_URL}/vault/item-sync`,
         expect.objectContaining({ credentials: "include" })
       );
       expect(result).toEqual(pullResponse);
@@ -127,13 +127,75 @@ describe("DesktopApiClient", () => {
       await client.pullItems(3);
 
       expect(fetch).toHaveBeenCalledWith(
-        `${BASE_URL}/vault/item-sync/pull?serverRevision=3`,
+        `${BASE_URL}/vault/item-sync?serverRevision=3`,
         expect.objectContaining({ credentials: "include" })
       );
     });
   });
 
   // ── Error handling ────────────────────────────────────────────────────
+
+  describe("device trust", () => {
+    it("registerDevice sends POST to /devices", async () => {
+      vi.stubGlobal("fetch", mockFetchJson({ ok: true }));
+
+      await client.registerDevice("csrf-token", {
+        name: "MacBook Pro",
+        publicKey: "public-key",
+      });
+
+      expect(fetch).toHaveBeenCalledWith(
+        `${BASE_URL}/devices`,
+        expect.objectContaining({
+          method: "POST",
+          credentials: "include",
+          headers: expect.objectContaining({
+            "x-zero-vault-csrf": "csrf-token",
+          }),
+          body: JSON.stringify({
+            name: "MacBook Pro",
+            publicKey: "public-key",
+          }),
+        }),
+      );
+    });
+
+    it("rejectDevice sends POST to /devices/:id/reject", async () => {
+      vi.stubGlobal("fetch", mockFetchJson({ ok: true }));
+
+      await client.rejectDevice(
+        "csrf-token",
+        "550e8400-e29b-41d4-a716-446655440000",
+      );
+
+      expect(fetch).toHaveBeenCalledWith(
+        `${BASE_URL}/devices/550e8400-e29b-41d4-a716-446655440000/reject`,
+        expect.objectContaining({
+          method: "POST",
+          credentials: "include",
+        }),
+      );
+    });
+
+    it("shareVaultKey sends POST to /devices/:id/share-key", async () => {
+      vi.stubGlobal("fetch", mockFetchJson({ ok: true }));
+
+      await client.shareVaultKey(
+        "csrf-token",
+        "550e8400-e29b-41d4-a716-446655440000",
+        "encrypted-key",
+      );
+
+      expect(fetch).toHaveBeenCalledWith(
+        `${BASE_URL}/devices/550e8400-e29b-41d4-a716-446655440000/share-key`,
+        expect.objectContaining({
+          method: "POST",
+          credentials: "include",
+          body: JSON.stringify({ encryptedVaultKey: "encrypted-key" }),
+        }),
+      );
+    });
+  });
 
   describe("error handling", () => {
     it("throws 'unauthorized' on 401", async () => {

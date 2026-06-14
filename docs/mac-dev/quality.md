@@ -1,6 +1,6 @@
 # 桌面端质量保障
 
-Last updated: 2026-06-08
+Last updated: 2026-06-14
 
 ## PR 验收门槛
 
@@ -21,7 +21,7 @@ pnpm --filter @zero-vault/desktop test
 pnpm --filter @zero-vault/desktop build
 ```
 
-桌面端依赖 Worker API 的 `/auth/login/direct` 端点，Auth 相关变更必须运行：
+桌面端使用 `/auth/login/start` 与 `/auth/login/finish` 的 OPAQUE 流程；Auth 相关变更必须运行：
 
 ```sh
 pnpm --filter @zero-vault/worker-api typecheck
@@ -36,8 +36,10 @@ pnpm --filter @zero-vault/web test:e2e:sync
 
 桌面端 E2E smoke 至少覆盖：
 
-- 登录（OPAQUE）。
+- OPAQUE 登录成功、错误密码、过期登录会话和网络错误。
 - 解锁。
+- 首次创建本地密码库（FORGE MODE）。
+- 重启应用后从 Keychain/SQLite 恢复本地密码库。
 - 查看凭据列表。
 - 查看凭据详情。
 - 新增凭据。
@@ -48,6 +50,8 @@ pnpm --filter @zero-vault/web test:e2e:sync
 - 手动锁定。
 - 手动同步。
 - 离线读取已缓存密文。
+- macOS 菜单和快捷键：Cmd+N、Cmd+K、Cmd+L、Cmd+S、Cmd+,。
+- Web UI 隔离：确认桌面端 PR 未修改 `apps/web/app/*`、`apps/web/components/*`、`apps/web/hooks/*`、`apps/web/lib/*`。
 
 ## 文档与实现更新规则
 

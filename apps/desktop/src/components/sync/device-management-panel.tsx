@@ -33,8 +33,8 @@ export type DeviceManagementPanelProps = {
   csrfToken: string;
   /** Crypto adapter for keypair generation and vault key encryption. */
   cryptoAdapter: DesktopCryptoAdapter;
-  /** Register a new device (sends name + publicKey to server). */
-  onRegister: (name: string, publicKey: string) => Promise<void>;
+  /** Register a new device (sends name + publicKey to server; privateKey remains local). */
+  onRegister: (name: string, publicKey: string, privateKey?: string) => Promise<void>;
   /** Approve a pending device (encrypts vault key for the device, shares via API). */
   onApprove: (deviceId: string, encryptedVaultKey: string) => Promise<void>;
   /** Reject a pending device. */
@@ -136,8 +136,8 @@ export function DeviceManagementPanel({
       // Generate X25519 keypair — private key stays on device
       const keypair = await cryptoAdapter.generateDeviceKeypair();
       const publicKeyB64 = uint8ArrayToBase64url(keypair.publicKey);
-      // Persist private key in secure store (handled by caller or store)
-      await onRegister(registerName.trim(), publicKeyB64);
+      const privateKeyB64 = uint8ArrayToBase64url(keypair.privateKey);
+      await onRegister(registerName.trim(), publicKeyB64, privateKeyB64);
       setRegisterName("");
       setConfirmAction(null);
     } catch {

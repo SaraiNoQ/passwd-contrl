@@ -7,6 +7,8 @@ import {
   RefreshCw,
   Settings,
   Shield,
+  Upload,
+  KeyRound,
   Smartphone,
 } from "lucide-react";
 import styles from "./sidebar.module.css";
@@ -27,6 +29,8 @@ export interface SidebarProps {
 const NAV_ITEMS = [
   { id: "dashboard", label: "仪表盘", icon: LayoutDashboard },
   { id: "credentials", label: "凭据", icon: Shield },
+  { id: "import", label: "导入", icon: Upload },
+  { id: "recovery", label: "恢复码", icon: KeyRound },
   { id: "sync", label: "同步", icon: RefreshCw },
   { id: "devices", label: "设备", icon: Smartphone },
   { id: "settings", label: "设置", icon: Settings },

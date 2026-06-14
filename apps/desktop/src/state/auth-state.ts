@@ -6,6 +6,7 @@
  */
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { client as opaqueClient, ready as opaqueReady } from "@serenity-kit/opaque";
 import type { SessionUserResponse } from "@zero-vault/shared";
 import type { DesktopApiClient } from "../lib/api/types";
 
@@ -39,6 +40,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   request_timeout: "请求超时",
   unauthorized: "登录已过期，请重新登录",
   forbidden: "访问被拒绝",
+  opaque_unavailable: "加密登录组件暂时不可用，请稍后重试",
 };
 
 function getErrorMessage(error: unknown): string {
@@ -83,10 +85,31 @@ export function useAuthState(): AuthState {
       try {
         const client = getClient();
 
-        // MVP: direct login (OPAQUE requires WASM port)
-        // TODO: Replace with OPAQUE two-step loginStart/loginFinish
-        //       once @serenity-kit/opaque WASM is available in desktop.
-        const session = await client.loginDirect(email, password);
+        await opaqueReady.catch(() => {
+          throw new Error("opaque_unavailable");
+        });
+        const started = opaqueClient.startLogin({ password });
+        const startResponse = await client.loginStart(
+          email,
+          started.startLoginRequest,
+        );
+        const finished = opaqueClient.finishLogin({
+          password,
+          loginResponse: startResponse.loginResponse,
+          clientLoginState: started.clientLoginState,
+          identifiers: {
+            client: email,
+            server: "zero-vault",
+          },
+        });
+        if (!finished) {
+          throw new Error("invalid_credentials");
+        }
+
+        const session = await client.loginFinish(
+          startResponse.loginSessionId,
+          finished.finishLoginRequest,
+        );
 
         if (mountedRef.current) {
           setUser(session.user);

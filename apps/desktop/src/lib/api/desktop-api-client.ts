@@ -149,6 +149,14 @@ export class DesktopApiClient {
     });
   }
 
+  async deleteAccount(csrfToken: string): Promise<{ ok: true }> {
+    return this.request<{ ok: true }>("/auth/account", {
+      method: "DELETE",
+      headers: { "x-zero-vault-csrf": csrfToken },
+      body: JSON.stringify({}),
+    });
+  }
+
   // ── Sync ────────────────────────────────────────────────────────────────
 
   async pullItems(
@@ -157,7 +165,7 @@ export class DesktopApiClient {
     const qs =
       serverRevision != null ? `?serverRevision=${serverRevision}` : "";
     return this.request<ItemLevelSyncPullResponse>(
-      `/vault/item-sync/pull${qs}`
+      `/vault/item-sync${qs}`
     );
   }
 
@@ -180,11 +188,12 @@ export class DesktopApiClient {
 
   async createItem(
     csrfToken: string,
-    upsert: ItemLevelEncryptedUpsert
+    upsert: ItemLevelEncryptedUpsert,
+    baseRevision: number
   ): Promise<ItemLevelSyncResponse> {
     return this.pushItemLevelSync(csrfToken, {
       protocol: "item_level_v1",
-      baseRevision: 0,
+      baseRevision,
       upserts: [upsert],
       deletes: [],
     });
@@ -192,11 +201,12 @@ export class DesktopApiClient {
 
   async updateItem(
     csrfToken: string,
-    upsert: ItemLevelEncryptedUpsert
+    upsert: ItemLevelEncryptedUpsert,
+    baseRevision: number
   ): Promise<ItemLevelSyncResponse> {
     return this.pushItemLevelSync(csrfToken, {
       protocol: "item_level_v1",
-      baseRevision: 0,
+      baseRevision,
       upserts: [upsert],
       deletes: [],
     });
@@ -205,16 +215,18 @@ export class DesktopApiClient {
   async deleteItem(
     csrfToken: string,
     itemId: string,
-    revision: number
+    revision: number,
+    ownerUserId: string,
+    baseRevision: number
   ): Promise<ItemLevelSyncResponse> {
     return this.pushItemLevelSync(csrfToken, {
       protocol: "item_level_v1",
-      baseRevision: 0,
+      baseRevision,
       upserts: [],
       deletes: [
         {
           id: itemId,
-          ownerUserId: "", // resolved server-side from session
+          ownerUserId,
           baseItemRevision: revision,
           deletedAt: new Date().toISOString(),
         },
@@ -228,7 +240,7 @@ export class DesktopApiClient {
     csrfToken: string,
     request: RegisterDeviceRequest
   ): Promise<unknown> {
-    return this.request<unknown>("/devices/register", {
+    return this.request<unknown>("/devices", {
       method: "POST",
       headers: { "x-zero-vault-csrf": csrfToken },
       body: JSON.stringify(request),
@@ -244,6 +256,17 @@ export class DesktopApiClient {
     deviceId: string
   ): Promise<unknown> {
     return this.request<unknown>(`/devices/${deviceId}/approve`, {
+      method: "POST",
+      headers: { "x-zero-vault-csrf": csrfToken },
+      body: JSON.stringify({}),
+    });
+  }
+
+  async rejectDevice(
+    csrfToken: string,
+    deviceId: string
+  ): Promise<unknown> {
+    return this.request<unknown>(`/devices/${deviceId}/reject`, {
       method: "POST",
       headers: { "x-zero-vault-csrf": csrfToken },
       body: JSON.stringify({}),
@@ -266,7 +289,7 @@ export class DesktopApiClient {
     deviceId: string,
     encryptedVaultKey: string
   ): Promise<unknown> {
-    return this.request<unknown>(`/devices/${deviceId}/vault-key`, {
+    return this.request<unknown>(`/devices/${deviceId}/share-key`, {
       method: "POST",
       headers: { "x-zero-vault-csrf": csrfToken },
       body: JSON.stringify({ encryptedVaultKey }),
@@ -279,14 +302,14 @@ export class DesktopApiClient {
     csrfToken: string,
     packet: RecoveryPacketRequest
   ): Promise<unknown> {
-    return this.request<unknown>("/recovery/packet", {
-      method: "PUT",
+    return this.request<unknown>("/vault/recovery-packet", {
+      method: "POST",
       headers: { "x-zero-vault-csrf": csrfToken },
       body: JSON.stringify(packet),
     });
   }
 
   async downloadRecoveryPacket(): Promise<RecoveryPacketResponse> {
-    return this.request<RecoveryPacketResponse>("/recovery/packet");
+    return this.request<RecoveryPacketResponse>("/vault/recovery-packet");
   }
 }

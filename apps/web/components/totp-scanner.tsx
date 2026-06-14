@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Camera, Clipboard, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Camera, Clipboard, Radio, X } from "lucide-react";
 import { isValidTotpSecret } from "../lib/totp";
 import styles from "./totp-scanner.module.css";
 
@@ -28,6 +28,10 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
     }
     setScanning(false);
   }, []);
+
+  useEffect(() => {
+    return () => stopScanning();
+  }, [stopScanning]);
 
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
@@ -107,8 +111,9 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
     <section className={styles.scanner} aria-labelledby="totp-scanner-title">
       <div className={styles.header}>
         <div>
-          <span className={styles.eyebrow}>SIGNAL CAPTURE</span>
+          <span className={styles.eyebrow}>SIGNAL CAPTURE / 信标捕获</span>
           <h3 id="totp-scanner-title" className={styles.title}>接入动态验证码信标</h3>
+          <p className={styles.subtitle}>选择摄像头或剪贴板通道，将 TOTP 密钥写入当前凭据记录。</p>
         </div>
         <span className={`${styles.status} ${scanning ? styles.statusActive : ""}`}>
           <span className={styles.statusDot} aria-hidden="true" />
@@ -116,36 +121,47 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
         </span>
       </div>
 
-      <div className={styles.actions}>
-        <button
-          type="button"
-          onClick={scanning ? stopScanning : () => void startScanning()}
-          aria-label={scanning ? "停止扫描" : "扫描二维码"}
-          aria-pressed={scanning}
-          className={`${styles.actionButton} ${styles.scanButton} ${scanning ? styles.actionButtonDanger : ""}`}
-        >
-          <Camera size={18} aria-hidden="true" />
-          {scanning ? "停止扫描" : "扫描二维码"}
-        </button>
-        <button
-          type="button"
-          onClick={() => void handlePasteFromClipboard()}
-          aria-label="从剪贴板粘贴"
-          className={styles.actionButton}
-        >
-          <Clipboard size={18} aria-hidden="true" />
-          粘贴密钥
-        </button>
-        {scanning && (
+      <div className={styles.channelGrid} aria-label="TOTP 密钥接入方式">
+        <div className={`${styles.channelCard} ${scanning ? styles.channelCardActive : ""}`}>
+          <span className={styles.channelIndex}>CH 01</span>
+          <span className={styles.channelIcon} aria-hidden="true">
+            <Camera size={20} />
+          </span>
+          <div className={styles.channelCopy}>
+            <strong>二维码光学通道</strong>
+            <span>启用设备摄像头，识别验证器二维码</span>
+          </div>
           <button
             type="button"
-            onClick={stopScanning}
-            aria-label="关闭二维码取景器"
-            className={styles.iconButton}
+            onClick={scanning ? stopScanning : () => void startScanning()}
+            aria-label={scanning ? "停止扫描" : "扫描二维码"}
+            aria-pressed={scanning}
+            className={`${styles.actionButton} ${styles.scanButton} ${scanning ? styles.actionButtonDanger : ""}`}
           >
-            <X size={18} aria-hidden="true" />
+            <Camera size={18} aria-hidden="true" />
+            {scanning ? "停止扫描" : "开启扫描"}
           </button>
-        )}
+        </div>
+
+        <div className={styles.channelCard}>
+          <span className={styles.channelIndex}>CH 02</span>
+          <span className={styles.channelIcon} aria-hidden="true">
+            <Clipboard size={20} />
+          </span>
+          <div className={styles.channelCopy}>
+            <strong>剪贴板文本通道</strong>
+            <span>读取 otpauth 链接或 Base32 密钥</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handlePasteFromClipboard()}
+            aria-label="从剪贴板粘贴"
+            className={styles.actionButton}
+          >
+            <Clipboard size={18} aria-hidden="true" />
+            粘贴密钥
+          </button>
+        </div>
       </div>
 
       {scanning && (
@@ -162,6 +178,17 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
             aria-label="摄像头实时画面"
           />
           <canvas ref={canvasRef} className={styles.canvas} />
+          <div className={styles.videoRail}>
+            <span><Radio size={13} aria-hidden="true" /> CAMERA CHANNEL ONLINE</span>
+            <button
+              type="button"
+              onClick={stopScanning}
+              aria-label="关闭二维码取景器"
+              className={styles.iconButton}
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
           <div className={styles.viewfinder} aria-hidden="true">
             <span className={`${styles.corner} ${styles.cornerTopLeft}`} />
             <span className={`${styles.corner} ${styles.cornerTopRight}`} />
@@ -169,7 +196,7 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
             <span className={`${styles.corner} ${styles.cornerBottomRight}`} />
             <span className={styles.scanLine} />
           </div>
-          <p className={styles.scanHint}>将二维码置于信标框内</p>
+          <p className={styles.scanHint}>将二维码置于像素信标框内</p>
         </div>
       )}
 

@@ -84,9 +84,9 @@ export function DashboardPage({
     <div className={styles.container}>
       <div className={styles.commandDeck}>
         <div className={styles.commandCopy}>
-          <span className={styles.commandKicker}>行动队列 / NEXT BLOCK</span>
-          <h2>继续铸写这条密文链</h2>
-          <p>添加一枚新密钥、迁移旧凭据，或立即取得最新同步回执。</p>
+          <span className={styles.commandKicker}>快捷操作 / NEXT STEP</span>
+          <h2>继续整理你的密码库</h2>
+          <p>添加新账号、导入旧密码，或立即同步到可信设备。</p>
         </div>
         <div className={styles.quickActions}>
           <button className={styles.quickActionPrimary} type="button" onClick={onAddNew}>
@@ -118,7 +118,7 @@ export function DashboardPage({
               <span>最近同步</span>
               <h3>最近活动</h3>
             </div>
-            {lastSyncedAt ? <small>上次上链<br />{formatDateTime(lastSyncedAt)}</small> : null}
+            {lastSyncedAt ? <small>上次同步<br />{formatDateTime(lastSyncedAt)}</small> : null}
           </div>
 
           {recentEvents.length > 0 ? (
@@ -147,13 +147,13 @@ export function DashboardPage({
                 <span className={styles.emptyLedgerBlock} />
               </div>
               <div className={styles.activityEmptyCopy}>
-                <span>创世区块等待上链</span>
-                <h4>创世区块等待上链</h4>
-                <p>完成首次同步后，每一次推送、拉取与设备授权都会写入这本像素账本。</p>
+                <span>还没有同步记录</span>
+                <h4>等待第一次同步</h4>
+                <p>同步后，这里会显示密码库更新、设备授权和冲突提醒。</p>
               </div>
               <button className={styles.activityEmptyAction} type="button" onClick={onSyncNow}>
                 <RefreshCw size={16} />
-                铸造首个同步区块
+                立即同步
               </button>
             </div>
           )}

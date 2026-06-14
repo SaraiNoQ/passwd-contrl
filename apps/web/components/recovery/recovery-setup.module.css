@@ -13,20 +13,6 @@
   position: relative;
 }
 
-.panel::before {
-  background: repeating-linear-gradient(
-    90deg,
-    var(--color-signal-orange) 0 10px,
-    transparent 10px 16px,
-    var(--color-cloud-mist) 16px 26px,
-    transparent 26px 32px
-  );
-  content: "";
-  height: 6px;
-  inset: 0 var(--space-4) auto;
-  position: absolute;
-}
-
 .pixelCloudA,
 .pixelCloudB {
   background: var(--color-paper-white);

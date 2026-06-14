@@ -10,11 +10,21 @@ export interface DrawerProps {
   open: boolean;
   onClose: () => void;
   title: string;
+  eyebrow?: string;
+  status?: string;
   children: ReactNode;
   className?: string;
 }
 
-export function Drawer({ open, onClose, title, children, className }: DrawerProps) {
+export function Drawer({
+  open,
+  onClose,
+  title,
+  eyebrow,
+  status,
+  children,
+  className,
+}: DrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const justOpenedRef = useRef(false);
@@ -100,9 +110,15 @@ export function Drawer({ open, onClose, title, children, className }: DrawerProp
         aria-labelledby={titleId}
       >
         <div className={styles.header}>
-          <h2 id={titleId} className={styles.title}>
-            {title}
-          </h2>
+          <div className={styles.titleGroup}>
+            <span className={styles.eyebrow}>
+              {eyebrow ?? "OBSCURA / 加密内容抽屉"}
+            </span>
+            <h2 id={titleId} className={styles.title}>
+              {title}
+            </h2>
+            {status ? <span className={styles.status}>{status}</span> : null}
+          </div>
           <button
             type="button"
             className={styles.closeBtn}

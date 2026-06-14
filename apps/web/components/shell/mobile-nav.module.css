@@ -4,26 +4,45 @@
 
 @media (max-width: 960px) {
   .bar {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     position: fixed;
     bottom: calc(10px + env(safe-area-inset-bottom, 0px));
     left: 12px;
     right: 12px;
     z-index: 80;
-    min-height: 70px;
+    min-height: 76px;
     background:
-      linear-gradient(90deg, color-mix(in srgb, var(--color-cloud-mist) 78%, transparent) 1px, transparent 1px),
-      linear-gradient(0deg, color-mix(in srgb, var(--color-cloud-mist) 62%, transparent) 1px, transparent 1px),
-      var(--color-paper-white);
-    background-size: 8px 8px, 8px 8px, auto;
-    border: 1px solid var(--color-cloud-mist);
-    border-radius: 18px;
+      linear-gradient(90deg, color-mix(in srgb, var(--color-cloud-mist) 72%, transparent) 1px, transparent 1px),
+      linear-gradient(0deg, color-mix(in srgb, var(--color-cloud-mist) 58%, transparent) 1px, transparent 1px),
+      color-mix(in srgb, var(--color-paper-white) 92%, var(--color-cloud-mist));
+    background-size: 12px 12px, 12px 12px, auto;
+    border: 1px solid color-mix(in srgb, var(--color-cloud-mist) 82%, var(--color-graphite-ink));
+    border-radius: 20px;
     padding: 10px;
-    justify-content: space-around;
+    gap: 8px;
     align-items: center;
     box-shadow: var(--shadow-elevated);
     isolation: isolate;
-    overflow: hidden;
+    overflow: visible;
+  }
+
+  .bar::before {
+    position: absolute;
+    top: 6px;
+    left: 18px;
+    right: 18px;
+    height: 5px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--color-signal-orange) 0 10px,
+      transparent 10px 16px,
+      var(--color-cloud-mist) 16px 24px
+    );
+    content: "";
+    image-rendering: pixelated;
+    opacity: 0.85;
+    pointer-events: none;
   }
 }
 
@@ -32,10 +51,14 @@
   left: 18px;
   right: 18px;
   bottom: 7px;
-  height: 4px;
-  background: repeating-linear-gradient(90deg, var(--color-signal-orange) 0 8px, transparent 8px 16px);
+  height: 5px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-cloud-mist) 0 10px,
+    transparent 10px 16px
+  );
   image-rendering: pixelated;
-  opacity: 0.7;
+  opacity: 0.8;
   pointer-events: none;
   animation: dockRail 2.4s steps(4, end) infinite;
 }
@@ -45,12 +68,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 7px 8px;
-  min-width: 60px;
-  min-height: 52px;
+  gap: 4px;
+  padding: 8px 6px;
+  min-width: 0;
+  min-height: 56px;
   border: 1px solid transparent;
-  background: color-mix(in srgb, var(--color-paper-white) 76%, var(--color-cloud-mist));
+  background: color-mix(in srgb, var(--color-paper-white) 78%, var(--color-cloud-mist));
   color: var(--color-text-muted);
   cursor: pointer;
   border-radius: var(--radius-sm);
@@ -61,9 +84,9 @@
     transform 140ms steps(2, end),
     box-shadow var(--transition-fast);
   font-family: var(--font-manrope-variable, var(--font-family));
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   position: relative;
   z-index: 1;
 }
@@ -71,11 +94,14 @@
 .tab:hover {
   color: var(--color-text-secondary);
   background: var(--color-cloud-mist);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .tabActive {
-  background: var(--color-paper-white);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary-soft) 58%, transparent) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 8px 8px, auto;
   border-color: var(--color-primary);
   color: var(--color-primary);
   box-shadow: var(--shadow-orange-ring);
@@ -84,27 +110,35 @@
 .tabActive::before {
   content: "";
   position: absolute;
-  top: 5px;
+  top: 4px;
   left: 50%;
   transform: translateX(-50%);
-  width: 18px;
-  height: 3px;
-  background: var(--color-primary);
+  width: 24px;
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-primary) 0 6px,
+    transparent 6px 10px
+  );
   image-rendering: pixelated;
 }
 
 .tabIcon {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .tab:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-orange-ring);
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 48%, var(--color-paper-white));
+  outline-offset: 2px;
+  border-color: var(--color-primary);
+  box-shadow:
+    var(--shadow-orange-ring),
+    0 0 0 4px color-mix(in srgb, var(--color-primary-soft) 68%, transparent);
 }
 
 .tabLabel {
@@ -115,9 +149,10 @@
   position: absolute;
   right: 8px;
   top: 8px;
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   background: var(--color-primary);
+  box-shadow: 0 8px 0 color-mix(in srgb, var(--color-primary) 42%, transparent);
   image-rendering: pixelated;
 }
 

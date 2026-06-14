@@ -111,7 +111,7 @@ export function Sidebar({
 
       <aside
         className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ""}`}
-        aria-label="密钥目录导航"
+        aria-label="密码目录导航"
       >
         <span className={styles.pixelCloudA} aria-hidden="true" />
         <span className={styles.pixelCloudB} aria-hidden="true" />
@@ -144,7 +144,7 @@ export function Sidebar({
           </div>
           <div className={styles.logoCopy}>
             <span className={styles.logoText}>obscura</span>
-            <span className={styles.logoCaption}>密钥目录 / 节点舱</span>
+            <span className={styles.logoCaption}>密码目录 / 设备区</span>
           </div>
           <span className={cn(styles.lockBadge, unlocked ? styles.lockBadgeUnlocked : styles.lockBadgeLocked)}>
             {unlocked ? "已解锁" : "封存"}
@@ -153,7 +153,7 @@ export function Sidebar({
 
       {/* Navigation */}
       <nav className={styles.nav}>
-        <span className={styles.navLabel}>密钥目录</span>
+        <span className={styles.navLabel}>密码目录</span>
         {sidebarNav.map((item, index) => (
           <button
             key={item.id}
@@ -181,7 +181,7 @@ export function Sidebar({
               onClick={() => setFoldersExpanded((v) => !v)}
             >
               {foldersExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              文件夹账本
+              文件夹列表
             </button>
 
             {foldersExpanded ? (
@@ -196,7 +196,7 @@ export function Sidebar({
                   onClick={() => handleFolderClick(null)}
                 >
                   <Folder size={13} />
-                  <span className={styles.folderName}>全部密钥</span>
+                  <span className={styles.folderName}>全部密码</span>
                   <span className={styles.folderCount}>{allCount}</span>
                 </button>
 
@@ -242,7 +242,7 @@ export function Sidebar({
 
       {/* Footer */}
       <div className={styles.footer}>
-        <span className={styles.navLabel}>节点舱信号</span>
+        <span className={styles.navLabel}>设备区信号</span>
         {/* Extension bridge status */}
         <div
           className={cn(
@@ -257,7 +257,7 @@ export function Sidebar({
           <span className={styles.statusDot} aria-hidden="true" />
           {extensionBridge.runtimeAvailable ? <Wifi size={14} /> : <WifiOff size={14} />}
           {!extensionBridge.configured
-            ? "扩展桥未铸造"
+            ? "扩展未连接"
             : extensionBridge.runtimeAvailable
               ? "扩展节点在线"
               : "扩展节点离线"}
@@ -276,7 +276,7 @@ export function Sidebar({
         {isOffline ? (
           <div className={styles.offlineNotice}>
             <AlertTriangle size={14} />
-            当前离线，回执暂存本地
+            当前离线，同步状态暂存本地
           </div>
         ) : null}
 

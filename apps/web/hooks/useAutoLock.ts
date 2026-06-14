@@ -47,14 +47,16 @@ export function useAutoLock(autoLockTimeoutSec: number, unlocked: boolean, onLoc
   useEffect(() => {
     if (!unlocked) return;
     const activity = () => resetAutoLock();
-    window.addEventListener("mousemove", activity);
+    window.addEventListener("pointerdown", activity);
     window.addEventListener("keydown", activity);
-    window.addEventListener("click", activity);
+    window.addEventListener("wheel", activity, { passive: true });
+    window.addEventListener("touchstart", activity, { passive: true });
     resetAutoLock();
     return () => {
-      window.removeEventListener("mousemove", activity);
+      window.removeEventListener("pointerdown", activity);
       window.removeEventListener("keydown", activity);
-      window.removeEventListener("click", activity);
+      window.removeEventListener("wheel", activity);
+      window.removeEventListener("touchstart", activity);
       if (autoLockTimer.current) clearTimeout(autoLockTimer.current);
     };
   }, [unlocked, resetAutoLock]);

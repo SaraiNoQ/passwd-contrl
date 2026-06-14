@@ -123,7 +123,7 @@ input, textarea {
 .sidebar-lock-badge {
   margin-left: auto;
   font-family: var(--font-family);
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -428,10 +428,53 @@ textarea.form-input {
   width: 100%;
   max-width: var(--page-max-width);
   margin: 0 auto;
-  padding: 28px 24px 72px;
+  padding: 16px 24px 72px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
+  position: relative;
+}
+
+.main-content--direct {
+  gap: 12px;
+}
+
+.content-zero-seal {
+  position: absolute;
+  top: 48px;
+  right: 72px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 6px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-bg-panel) 94%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption-size);
+  font-weight: 700;
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--color-cloud-mist) 58%, transparent);
+  pointer-events: none;
+}
+
+.content-zero-seal-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--color-primary);
+  color: var(--color-paper-white);
+}
+
+.content-zero-seal small {
+  display: block;
+  margin-bottom: 1px;
+  color: var(--color-primary);
+  font-size: var(--text-caption-size);
+  letter-spacing: 1.4px;
 }
 
 .page-intro {
@@ -439,25 +482,41 @@ textarea.form-input {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: 40px;
-  min-height: 224px;
-  padding: 40px 8px 20px;
+  gap: 32px;
+  min-height: 176px;
+  padding: 18px 8px 12px;
 }
 
 .page-intro--telemetry {
-  grid-template-columns: minmax(300px, 0.78fr) minmax(520px, 1.22fr);
-  align-items: stretch;
-  gap: 32px;
-  padding-bottom: 8px;
+  grid-template-columns: minmax(300px, 0.56fr) minmax(560px, 1.44fr);
+  align-items: center;
+  gap: 18px;
+  min-height: 0;
+  padding: 14px 18px;
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-cloud-mist) 58%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-cloud-mist) 48%, transparent) 1px, transparent 1px),
+    color-mix(in srgb, var(--color-paper-white) 82%, var(--color-cloud-mist));
+  background-size: 16px 16px;
+  box-shadow: var(--shadow-panel);
+}
+
+.page-intro--compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 64px;
+  padding: 6px 8px 4px;
 }
 
 .page-intro-cloud {
   position: absolute;
-  top: 8px;
-  right: 18%;
-  width: 112px;
-  height: 56px;
-  opacity: 0.68;
+  top: 6px;
+  right: 19%;
+  width: 96px;
+  height: 48px;
+  opacity: 0.48;
   pointer-events: none;
 }
 
@@ -468,29 +527,47 @@ textarea.form-input {
   max-width: 680px;
 }
 
+.page-intro--telemetry .page-intro-copy {
+  align-self: center;
+  padding: 4px 0 4px 4px;
+}
+
+.page-intro--compact .page-intro-copy {
+  align-self: center;
+  max-width: none;
+}
+
 .page-intro-eyebrow {
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   color: var(--color-primary);
   font: 800 12px/1 var(--font-family);
   letter-spacing: 2.4px;
 }
 
+.page-intro--compact .page-intro-eyebrow {
+  margin: 0;
+  padding: 8px 0;
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 2.6px;
+}
+
 .page-intro h1 {
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: clamp(60px, 7vw, 88px);
+  font-size: clamp(44px, 5.2vw, 64px);
   font-weight: 400;
-  line-height: 0.78;
-  letter-spacing: -0.031em;
+  line-height: 0.84;
+  letter-spacing: -0.026em;
 }
 
 .page-intro p {
   max-width: 620px;
-  margin-top: 20px;
+  margin-top: 8px;
   color: var(--color-text-secondary);
   font-size: 14px;
-  line-height: 1.7;
+  line-height: 1.55;
 }
 
 .page-intro-console {
@@ -500,6 +577,11 @@ textarea.form-input {
   align-items: flex-end;
   justify-content: flex-end;
   min-width: 0;
+}
+
+.page-intro--compact .page-intro-console {
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .page-intro--telemetry .page-intro-console {
@@ -517,16 +599,27 @@ textarea.form-input {
   border-radius: 6px;
   background: var(--color-bg-panel);
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   font-weight: 600;
   box-shadow: var(--shadow-panel);
 }
 
+.page-intro--compact .page-intro-seal {
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 8px;
+  box-shadow: none;
+}
+
 .page-intro--telemetry .page-intro-seal {
-  position: absolute;
-  top: -24px;
-  right: 16px;
-  z-index: 2;
+  position: relative;
+  z-index: 1;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 7px;
+  border-color: var(--color-cloud-mist);
+  background: color-mix(in srgb, var(--color-paper-white) 94%, transparent);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--color-cloud-mist) 50%, transparent);
 }
 
 .page-intro-seal-icon {
@@ -539,19 +632,33 @@ textarea.form-input {
   color: #fff;
 }
 
+.page-intro--compact .page-intro-seal-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.page-intro--telemetry .page-intro-seal-icon {
+  width: 28px;
+  height: 28px;
+}
+
 .page-intro-seal small {
   display: block;
   margin-bottom: 3px;
   color: var(--color-primary);
-  font-size: 8px;
+  font-size: var(--text-caption-size);
   letter-spacing: 1.4px;
+}
+
+.page-intro--compact .page-intro-seal small {
+  margin-bottom: 1px;
 }
 
 .ledger-telemetry {
   position: relative;
   width: 100%;
   min-width: 0;
-  padding: 28px 24px 22px;
+  padding: 12px 14px 12px;
   border: 1px solid var(--color-border);
   border-radius: 16px;
   background:
@@ -559,7 +666,7 @@ textarea.form-input {
     linear-gradient(0deg, transparent 0 23px, rgba(227, 241, 254, 0.72) 23px 24px, transparent 24px),
     rgba(255, 255, 255, 0.92);
   background-size: 24px 24px;
-  box-shadow: var(--shadow-panel);
+  box-shadow: 0 8px 0 color-mix(in srgb, var(--color-cloud-mist) 42%, transparent);
 }
 
 .ledger-telemetry::before,
@@ -585,12 +692,21 @@ textarea.form-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 10px;
   color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.14em;
+}
+
+.ledger-telemetry-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
 }
 
 .ledger-telemetry-live {
@@ -620,8 +736,8 @@ textarea.form-input {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 104px;
-  padding: 18px 16px 12px 24px;
+  min-height: 72px;
+  padding: 12px 12px 9px 18px;
   border-top: 1px solid var(--color-border-strong);
 }
 
@@ -674,7 +790,7 @@ textarea.form-input {
   margin-top: auto;
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: 48px;
+  font-size: 34px;
   font-weight: 400;
   line-height: 0.8;
 }
@@ -934,7 +1050,7 @@ textarea.form-input {
 .filter-tab-count {
   margin-left: 4px;
   font-family: var(--font-family);
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   font-weight: 600;
   opacity: 0.7;
 }
@@ -1053,7 +1169,7 @@ textarea.form-input {
 
 .sync-badge {
   font-family: var(--font-family);
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1107,90 +1223,6 @@ textarea.form-input {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
-}
-
-/* ------------------------------------------------------------------ */
-/* Batch Update Drawer                                                 */
-/* ------------------------------------------------------------------ */
-
-.batch-update-drawer {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.batch-update-intro {
-  background:
-    linear-gradient(90deg, rgba(255, 94, 36, 0.12) 0 4px, transparent 4px),
-    color-mix(in srgb, var(--color-cloud-mist) 36%, var(--color-paper-white));
-  border: 1px solid var(--color-cloud-mist);
-  border-radius: 14px;
-  padding: 16px;
-}
-
-.batch-update-kicker {
-  color: var(--color-primary);
-  display: block;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  margin-bottom: 6px;
-}
-
-.batch-update-intro p {
-  color: var(--color-text-secondary);
-  font-size: 14px;
-  line-height: 1.6;
-  margin: 0;
-}
-
-.batch-update-intro strong {
-  color: var(--color-primary);
-  font-weight: 900;
-}
-
-.batch-update-warning {
-  align-items: flex-start;
-  background: var(--color-warning-soft);
-  border: 1px solid var(--color-warning-border);
-  border-radius: 14px;
-  color: var(--color-warning);
-  display: flex;
-  gap: 10px;
-  padding: 16px;
-}
-
-.batch-update-warning svg {
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.batch-update-warning p {
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.55;
-  margin: 0;
-}
-
-.batch-update-password-preview {
-  background:
-    linear-gradient(90deg, rgba(255, 94, 36, 0.12) 0 2px, transparent 2px 8px),
-    var(--color-bg-input);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  color: var(--color-primary);
-  font-family: var(--font-mono);
-  font-size: 16px;
-  font-weight: 800;
-  line-height: 1.6;
-  padding: 14px;
-  word-break: break-all;
-}
-
-.batch-update-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1368,7 +1400,7 @@ textarea.form-input {
 }
 
 .conflict-item-revisions {
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   color: var(--color-text-muted);
   font-family: var(--font-family);
 }
@@ -1421,7 +1453,7 @@ textarea.form-input {
 }
 
 .extension-status-cell span {
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -1525,7 +1557,7 @@ textarea.form-input {
 
 .device-status-text {
   font-family: var(--font-family);
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 1.5px;
@@ -1536,7 +1568,7 @@ textarea.form-input {
 .device-status-text--rejected { color: var(--color-danger); }
 
 .device-last-seen {
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   color: var(--color-text-muted);
   display: flex;
   align-items: center;
@@ -1575,8 +1607,8 @@ textarea.form-input {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: var(--space-2) 0;
-  margin-bottom: var(--space-2);
+  padding: 0;
+  margin: -2px 0 0;
   font-size: var(--text-caption-size);
   font-family: var(--font-family);
 }
@@ -1590,8 +1622,8 @@ textarea.form-input {
   border: none;
   cursor: pointer;
   font-size: var(--text-caption-size);
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 32px;
+  padding: 5px 8px;
   border-radius: var(--radius-sm);
   transition: color var(--transition-fast), background var(--transition-fast);
 }
@@ -1619,9 +1651,9 @@ textarea.form-input {
   background: none;
   border: none;
   cursor: pointer;
-  min-height: 44px;
-  min-width: 44px;
-  padding: 10px;
+  min-height: 32px;
+  min-width: 32px;
+  padding: 6px;
   border-radius: var(--radius-sm);
   transition: color var(--transition-fast);
 }
@@ -1636,8 +1668,8 @@ textarea.form-input {
 
 @media (max-width: 1180px) {
   .page-intro--telemetry {
-    grid-template-columns: minmax(260px, 0.68fr) minmax(480px, 1.32fr);
-    gap: 24px;
+    grid-template-columns: minmax(260px, 0.62fr) minmax(480px, 1.38fr);
+    gap: 16px;
   }
 
   .ledger-telemetry {
@@ -1684,15 +1716,19 @@ textarea.form-input {
   }
 
   .main-content {
-    padding: 18px 12px calc(112px + env(safe-area-inset-bottom, 0px));
+    padding: 16px 12px calc(112px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .content-zero-seal {
+    display: none;
   }
 
   .page-intro {
     grid-template-columns: 1fr;
     align-items: start;
-    gap: 28px;
+    gap: 20px;
     min-height: 0;
-    padding: 32px 4px 8px;
+    padding: 14px 4px 8px;
   }
 
   .page-intro--telemetry {
@@ -1700,7 +1736,7 @@ textarea.form-input {
   }
 
   .page-intro h1 {
-    font-size: 56px;
+    font-size: 48px;
   }
 
   .page-intro-seal {
@@ -1720,11 +1756,11 @@ textarea.form-input {
 
   .ledger-telemetry {
     overflow: hidden;
-    padding: 22px 16px 18px;
+    padding: 16px;
   }
 
   .ledger-telemetry-head {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   .ledger-telemetry-track {
@@ -1747,7 +1783,7 @@ textarea.form-input {
   }
 
   .page-intro h1 {
-    font-size: 50px;
+    font-size: 44px;
   }
 
   .page-intro p {

@@ -2,6 +2,8 @@
 
 import { AlertTriangle, ChevronDown, ChevronUp, Clock, Copy, Download, GitMerge, RefreshCw, SkipForward } from "lucide-react";
 import { useCallback, useState } from "react";
+import { Button } from "../ui/button";
+import { Modal } from "../ui/modal";
 import styles from "./conflict-resolution-panel.module.css";
 
 // ---------------------------------------------------------------------------
@@ -126,8 +128,8 @@ export default function ConflictResolutionPanel({
           <span className={styles.emptyIcon}>
             <GitMerge size={24} />
           </span>
-          <h2 className={styles.emptyTitle}>分叉账本为空</h2>
-          <p className={styles.emptyText}>当前没有需要仲裁的同步分叉，所有密文区块都停在同一条链路上。</p>
+          <h2 className={styles.emptyTitle}>冲突列表为空</h2>
+          <p className={styles.emptyText}>当前没有需要仲裁的同步冲突，所有加密数据都停在同一条同步上。</p>
         </div>
       </div>
     );
@@ -138,21 +140,21 @@ export default function ConflictResolutionPanel({
       {/* Header */}
       <div className={styles.header}>
         <div>
-          <span className={styles.kicker}>分叉冲突仲裁</span>
+          <span className={styles.kicker}>冲突冲突仲裁</span>
           <h2 className={styles.title}>
             <span className={styles.titleIcon}>
               <AlertTriangle size={18} />
             </span>
-            密文分叉仲裁台
+            加密内容冲突仲裁台
           </h2>
         </div>
         <span className={styles.badge}>
-          {conflicts.length} 条分叉
+          {conflicts.length} 条冲突
         </span>
       </div>
 
       <p className={styles.description}>
-        以下密码区块在本地节点与云端节点同时发生修改。请为每条分叉选择仲裁方式，系统不会自动覆盖任何版本。
+        以下密码数据在本地节点与云端节点同时发生修改。请为每条冲突选择仲裁方式，系统不会自动覆盖任何版本。
       </p>
       <div className={styles.forkMap} aria-hidden="true">
         <span className={styles.forkNode} />
@@ -171,7 +173,7 @@ export default function ConflictResolutionPanel({
           onClick={() => handleBulkAction("keep-local")}
           disabled={loading}
         >
-          全部保留本地链
+          全部保留本地版本
         </button>
         <button
           type="button"
@@ -179,54 +181,46 @@ export default function ConflictResolutionPanel({
           onClick={() => handleBulkAction("accept-remote")}
           disabled={loading}
         >
-          全部采用云端链
+          全部采用云端版本
         </button>
       </div>
 
-      {/* Bulk confirm dialog */}
-      {showBulkConfirm ? (
-        <div className={styles.bulkConfirmOverlay} onClick={cancelBulkAction}>
-          <div
-            className={styles.bulkConfirm}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="bulk-conflict-confirm-title"
-            aria-describedby="bulk-conflict-confirm-description"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className={styles.bulkConfirmHeader}>
-              <span className={styles.bulkConfirmIcon} aria-hidden="true">
-                <AlertTriangle size={18} />
-              </span>
-              <h3 className={styles.bulkConfirmTitle} id="bulk-conflict-confirm-title">
-                批量仲裁确认
-              </h3>
-            </div>
-            <p className={styles.bulkConfirmText} id="bulk-conflict-confirm-description">
-              确认对 {conflicts.length} 条分叉执行「{actionLabel(showBulkConfirm)}」？该操作会逐项触发当前冲突处理链路。
-            </p>
-            <div className={styles.bulkConfirmActions}>
-              <button
-                type="button"
-                className={styles.confirmCancelBtn}
-                onClick={cancelBulkAction}
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                className={styles.confirmOkBtn}
-                onClick={confirmBulkAction}
-              >
-                确认仲裁
-              </button>
-            </div>
+      <Modal
+        open={Boolean(showBulkConfirm)}
+        onClose={cancelBulkAction}
+        title="批量仲裁确认"
+        eyebrow="FORK ARBITRATION / 冲突仲裁"
+        status={`${conflicts.length} 条冲突等待写入决议`}
+        footer={
+          <>
+            <Button variant="secondary" onClick={cancelBulkAction} disabled={loading}>
+              取消
+            </Button>
+            <Button onClick={confirmBulkAction} loading={loading}>
+              确认仲裁
+            </Button>
+          </>
+        }
+      >
+        <div className={styles.arbitrationConfirmBody}>
+          <span className={styles.arbitrationConfirmIcon} aria-hidden="true">
+            <AlertTriangle size={20} />
+          </span>
+          <p className={styles.arbitrationConfirmText}>
+            确认对 {conflicts.length} 条冲突执行
+            「{showBulkConfirm ? actionLabel(showBulkConfirm) : "等待选择"}」？
+            该操作会逐项触发当前冲突处理同步。
+          </p>
+          <div className={styles.arbitrationPath} aria-hidden="true">
+            <span />
+            <span />
+            <span />
           </div>
         </div>
-      ) : null}
+      </Modal>
 
       {/* Conflict list */}
-      <div className={styles.conflictList} role="list" aria-label="冲突分叉列表">
+      <div className={styles.conflictList} role="list" aria-label="冲突冲突列表">
         {conflicts.map((conflict) => {
           const isExpanded = expandedComparison.has(conflict.itemId);
           const hasComparison = conflict.localFields || conflict.remoteFields;
@@ -284,7 +278,7 @@ export default function ConflictResolutionPanel({
                     aria-controls={comparisonId}
                   >
                     {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    {isExpanded ? "收起分叉对比" : "展开分叉对比"}
+                    {isExpanded ? "收起冲突对比" : "展开冲突对比"}
                   </button>
                 </div>
               ) : null}

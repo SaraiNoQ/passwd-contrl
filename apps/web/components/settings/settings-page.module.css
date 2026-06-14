@@ -206,6 +206,30 @@
   grid-template-columns: 1fr;
 }
 
+.bridgeCard,
+.syncCard {
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.bridgeCard .cardHeader,
+.syncCard .cardHeader {
+  gap: var(--space-2);
+}
+
+.bridgeCard .cardTitle,
+.syncCard .cardTitle {
+  font-size: 36px;
+  line-height: 1.04;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.bridgeCard .cardDescription,
+.syncCard .cardDescription {
+  line-height: 1.55;
+}
+
 .bridgeCard > :not(.cardHeader),
 .syncCard > :not(.cardHeader),
 .dangerCard > :not(.cardHeader) {
@@ -244,7 +268,36 @@
 }
 
 .dangerCard {
-  grid-column: span 4;
+  grid-column: span 12;
+  grid-template-columns: minmax(260px, 0.36fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  min-height: 0;
+  padding: var(--space-4);
+}
+
+.dangerCard > :not(.cardHeader) {
+  grid-column: 2;
+}
+
+.dangerCard .cardHeader {
+  align-self: center;
+}
+
+.dangerCard .cardTitle {
+  font-size: clamp(36px, 4.6vw, 52px);
+  white-space: nowrap;
+}
+
+.dangerCard .dangerZone {
+  align-items: center;
+  flex-direction: row;
+  min-height: 84px;
+}
+
+.dangerCard .dangerZone :global(button) {
+  flex: 0 0 auto;
+  min-width: 136px;
+  width: auto;
 }
 
 .card > :not(.cardHeader) {
@@ -560,8 +613,8 @@
   display: flex;
   gap: var(--space-4);
   justify-content: space-between;
-  min-height: 76px;
-  padding: var(--space-4);
+  min-height: 72px;
+  padding: var(--space-3) var(--space-4);
 }
 
 .dangerTitle {
@@ -570,6 +623,7 @@
   font-weight: 900;
   line-height: 1.5;
   margin: 0;
+  white-space: nowrap;
 }
 
 .dangerDescription {
@@ -693,6 +747,15 @@
   .extensionRow {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .dangerCard .dangerZone {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dangerCard .dangerZone :global(button) {
+    width: 100%;
   }
 
   .select {

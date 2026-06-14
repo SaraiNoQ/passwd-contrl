@@ -103,7 +103,7 @@
   display: block;
   color: var(--color-text-muted);
   font-family: var(--font-family);
-  font-size: 10px;
+  font-size: var(--text-caption-size);
   font-weight: 800;
   letter-spacing: 1px;
   line-height: 1.2;

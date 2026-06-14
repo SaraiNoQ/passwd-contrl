@@ -10,6 +10,8 @@ export interface ModalProps {
   open: boolean;
   onClose: () => void;
   title: string;
+  eyebrow?: string;
+  status?: string;
   /** If true, ESC key is disabled and the close button is hidden. */
   destructive?: boolean;
   children: ReactNode;
@@ -21,6 +23,8 @@ export function Modal({
   open,
   onClose,
   title,
+  eyebrow,
+  status,
   destructive = false,
   children,
   footer,
@@ -111,9 +115,18 @@ export function Modal({
         aria-labelledby={titleId}
       >
         <div className={styles.header}>
-          <h2 id={titleId} className={styles.title}>
-            {title}
-          </h2>
+          <div className={styles.titleGroup}>
+            <span className={styles.eyebrow}>
+              {eyebrow ??
+                (destructive
+                  ? "DANGER ZONE / 危险区"
+                  : "OBSCURA / 记录对话")}
+            </span>
+            <h2 id={titleId} className={styles.title}>
+              {title}
+            </h2>
+            {status ? <span className={styles.status}>{status}</span> : null}
+          </div>
           {!destructive && (
             <button
               type="button"

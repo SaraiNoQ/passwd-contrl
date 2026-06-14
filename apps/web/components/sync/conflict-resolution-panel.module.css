@@ -193,8 +193,6 @@
 }
 
 .bulkBtn,
-.confirmOkBtn,
-.confirmCancelBtn,
 .toggleCompareBtn,
 .actionBtn {
   align-items: center;
@@ -213,8 +211,6 @@
 }
 
 .bulkBtn:hover:not(:disabled),
-.confirmOkBtn:hover:not(:disabled),
-.confirmCancelBtn:hover:not(:disabled),
 .toggleCompareBtn:hover:not(:disabled),
 .actionBtn:hover:not(:disabled) {
   transform: translateY(-1px);
@@ -227,8 +223,6 @@
 }
 
 .bulkBtn:focus-visible,
-.confirmOkBtn:focus-visible,
-.confirmCancelBtn:focus-visible,
 .toggleCompareBtn:focus-visible,
 .actionBtn:focus-visible {
   outline: none;
@@ -258,90 +252,53 @@
   color: var(--color-primary);
 }
 
-.bulkConfirmOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 140;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4);
-  background: rgba(35, 38, 41, 0.42);
-  backdrop-filter: blur(8px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.bulkConfirm {
-  width: min(440px, 100%);
-  background: var(--conflict-paper);
-  border: 1px solid var(--conflict-cloud);
-  border-radius: 16px;
-  color: var(--color-text-primary);
-  box-shadow: var(--shadow-elevated);
+.arbitrationConfirmBody {
   display: grid;
-  gap: var(--space-3);
-  padding: var(--space-5);
-  animation: confirmIn 180ms steps(4, end);
-  max-height: calc(100dvh - (var(--space-4) * 2));
-  overflow-y: auto;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
-.bulkConfirmHeader {
+.arbitrationConfirmIcon {
   align-items: center;
-  display: flex;
-  gap: var(--space-3);
-}
-
-.bulkConfirmIcon {
-  align-items: center;
-  background: var(--color-warning-soft);
-  border: 1px solid var(--color-warning-border);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary-soft) 72%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-primary-soft) 72%, transparent) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 8px 8px, 8px 8px, auto;
+  border: 1px solid var(--color-primary-border);
   border-radius: 6px;
-  color: var(--color-warning);
+  color: var(--color-primary);
   display: inline-flex;
   flex-shrink: 0;
-  height: 44px;
+  height: 52px;
   justify-content: center;
-  width: 44px;
+  width: 52px;
 }
 
-.bulkConfirmTitle {
-  color: var(--color-text-primary);
-  font-size: 18px;
-  font-weight: 800;
+.arbitrationConfirmText {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.7;
   margin: 0;
 }
 
-.bulkConfirmText {
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.65;
-  margin: 0;
+.arbitrationPath {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
 }
 
-.bulkConfirmActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
-
-.confirmOkBtn {
-  background: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-.confirmCancelBtn {
-  background: transparent;
-  border: 1px solid var(--conflict-cloud);
-  color: var(--color-text-secondary);
-}
-
-.confirmCancelBtn:hover:not(:disabled) {
+.arbitrationPath span {
+  height: 6px;
+  border-radius: 2px;
   background: var(--conflict-cloud);
-  color: var(--color-text-primary);
+}
+
+.arbitrationPath span:last-child {
+  background: var(--color-primary);
 }
 
 .conflictItem {
@@ -567,17 +524,6 @@
   color: var(--color-text-muted);
 }
 
-@keyframes confirmIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @keyframes forkStep {
   0%,
   100% {
@@ -590,14 +536,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .bulkBtn,
-  .confirmOkBtn,
-  .confirmCancelBtn,
   .toggleCompareBtn,
   .actionBtn {
     transition: none;
   }
 
-  .bulkConfirm,
   .forkNodeActive {
     animation: none;
   }
@@ -609,33 +552,27 @@
   }
 
   .header,
-  .bulkBar,
-  .bulkConfirm {
+  .bulkBar {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .bulkConfirmActions,
   .actions {
     flex-direction: column;
   }
 
-  .bulkConfirmActions,
-  .bulkConfirmActions button,
   .actions button,
   .bulkBtn,
   .toggleCompareBtn {
     width: 100%;
   }
 
-  .bulkConfirmOverlay {
-    align-items: flex-end;
-    padding: var(--space-2);
+  .arbitrationConfirmBody {
+    grid-template-columns: 1fr;
   }
 
-  .bulkConfirm {
-    max-height: calc(100dvh - var(--space-4));
-    padding: var(--space-4);
+  .arbitrationPath {
+    grid-column: auto;
   }
 
   .comparisonHeader {

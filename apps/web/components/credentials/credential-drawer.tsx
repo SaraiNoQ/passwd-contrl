@@ -86,6 +86,8 @@ export function CredentialDrawer({
       open={isOpen}
       onClose={onClose}
       title={isEditing ? "编辑凭据" : "新增凭据"}
+      eyebrow={isEditing ? "EDIT ITEM / 编辑记录" : "NEW ITEM / 新增记录"}
+      status={isEditing ? "更新本地密码记录" : "保存到加密密码库"}
       className={styles.drawerShell ?? ""}
     >
       <form className={styles.form} onSubmit={onSave}>
@@ -93,10 +95,10 @@ export function CredentialDrawer({
           <div>
             <p className={styles.eyebrow}>{isEditing ? "EDIT BLOCK" : "NEW BLOCK"}</p>
             <h3 className={styles.heroTitle}>
-              {isEditing ? "重写密文卡片" : "铸造新凭据"}
+              {isEditing ? "编辑密码记录" : "新增密码记录"}
             </h3>
             <p className={styles.heroCopy}>
-              站点、身份、密码与 TOTP 会在保存后进入本地加密账本。
+              站点、用户名、密码与 TOTP 会在保存后进入本地加密密码库。
             </p>
           </div>
           <div className={styles.heroGlyph} aria-hidden="true">

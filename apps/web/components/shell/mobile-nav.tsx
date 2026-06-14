@@ -19,9 +19,9 @@ interface MobileNavProps {
 
 const TABS: MobileNavTab[] = [
   { id: "dashboard", label: "总览", icon: <LayoutDashboard size={18} /> },
-  { id: "credentials", label: "账本", icon: <KeyRound size={18} /> },
-  { id: "sync", label: "中继", icon: <RefreshCw size={18} /> },
-  { id: "settings", label: "工坊", icon: <Settings size={18} /> },
+  { id: "credentials", label: "列表", icon: <KeyRound size={18} /> },
+  { id: "sync", label: "同步", icon: <RefreshCw size={18} /> },
+  { id: "settings", label: "工具", icon: <Settings size={18} /> },
 ];
 
 export function MobileNav({ activeNav, onNavChange, navIds }: MobileNavProps) {

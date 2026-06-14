@@ -55,7 +55,9 @@ export function RecoveryModal({
     <Modal
       open={isOpen}
       onClose={onClose}
-      title="离线恢复区块"
+      title="离线恢复记录"
+      eyebrow="RECOVERY SHARD / 离线恢复码"
+      status="仅显示一次，请完成离线保存"
       footer={
         <Button
           variant="primary"
@@ -71,12 +73,12 @@ export function RecoveryModal({
       <div className={styles.warningBox}>
         <AlertTriangle size={16} />
         <span>
-          请将备用密钥分片保存在安全的离线位置。它可用于忘记主密码时解封密码库，且不会再次显示。
+          请将备用恢复码恢复码保存在安全的离线位置。它可用于忘记主密码时解封密码库，且不会再次显示。
         </span>
       </div>
 
       {/* Recovery code display */}
-      <h4 className={styles.sectionTitle}>备用密钥分片</h4>
+      <h4 className={styles.sectionTitle}>备用恢复码恢复码</h4>
       <div className={styles.codeDisplay}>
         <span className={styles.codeRail} aria-hidden="true" />
         <code className={styles.code}>{recoveryCode}</code>
@@ -112,7 +114,7 @@ export function RecoveryModal({
       <div className={styles.offlineSection}>
         <p className={styles.offlineHeading}>
           <ShieldAlert size={16} />
-          离线分片保存建议
+          离线恢复码保存建议
         </p>
         <ul className={styles.offlineList}>
           <li className={styles.offlineItem}>
@@ -129,7 +131,7 @@ export function RecoveryModal({
           </li>
           <li className={styles.offlineItem}>
             <XIcon size={12} />
-            <span>备用分片不会上传到服务器，丢失后无法找回</span>
+            <span>备用恢复码不会上传到服务器，丢失后无法找回</span>
           </li>
         </ul>
       </div>
@@ -141,7 +143,7 @@ export function RecoveryModal({
           checked={confirmed}
           onChange={(e) => onConfirmChange(e.target.checked)}
         />
-        我已将备用密钥分片保存在安全的离线位置
+        我已将备用恢复码恢复码保存在安全的离线位置
       </label>
     </Modal>
   );

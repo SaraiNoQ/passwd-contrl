@@ -1,11 +1,14 @@
 .shell {
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 900;
+  isolation: isolate;
 }
 
 .topBar {
   display: grid;
-  grid-template-columns: auto minmax(260px, 500px) minmax(0, 1fr);
+  grid-template-columns: auto minmax(260px, 1fr) auto;
   align-items: center;
   gap: 12px;
   margin: 16px 24px 0;
@@ -18,9 +21,10 @@
   border: 1px solid var(--color-cloud-mist);
   border-radius: 16px;
   box-shadow: var(--shadow-panel);
-  z-index: 20;
+  z-index: 900;
   position: sticky;
   top: 12px;
+  isolation: isolate;
 }
 
 .topBar::after {
@@ -41,14 +45,18 @@
   gap: 7px;
   min-height: 44px;
   padding: 0 12px;
-  color: var(--color-signal-orange);
-  font: 800 11px/1.2 var(--font-manrope-variable, var(--font-family));
+  color: var(--color-graphite-ink);
+  font: 800 var(--text-caption-size) / var(--text-caption-height) var(--font-manrope-variable, var(--font-family));
   letter-spacing: 0.12em;
   white-space: nowrap;
   background: var(--color-paper-white);
-  border: 1px solid var(--color-primary-border);
+  border: 1px solid var(--color-cloud-mist);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-orange-ring);
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--color-cloud-mist) 72%, transparent);
+}
+
+.sessionMark svg {
+  color: var(--color-signal-orange);
 }
 
 .search {
@@ -115,9 +123,45 @@
 .right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
   min-width: 0;
+}
+
+.zeroSeal {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-paper-white) 96%, var(--color-cloud-mist));
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption-size);
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--color-cloud-mist) 58%, transparent);
+}
+
+.zeroSealIcon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-paper-white);
+}
+
+.zeroSeal small {
+  display: block;
+  margin-bottom: 1px;
+  color: var(--color-primary);
+  font-size: var(--text-caption-size);
+  letter-spacing: 1.4px;
 }
 
 .badge {
@@ -161,6 +205,223 @@
   color: var(--color-danger);
 }
 
+.statusIsland {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.statusIsland::after {
+  content: "";
+  position: fixed;
+  top: 74px;
+  right: clamp(28px, 10vw, 220px);
+  z-index: 999;
+  display: block;
+  width: min(1390px, calc(100vw - var(--sidebar-width) - 160px));
+  min-width: min(720px, calc(100vw - 48px));
+  height: 26px;
+  pointer-events: none;
+}
+
+.statusIsland:hover::after,
+.statusIsland:focus-within::after {
+  pointer-events: auto;
+}
+
+.statusTrigger {
+  appearance: none;
+  cursor: pointer;
+  transition:
+    border-color 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.statusIsland:hover .statusTrigger,
+.statusIsland:focus-within .statusTrigger {
+  border-color: color-mix(in srgb, currentColor 38%, var(--color-cloud-mist));
+  box-shadow:
+    0 8px 18px color-mix(in srgb, currentColor 9%, transparent),
+    0 0 0 1px color-mix(in srgb, currentColor 14%, transparent) inset;
+  transform: translateY(-1px) scaleX(1.02);
+}
+
+.statusPopover {
+  position: fixed;
+  top: 92px;
+  right: clamp(28px, 10vw, 220px);
+  z-index: 1000;
+  width: min(1390px, calc(100vw - var(--sidebar-width) - 160px));
+  min-width: min(720px, calc(100vw - 48px));
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, transparent 0 23px, rgba(227, 241, 254, 0.72) 23px 24px, transparent 24px),
+    linear-gradient(0deg, transparent 0 23px, rgba(227, 241, 254, 0.72) 23px 24px, transparent 24px),
+    color-mix(in srgb, var(--color-paper-white) 98%, var(--color-cloud-mist));
+  background-size: 24px 24px;
+  box-shadow:
+    0 28px 54px rgba(15, 34, 52, 0.24),
+    0 10px 0 color-mix(in srgb, var(--color-cloud-mist) 58%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-paper-white) 86%, transparent) inset;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-14px) scale(0.72, 0.28);
+  transform-origin: top center;
+  clip-path: inset(0 38% 72% 38% round 14px);
+  filter: saturate(0.92);
+  isolation: isolate;
+  transition:
+    opacity 180ms ease,
+    transform 460ms cubic-bezier(0.18, 0.92, 0.22, 1),
+    clip-path 460ms cubic-bezier(0.18, 0.92, 0.22, 1),
+    filter 280ms ease;
+}
+
+.statusPopover::before,
+.statusPopover::after {
+  content: "";
+  position: absolute;
+  width: 24px;
+  height: 8px;
+  background: var(--color-cloud-mist);
+  pointer-events: none;
+}
+
+.statusPopover::before {
+  top: -8px;
+  left: 40px;
+}
+
+.statusPopover::after {
+  right: 56px;
+  bottom: -8px;
+}
+
+.statusIsland:hover .statusPopover,
+.statusIsland:focus-within .statusPopover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  clip-path: inset(0 0 0 0 round 16px);
+  filter: saturate(1);
+}
+
+.statusPopoverHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--color-text-muted);
+  font-size: var(--text-caption-size);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.liveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-muted);
+  letter-spacing: normal;
+}
+
+.liveBadge i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--color-success);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-success) 12%, transparent);
+  animation: islandLivePulse 2.4s steps(2, end) infinite;
+}
+
+.statusTrack {
+  display: grid;
+  grid-template-columns: 0.72fr 1fr 1fr 1fr;
+  align-items: stretch;
+}
+
+.statusNode {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 72px;
+  padding: 12px 12px 9px 18px;
+  border-top: 1px solid var(--color-border-strong);
+}
+
+.statusNode:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 2px;
+  background: var(--color-paper-white);
+}
+
+.statusNode::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--color-border-strong);
+}
+
+.statusNodePrimary::before {
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px var(--color-primary-soft);
+}
+
+.statusIndex {
+  position: absolute;
+  top: 12px;
+  right: 8px;
+  color: var(--color-border-strong);
+  font-size: var(--text-caption-size);
+  font-weight: 800;
+}
+
+.statusLabel {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption-size);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.statusNode strong {
+  margin-top: auto;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 0.8;
+}
+
+.statusNodePrimary strong {
+  color: var(--color-primary);
+}
+
+.statusNode .statusCopy {
+  overflow: hidden;
+  font-family: var(--font-manrope-variable, var(--font-family));
+  font-size: var(--text-caption-size);
+  font-weight: 800;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .syncButton {
   align-items: center;
   background: var(--color-signal-orange);
@@ -170,8 +431,8 @@
   cursor: pointer;
   display: inline-flex;
   font-family: var(--font-manrope-variable, var(--font-family));
-  font-size: 13px;
-  font-weight: 800;
+  font-size: var(--text-button-size);
+  font-weight: var(--text-button-weight);
   gap: 8px;
   justify-content: center;
   min-height: 44px;
@@ -253,6 +514,17 @@
   }
 }
 
+@keyframes islandLivePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
+}
+
 @media (max-width: 1100px) {
   .sessionMark {
     display: none;
@@ -295,6 +567,10 @@
     display: none;
   }
 
+  .statusIsland {
+    display: none;
+  }
+
   .syncButton {
     width: 44px;
     min-width: 44px;
@@ -317,27 +593,38 @@
   .loadingBanner {
     margin: 8px 12px 0;
     padding: 8px 16px;
-    font-size: 11px;
+    font-size: var(--text-caption-size);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .badgePulse,
-  .loadingSpinner {
+  .loadingSpinner,
+  .liveBadge i {
     animation: none;
   }
 
   .search,
   .clearSearchButton,
   .syncButton,
-  .menuButton {
+  .menuButton,
+  .statusTrigger,
+  .statusPopover {
     transition: none;
   }
 
   .search:focus-within,
   .clearSearchButton:hover,
   .syncButton:hover:not(:disabled),
-  .menuButton:hover {
+  .menuButton:hover,
+  .statusIsland:hover .statusTrigger,
+  .statusIsland:focus-within .statusTrigger,
+  .statusIsland:hover .statusPopover,
+  .statusIsland:focus-within .statusPopover {
     transform: none;
+  }
+
+  .statusPopover {
+    clip-path: inset(0 0 0 0 round 16px);
   }
 }

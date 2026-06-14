@@ -51,7 +51,7 @@ export function VaultSkeleton() {
       aria-busy="true"
       aria-atomic="true"
     >
-      <span className={styles.srOnly}>密文账本正在装载，请稍候。</span>
+      <span className={styles.srOnly}>密码库正在装载，请稍候。</span>
       <span className={styles.loadingMarker} aria-hidden="true">
         CIPHER LEDGER
       </span>

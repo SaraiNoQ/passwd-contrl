@@ -275,9 +275,7 @@
 .deviceToggle,
 .approveBtn,
 .rejectBtn,
-.revokeBtn,
-.confirmCancel,
-.confirmOk {
+.revokeBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -296,8 +294,6 @@
 .approveBtn:focus-visible,
 .rejectBtn:focus-visible,
 .revokeBtn:focus-visible,
-.confirmCancel:focus-visible,
-.confirmOk:focus-visible,
 .syncButton:focus-visible {
   outline: none;
   border-color: var(--color-primary);
@@ -527,78 +523,47 @@
   text-align: center;
 }
 
-.confirmOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(35, 38, 41, 0.42);
-  backdrop-filter: blur(8px);
+.nodeConfirmBody {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
-.confirmDialog {
-  width: min(420px, 100%);
-  padding: 24px;
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: var(--color-bg-panel);
-  box-shadow: var(--shadow-elevated);
-  animation: dialogIn 180ms steps(4, end);
-}
-
-.confirmHeader {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.confirmIcon {
+.nodeConfirmGlyph {
   display: grid;
   place-items: center;
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border: 1px solid currentColor;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--color-primary-border);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, currentColor 9%, transparent);
-}
-
-.confirmDialogApprove .confirmIcon {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary-soft) 72%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-primary-soft) 72%, transparent) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 8px 8px, 8px 8px, auto;
   color: var(--color-primary);
 }
 
-.confirmDialogReject .confirmIcon {
+.nodeConfirmGlyphDanger {
+  border-color: var(--color-danger-border);
   color: var(--color-danger);
 }
 
-.confirmDialogRevoke .confirmIcon {
-  color: var(--color-danger);
-}
-
-.confirmTitle {
+.nodeConfirmDescription {
   margin: 0;
-  color: var(--color-text-primary);
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.confirmDesc {
-  margin: 0 0 12px;
   color: var(--color-text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.7;
 }
 
-.confirmWarning {
+.nodeConfirmWarning {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid var(--color-danger-border);
   border-radius: var(--radius-sm);
   background: var(--color-danger-soft);
@@ -607,58 +572,9 @@
   font-weight: 800;
 }
 
-.confirmActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 18px;
-}
-
-.confirmCancel {
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-secondary);
-}
-
-.confirmCancel:hover {
-  border-color: var(--color-border-strong);
-  background: var(--color-bg-panel-soft);
-  color: var(--color-text-primary);
-}
-
-.confirmOk {
-  border: 1px solid transparent;
-  color: var(--color-text-inverse);
-}
-
-.confirmOkApprove {
-  background: var(--color-primary);
-}
-
-.confirmOkReject {
-  border-color: var(--color-danger);
-  background: var(--color-danger);
-}
-
-.confirmOkRevoke {
-  border-color: var(--color-danger);
-  background: var(--color-danger);
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes dialogIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -677,14 +593,11 @@
   .deviceToggle,
   .approveBtn,
   .rejectBtn,
-  .revokeBtn,
-  .confirmCancel,
-  .confirmOk {
+  .revokeBtn {
     transition: none;
   }
 
   .spinning,
-  .confirmDialog,
   .nodeAccessRail span::after {
     animation: none;
   }
@@ -730,5 +643,13 @@
   .revokeBtn,
   .revokeWrap {
     width: 100%;
+  }
+
+  .nodeConfirmBody {
+    grid-template-columns: 1fr;
+  }
+
+  .nodeConfirmWarning {
+    grid-column: auto;
   }
 }

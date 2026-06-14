@@ -108,12 +108,12 @@ type NavItem = {
 const useSidebarNav = (unlocked: boolean): NavItem[] =>
   useMemo(
     () => [
-      { id: "dashboard", label: "密钥总览", icon: <LayoutDashboard size={18} />, enabled: true },
-      { id: "credentials", label: "密文账本", icon: <KeyRound size={18} />, enabled: unlocked },
-      { id: "import", label: "迁移铸入", icon: <Download size={18} />, enabled: unlocked },
-      { id: "sync", label: "区块中继", icon: <RefreshCw size={18} />, enabled: unlocked },
-      { id: "recovery", label: "离线分片", icon: <Shield size={18} />, enabled: unlocked },
-      { id: "settings", label: "工坊控制台", icon: <Settings size={18} />, enabled: unlocked }
+      { id: "dashboard", label: "密码总览", icon: <LayoutDashboard size={18} />, enabled: true },
+      { id: "credentials", label: "密码库", icon: <KeyRound size={18} />, enabled: unlocked },
+      { id: "import", label: "迁移导入", icon: <Download size={18} />, enabled: unlocked },
+      { id: "sync", label: "设备同步", icon: <RefreshCw size={18} />, enabled: unlocked },
+      { id: "recovery", label: "离线恢复码", icon: <Shield size={18} />, enabled: unlocked },
+      { id: "settings", label: "工具控制台", icon: <Settings size={18} />, enabled: unlocked }
     ],
     [unlocked]
   );
@@ -895,7 +895,7 @@ export default function VaultApp() {
             await shareVaultKeyWithDevice(auth.csrfToken, deviceId, encryptedBlob);
           }
         } catch {
-          addSyncEvent({ type: "error", description: "设备已批准，但密钥共享失败。请稍后重试设备同步。" });
+          addSyncEvent({ type: "error", description: "设备已批准，但授权共享失败。请稍后重试设备同步。" });
         }
       }
 
@@ -1066,7 +1066,7 @@ export default function VaultApp() {
   const offlineSyncBanner = offlineSync.showRetrySuccess ? (
     <div className="success-banner" role="status">
       <RefreshCw size={16} />
-      <span>链路已恢复，待投递区块已完成回执。</span>
+      <span>同步已恢复，待同步记录已完成同步状态。</span>
       <button
         className="banner-close-button"
         type="button"
@@ -1082,12 +1082,12 @@ export default function VaultApp() {
     !offlineSync.isOnline ? (
       <div className="error-banner" role="alert">
         <AlertTriangle size={16} />
-        <span>当前离线，{offlineSync.pendingCount > 0 ? `${offlineSync.pendingCount} 枚区块待投递。` : ""}连接后将自动中继。</span>
+        <span>当前离线，{offlineSync.pendingCount > 0 ? `${offlineSync.pendingCount} 枚记录待同步。` : ""}连接后将自动同步。</span>
       </div>
     ) : offlineSync.pendingCount > 0 ? (
       <div className="error-banner" role="alert">
         <RefreshCw size={16} />
-        <span>{offlineSync.pendingCount} 枚区块待投递。上次中继失败，将自动重试。</span>
+        <span>{offlineSync.pendingCount} 枚记录待同步。上次同步失败，将自动重试。</span>
         <Button variant="secondary" className="banner-action" type="button" onClick={offlineSync.retryNow}>
           立即重试
         </Button>
@@ -1095,7 +1095,7 @@ export default function VaultApp() {
     ) : offlineSync.failedCount > 0 ? (
       <div className="error-banner" role="alert">
         <AlertTriangle size={16} />
-        <span>{offlineSync.failedCount} 枚区块投递失败，已达最大重试次数。</span>
+        <span>{offlineSync.failedCount} 枚记录同步失败，已达最大重试次数。</span>
         <Button variant="secondary" className="banner-action" type="button" onClick={offlineSync.clearFailed}>
           清空队列
         </Button>
@@ -1108,15 +1108,15 @@ export default function VaultApp() {
       {/* Stats cards */}
       <div className="stats-grid">
         <div className="stat-card">
-          <span className="stat-card-label">密文条目</span>
+          <span className="stat-card-label">密码条目</span>
           <span className="stat-card-value">{vault.itemCount}</span>
         </div>
         <div className="stat-card">
-          <span className="stat-card-label">最近铸写</span>
+          <span className="stat-card-label">最近更新</span>
           <span className="stat-card-value stat-card-value--muted">{vault.updatedAt}</span>
         </div>
         <div className="stat-card">
-          <span className="stat-card-label">区块回执</span>
+          <span className="stat-card-label">记录同步状态</span>
           <span className={`stat-card-value ${
             auth.syncStatus.includes("已同步") ? "stat-card-value--success" :
             auth.syncStatus.includes("冲突") ? "stat-card-value--warning" :
@@ -1127,7 +1127,7 @@ export default function VaultApp() {
         </div>
         {lastSyncedAt ? (
           <div className="stat-card">
-            <span className="stat-card-label">上次上链</span>
+            <span className="stat-card-label">上次同步</span>
             <span className="stat-card-value stat-card-value--muted">
               {formatDateTime(lastSyncedAt)}
             </span>

@@ -9,6 +9,39 @@
   min-height: 100vh;
   margin: 0 auto;
   padding: clamp(32px, 5vw, 72px);
+  color: var(--color-graphite-ink);
+}
+
+.lockedLayout::before,
+.lockedLayout::after {
+  position: absolute;
+  z-index: -1;
+  display: block;
+  width: 96px;
+  height: 48px;
+  border: 1px solid color-mix(in srgb, var(--color-slate-pencil) 34%, var(--color-cloud-mist));
+  background:
+    linear-gradient(var(--color-paper-white), var(--color-paper-white)) 16px 8px / 48px 8px no-repeat,
+    linear-gradient(var(--color-paper-white), var(--color-paper-white)) 8px 16px / 72px 8px no-repeat,
+    linear-gradient(var(--color-paper-white), var(--color-paper-white)) 0 24px / 96px 8px no-repeat,
+    linear-gradient(color-mix(in srgb, var(--color-cloud-mist) 64%, var(--color-paper-white)), color-mix(in srgb, var(--color-cloud-mist) 64%, var(--color-paper-white))) 16px 32px / 64px 8px no-repeat,
+    linear-gradient(var(--color-cloud-mist), var(--color-cloud-mist)) 32px 40px / 32px 8px no-repeat;
+  content: "";
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.lockedLayout::before {
+  top: 36px;
+  left: clamp(18px, 4vw, 72px);
+  opacity: 0.54;
+}
+
+.lockedLayout::after {
+  right: clamp(20px, 6vw, 96px);
+  bottom: 42px;
+  opacity: 0.36;
+  transform: scale(0.78);
 }
 
 .forgeStage {
@@ -22,33 +55,44 @@
 }
 
 .stageRail {
+  position: relative;
+  z-index: 2;
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-text-primary) 18%, transparent);
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--color-cloud-mist) 72%, var(--color-graphite-ink));
+  color: var(--color-slate-pencil);
+  font-family: var(--font-manrope-variable, var(--font-family));
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 1.8px;
+  letter-spacing: 0.14em;
 }
 
 .railStatus {
+  position: relative;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--color-text-secondary);
-  font-family: var(--font-family);
-  letter-spacing: 0.4px;
+  min-height: 32px;
+  padding: 7px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-cloud-mist) 62%, var(--color-slate-pencil));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-paper-white) 84%, var(--color-cloud-mist));
+  color: var(--color-graphite-ink);
+  font-family: var(--font-manrope-variable, var(--font-family));
+  letter-spacing: 0.04em;
+  box-shadow: var(--shadow-panel);
+  white-space: nowrap;
 }
 
 .railStatus > span {
   width: 8px;
   height: 8px;
-  background: var(--color-primary);
+  background: var(--color-signal-orange);
   box-shadow: 0 0 0 4px var(--color-primary-soft);
   animation: signalPulse 2.4s steps(2, end) infinite;
 }
@@ -56,26 +100,27 @@
 .brandBlock {
   align-self: start;
   min-width: 0;
-  max-width: 720px;
+  max-width: 680px;
 }
 
 .eyebrow,
 .cardEyebrow {
   display: block;
-  color: var(--color-primary);
-  font-size: 11px;
+  color: var(--color-signal-orange);
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 1.8px;
+  letter-spacing: 0.14em;
 }
 
 .brandBlock h1 {
   margin: 18px 0 0;
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: clamp(52px, 7.1vw, 96px);
+  font-size: clamp(56px, 6.8vw, 92px);
   font-weight: 400;
   line-height: 0.82;
   letter-spacing: -0.031em;
+  text-wrap: balance;
 }
 
 .brandBlock h1 span {
@@ -96,10 +141,14 @@
   align-self: stretch;
   min-width: 220px;
   overflow: hidden;
-  border: 1px solid var(--color-text-primary);
+  border: 1px solid color-mix(in srgb, var(--color-cloud-mist) 70%, var(--color-graphite-ink));
   border-radius: 16px;
-  background: var(--color-bg-panel);
-  box-shadow: 10px 10px 0 color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-cloud-mist) 68%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-cloud-mist) 48%, transparent) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 16px 16px, 16px 16px, auto;
+  box-shadow: var(--shadow-panel);
 }
 
 .machineLabel {
@@ -107,15 +156,16 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--color-text-primary);
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 1px;
+  border-bottom: 1px solid var(--color-cloud-mist);
+  color: var(--color-slate-pencil);
+  font-family: var(--font-manrope-variable, var(--font-family));
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
 }
 
 .machineLabel strong {
-  color: var(--color-primary);
+  color: var(--color-signal-orange);
   font-weight: 800;
 }
 
@@ -125,10 +175,10 @@
   min-height: 220px;
   place-items: center;
   overflow: hidden;
-  background-color: var(--color-bg-panel-soft);
+  background-color: color-mix(in srgb, var(--color-cloud-mist) 58%, var(--color-paper-white));
   background-image:
-    linear-gradient(color-mix(in srgb, var(--color-text-primary) 7%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--color-text-primary) 7%, transparent) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--color-graphite-ink) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-graphite-ink) 7%, transparent) 1px, transparent 1px);
   background-size: 16px 16px;
 }
 
@@ -161,7 +211,7 @@
   right: 12px;
   left: 12px;
   height: 2px;
-  background: var(--color-primary);
+  background: var(--color-signal-orange);
   box-shadow: 0 4px 0 color-mix(in srgb, var(--color-primary) 20%, transparent);
   animation: chamberScan 3.8s steps(9, end) infinite;
 }
@@ -175,11 +225,11 @@
   position: absolute;
   right: 12px;
   bottom: 10px;
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: 8px;
+  color: var(--color-slate-pencil);
+  font-family: var(--font-manrope-variable, var(--font-family));
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.08em;
 }
 
 .machineTicks {
@@ -187,7 +237,7 @@
   grid-template-columns: repeat(12, 1fr);
   gap: 5px;
   padding: 12px 14px;
-  border-top: 1px solid var(--color-text-primary);
+  border-top: 1px solid var(--color-cloud-mist);
 }
 
 .machineTicks span {
@@ -203,12 +253,11 @@
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
+  gap: 8px;
   margin: 0;
-  padding: 1px;
+  padding: 0;
   list-style: none;
-  background: color-mix(in srgb, var(--color-text-primary) 18%, transparent);
-  border-radius: 12px;
+  background: transparent;
 }
 
 .forgeSteps li {
@@ -218,15 +267,18 @@
   align-items: center;
   min-width: 0;
   padding: 14px;
-  background: color-mix(in srgb, var(--color-bg-panel) 88%, transparent);
+  border: 1px solid var(--color-cloud-mist);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-paper-white) 88%, var(--color-cloud-mist));
+  box-shadow: var(--shadow-panel);
 }
 
 .forgeSteps li:first-child {
-  border-radius: 11px 0 0 11px;
+  border-color: var(--color-primary-border);
 }
 
 .forgeSteps li:last-child {
-  border-radius: 0 11px 11px 0;
+  border-color: color-mix(in srgb, var(--color-cloud-mist) 72%, var(--color-graphite-ink));
 }
 
 .forgeSteps li > span {
@@ -254,19 +306,19 @@
 
 .forgeSteps small {
   margin-top: 3px;
-  color: var(--color-text-muted);
-  font-size: 10px;
+  color: var(--color-slate-pencil);
+  font-size: 12px;
   line-height: 1.4;
 }
 
 .pixelCloud {
   position: absolute;
-  z-index: -1;
-  top: -18px;
-  right: -44px;
-  width: 112px;
+  z-index: 0;
+  top: -54px;
+  right: -12px;
+  width: 104px;
   height: 56px;
-  opacity: 0.72;
+  opacity: 0.46;
   pointer-events: none;
 }
 
@@ -279,11 +331,14 @@
   max-width: 500px;
   justify-self: end;
   padding: 28px;
-  border: 1px solid var(--color-text-primary);
+  border: 1px solid color-mix(in srgb, var(--color-cloud-mist) 68%, var(--color-graphite-ink));
   border-radius: 16px;
-  background: var(--color-bg-panel);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-cloud-mist) 58%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-cloud-mist) 42%, transparent) 1px, transparent 1px),
+    var(--color-paper-white);
+  background-size: 16px 16px, 16px 16px, auto;
   box-shadow:
-    12px 12px 0 color-mix(in srgb, var(--color-primary) 16%, transparent),
     var(--shadow-elevated);
 }
 
@@ -291,10 +346,11 @@
   position: absolute;
   top: -6px;
   right: 36px;
-  width: 72px;
+  width: 96px;
   height: 6px;
-  background: var(--color-primary);
+  background: repeating-linear-gradient(90deg, var(--color-signal-orange) 0 12px, transparent 12px 18px);
   content: "";
+  image-rendering: pixelated;
 }
 
 .deckTopline {
@@ -374,9 +430,9 @@
   gap: 10px;
   min-height: 48px;
   padding: 10px 12px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-cloud-mist);
   border-radius: 6px;
-  background: var(--color-bg-panel-soft);
+  background: color-mix(in srgb, var(--color-cloud-mist) 58%, var(--color-paper-white));
   color: var(--color-text-secondary);
   font-size: 12px;
   line-height: 1.45;
@@ -394,7 +450,7 @@
 
 .securityStrip strong {
   color: var(--color-text-primary);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.5px;
 }
 
@@ -411,8 +467,8 @@
   justify-content: space-between;
   gap: 12px;
   min-height: 44px;
-  padding: 8px 0;
-  border-block: 1px solid var(--color-border);
+  padding: 10px 0;
+  border-block: 1px dashed var(--color-cloud-mist);
 }
 
 .bridgeLabel {
@@ -459,8 +515,9 @@
   place-items: center;
   border: 1px solid currentColor;
   border-radius: 4px;
-  font-family: var(--font-mono);
+  font-family: var(--font-manrope-variable, var(--font-family));
   font-size: 16px;
+  font-weight: 800;
   line-height: 1;
 }
 
@@ -471,7 +528,10 @@
   padding: 16px;
   border: 1px solid var(--color-primary-border);
   border-radius: 12px;
-  background: var(--color-bg-panel-soft);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary-soft) 64%, transparent) 1px, transparent 1px),
+    color-mix(in srgb, var(--color-primary-soft) 52%, var(--color-paper-white));
+  background-size: 12px 12px, auto;
   animation: revealPanel 180ms ease-out both;
 }
 
@@ -507,7 +567,7 @@
   justify-content: space-between;
   gap: 12px;
   padding-top: 14px;
-  border-top: 1px dashed var(--color-border);
+  border-top: 1px dashed var(--color-cloud-mist);
 }
 
 .resetVaultSection > span {
@@ -601,14 +661,6 @@
   .forgeSteps {
     grid-template-columns: 1fr;
   }
-
-  .forgeSteps li:first-child {
-    border-radius: 11px 11px 0 0;
-  }
-
-  .forgeSteps li:last-child {
-    border-radius: 0 0 11px 11px;
-  }
 }
 
 @media (max-width: 820px) {
@@ -634,14 +686,6 @@
 
   .forgeSteps li {
     grid-template-columns: 1fr;
-  }
-
-  .forgeSteps li:first-child {
-    border-radius: 11px 0 0 11px;
-  }
-
-  .forgeSteps li:last-child {
-    border-radius: 0 11px 11px 0;
   }
 
   .controlDeck {
@@ -689,14 +733,6 @@
 
   .forgeSteps li {
     grid-template-columns: 44px minmax(0, 1fr);
-  }
-
-  .forgeSteps li:first-child {
-    border-radius: 11px 11px 0 0;
-  }
-
-  .forgeSteps li:last-child {
-    border-radius: 0 0 11px 11px;
   }
 
   .pixelCloud {

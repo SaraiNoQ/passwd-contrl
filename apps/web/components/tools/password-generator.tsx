@@ -289,7 +289,7 @@ export function PasswordGenerator({ onUse, showUseButton }: PasswordGeneratorPro
           ) : null}
         </section>
 
-        <section className={styles.controlBay} aria-label="密钥材料">
+        <section className={styles.controlBay} aria-label="密码材料">
           <div className={styles.optionsSection}>
             <div className={styles.lengthRow}>
               <label className={styles.lengthLabel}>密码长度</label>

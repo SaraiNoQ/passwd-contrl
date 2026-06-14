@@ -221,26 +221,26 @@ export function SettingsPage({
           <rect x="88" y="40" width="8" height="8" fill="#5c6066" opacity="0.22" />
         </svg>
         <div>
-          <p className={styles.eyebrow}>OBSCURA WORKSHOP</p>
+          <p className={styles.eyebrow}>APP SETTINGS</p>
           <h2 id="settings-control-title" className={styles.heroTitle}>
-            密钥工坊
+            应用设置
           </h2>
           <p className={styles.heroCopy}>
-            在这座像素账本控制台里校准锁定节拍、浏览器桥接、备份铸造和危险维护。每个控件都沿用既有链路，不触碰你的主密码和本地密钥边界。
+            管理自动锁定、浏览器扩展、备份导出和账户安全。这里的设置会影响你日常解锁、同步和迁移密码的方式。
           </p>
         </div>
         <div className={styles.heroSummary} aria-label="当前设置摘要">
           <span>
-            <small>锁定节拍</small>
+            <small>自动锁定</small>
             <strong>{AUTO_LOCK_OPTIONS.find((opt) => opt.value === autoLockTimeout)?.label ?? "自定义"}</strong>
           </span>
           <span>
-            <small>链路模式</small>
+            <small>同步模式</small>
             <strong>{autoSyncEnabled ? "自动同步" : "手动同步"}</strong>
           </span>
           <span>
-            <small>扩展桥接</small>
-            <strong>{extensionId ? "已接入" : "待登记"}</strong>
+            <small>浏览器扩展</small>
+            <strong>{extensionId ? "已连接" : "未连接"}</strong>
           </span>
         </div>
       </section>
@@ -254,10 +254,10 @@ export function SettingsPage({
               <span />
               <span />
             </div>
-            <p className={styles.cardKicker}>LOCK TIMER</p>
-            <h3 className={styles.cardTitle}>主密钥核心</h3>
+            <p className={styles.cardKicker}>SECURITY</p>
+            <h3 className={styles.cardTitle}>解锁安全</h3>
             <p className={styles.cardDescription}>
-              校准会话锁定节拍，并在需要时重铸主密码。
+              设置多久无人操作后自动锁定，也可以在这里更新主密码。
             </p>
           </div>
 
@@ -265,7 +265,7 @@ export function SettingsPage({
             <div>
               <div className={styles.rowLabel}>锁屏倒计时</div>
               <div className={styles.rowHint}>
-                超过设定时间未操作后，密钥工坊会自动合闸。
+                超过设定时间未操作后，应用会自动锁定。
               </div>
             </div>
             <select
@@ -284,9 +284,9 @@ export function SettingsPage({
 
           <div className={styles.passwordPanel}>
             <div>
-              <div className={styles.rowLabel}>主密码重铸台</div>
+              <div className={styles.rowLabel}>修改主密码</div>
               <p className={styles.rowHint}>
-                重铸后需要重新验证身份，新密码至少 12 个字符。
+                更新后需要重新验证身份，新密码至少 12 个字符。
               </p>
             </div>
             <div className={styles.passwordForm}>
@@ -318,7 +318,7 @@ export function SettingsPage({
                 </p>
               )}
               {passwordSuccess && (
-                <p className={styles.passwordSuccess}>主密码已写入新的密钥槽</p>
+                <p className={styles.passwordSuccess}>主密码已更新</p>
               )}
 
               <div className={styles.passwordActions}>
@@ -327,7 +327,7 @@ export function SettingsPage({
                   loading={passwordLoading}
                   disabled={loading}
                 >
-                  重铸主密码
+                  更新主密码
                 </Button>
               </div>
             </div>
@@ -341,10 +341,10 @@ export function SettingsPage({
               <span />
               <span />
             </div>
-            <p className={styles.cardKicker}>EXTENSION BRIDGE</p>
-            <h3 className={styles.cardTitle}>扩展桥接</h3>
+            <p className={styles.cardKicker}>BROWSER EXTENSION</p>
+            <h3 className={styles.cardTitle}>浏览器扩展</h3>
             <p className={styles.cardDescription}>
-              绑定浏览器扩展 ID，让自动填充入口只响应受信插件。
+              填入浏览器扩展 ID，用于启用自动填充和快速保存入口。
             </p>
           </div>
 
@@ -361,12 +361,12 @@ export function SettingsPage({
               onClick={handleSaveExtensionId}
               disabled={loading || extensionIdDraft.trim() === extensionId}
             >
-              写入桥接
+              保存扩展 ID
             </Button>
           </div>
           <div className={styles.miniLedger}>
-            <span>桥接通道</span>
-            <strong>{extensionId ? "已登记" : "等待绑定"}</strong>
+            <span>扩展状态</span>
+            <strong>{extensionId ? "已连接" : "未连接"}</strong>
           </div>
         </section>
 
@@ -381,7 +381,7 @@ export function SettingsPage({
             <p className={styles.cardKicker}>DATA BACKUP</p>
             <h3 className={styles.cardTitle}>数据备份</h3>
             <p className={styles.cardDescription}>
-              将密码库铸成迁移文件或加密备份。CSV 只用于临时迁移，加密备份保留主密码保护。
+              将密码库导出为迁移文件或加密备份。CSV 只用于临时迁移，加密备份仍受主密码保护。
             </p>
           </div>
 
@@ -393,7 +393,7 @@ export function SettingsPage({
           <div className={styles.exportActions}>
             <div className={styles.exportRow}>
               <div>
-                <div className={styles.rowLabel}>回灌加密备份</div>
+                <div className={styles.rowLabel}>导入加密备份</div>
                 <p className={styles.exportWarning}>
                   选择 .json 备份文件以恢复加密密码库。导入后需使用主密码解锁。
                 </p>
@@ -404,7 +404,7 @@ export function SettingsPage({
                 disabled={loading || importLoading}
                 loading={importLoading}
               >
-                回灌备份
+                导入备份
               </Button>
               <input
                 ref={fileInputRef}
@@ -427,7 +427,7 @@ export function SettingsPage({
               <div>
                 <div className={styles.rowLabel}>导出全部 CSV</div>
                 <p className={styles.exportWarning}>
-                  明文账本，仅用于短时迁移。导出后请立即妥善处理。
+                  明文列表，仅用于短时迁移。导出后请立即妥善处理。
                 </p>
               </div>
               <Button
@@ -435,7 +435,7 @@ export function SettingsPage({
                 onClick={() => confirmCsvExport(onExportCsv)}
                 disabled={loading}
               >
-                铸出 CSV
+                导出 CSV
               </Button>
             </div>
 
@@ -443,7 +443,7 @@ export function SettingsPage({
               <div>
                 <div className={styles.rowLabel}>导出选中 CSV</div>
                 <p className={styles.exportWarning}>
-                  只铸出当前凭据列表中选中的项目。
+                  只导出当前凭据列表中选中的项目。
                 </p>
               </div>
               <Button
@@ -451,7 +451,7 @@ export function SettingsPage({
                 onClick={() => confirmCsvExport(onExportCsvSelected)}
                 disabled={loading || selectedCount === 0}
               >
-                铸出选中
+                导出选中
               </Button>
             </div>
 
@@ -469,7 +469,7 @@ export function SettingsPage({
                 onClick={onExportEncrypted}
                 disabled={loading}
               >
-                铸出密文
+                导出加密内容
               </Button>
             </div>
 
@@ -477,7 +477,7 @@ export function SettingsPage({
               <div>
                 <div className={styles.rowLabel}>导出选中加密备份</div>
                 <p className={styles.exportWarning}>
-                  将选中凭据铸为加密备份文件。
+                  将选中凭据导出为加密备份文件。
                 </p>
               </div>
               <Button
@@ -485,7 +485,7 @@ export function SettingsPage({
                 onClick={() => void onExportEncryptedSelected()}
                 disabled={loading || selectedCount === 0}
               >
-                选中密文
+                选中加密内容
               </Button>
             </div>
           </div>
@@ -498,16 +498,16 @@ export function SettingsPage({
               <span />
               <span />
             </div>
-            <p className={styles.cardKicker}>SYNC ROUTER</p>
-            <h3 className={styles.cardTitle}>链路同步</h3>
+            <p className={styles.cardKicker}>SYNC</p>
+            <h3 className={styles.cardTitle}>设备同步</h3>
             <p className={styles.cardDescription}>
-              让本地加密数据按固定节拍投递到你的设备网络。
+              让加密后的密码在你的设备之间保持一致。
             </p>
           </div>
 
           <div className={styles.row}>
             <div>
-              <div className={styles.rowLabel}>自动上链节拍</div>
+              <div className={styles.rowLabel}>自动同步</div>
               <div className={styles.rowHint}>开启后将定期同步加密数据。</div>
             </div>
             <label className={styles.toggleLabel}>
@@ -525,7 +525,7 @@ export function SettingsPage({
             <div className={styles.row}>
               <div>
                 <div className={styles.rowLabel}>同步间隔</div>
-                <div className={styles.rowHint}>自动同步的投递间隔。</div>
+                <div className={styles.rowHint}>多久自动同步一次。</div>
               </div>
               <select
                 className={styles.select}
@@ -550,18 +550,18 @@ export function SettingsPage({
               <span />
               <span />
             </div>
-            <p className={styles.cardKicker}>DANGER MAINTENANCE</p>
-            <h3 className={styles.cardTitle}>危险维护</h3>
+            <p className={styles.cardKicker}>DANGER AREA</p>
+            <h3 className={styles.cardTitle}>危险操作</h3>
             <p className={styles.cardDescription}>
-              删除账户会清空所有本地凭据、安全笔记、附件和偏好。
+              删除账户会清空本机保存的密码、笔记、附件和偏好设置。
             </p>
           </div>
 
           <div className={styles.dangerZone}>
             <div>
-              <p className={styles.dangerTitle}>熔毁本地账本</p>
+              <p className={styles.dangerTitle}>删除账户与本地数据</p>
               <p className={styles.dangerDescription}>
-                此操作不可撤销，请先完成加密备份。
+                此操作不可撤销。请先导出加密备份，再继续删除。
               </p>
             </div>
             <Button
@@ -569,7 +569,7 @@ export function SettingsPage({
               onClick={() => setDeleteModalOpen(true)}
               disabled={loading}
             >
-              熔毁账户
+              删除账户
             </Button>
           </div>
         </section>
@@ -579,7 +579,9 @@ export function SettingsPage({
       <Modal
         open={csvExportModalOpen}
         onClose={handleCsvExportCancel}
-        title="确认铸出 CSV"
+        title="确认导出 CSV"
+        eyebrow="CSV EXPORT / 明文导出"
+        status="导出内容不会受到加密保护"
         footer={
           <>
             <Button
@@ -593,14 +595,14 @@ export function SettingsPage({
               className={styles.csvConfirmButton ?? ""}
               onClick={handleCsvExportConfirm}
             >
-              确认铸出
+              确认导出
             </Button>
           </>
         }
       >
         <div className={styles.deleteModalBody}>
           <p className={styles.deleteModalWarning}>
-            CSV 文件包含明文密码，相当于未加密账本，请确保安全存储。
+            CSV 文件包含明文密码，相当于未加密列表，请确保安全存储。
           </p>
           <p className={styles.deleteModalIrreversible}>
             导出后请妥善保管文件，使用完毕后建议删除。
@@ -612,7 +614,9 @@ export function SettingsPage({
       <Modal
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        title="确认熔毁账户"
+        title="确认删除账户"
+        eyebrow="DANGER AREA / 危险操作"
+        status="此操作不可撤销"
         destructive
         footer={
           <>
@@ -628,14 +632,14 @@ export function SettingsPage({
               onClick={handleDeleteConfirm}
               loading={deleteLoading}
             >
-              确认熔毁
+              确认删除
             </Button>
           </>
         }
       >
         <div className={styles.deleteModalBody}>
           <p className={styles.deleteModalWarning}>
-            熔毁账户后，以下数据将被永久清除：
+            删除账户后，以下数据将被永久清除：
           </p>
           <ul>
             <li>所有保存的密码和凭据</li>

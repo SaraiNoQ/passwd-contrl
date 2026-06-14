@@ -147,9 +147,9 @@ export function RecoveryEntry({
             <rect x="16" y="26" width="4" height="4" fill="#ff5e24" />
           </svg>
         </div>
-        <h2 className={styles.title}>解封离线恢复区块</h2>
+        <h2 className={styles.title}>解封离线恢复记录</h2>
         <p className={styles.subtitle}>
-          输入备用密钥分片，并设置新的主密码，重新解封本地密码库访问权限。
+          输入备用恢复码恢复码，并设置新的主密码，重新解封本地密码库访问权限。
         </p>
       </div>
 
@@ -158,7 +158,7 @@ export function RecoveryEntry({
         <div className={styles.warningBox}>
           <ShieldAlert size={14} />
           <span>
-            正在查找离线恢复区块...
+            正在查找离线恢复记录...
           </span>
         </div>
       )}
@@ -166,7 +166,7 @@ export function RecoveryEntry({
         <div className={styles.warningBox}>
           <ShieldAlert size={14} />
           <span>
-            未找到离线恢复区块。请确认您已登录且之前设置过备用密钥分片。
+            未找到离线恢复记录。请确认您已登录且之前设置过备用恢复码恢复码。
           </span>
         </div>
       )}
@@ -182,11 +182,11 @@ export function RecoveryEntry({
       {/* Form */}
       <form className={styles.form} onSubmit={(e) => void handleSubmit(e)}>
         <Input
-          label="备用密钥分片"
+          label="备用恢复码恢复码"
           type="text"
           value={recoveryCode}
           onChange={(e) => setRecoveryCode(e.target.value)}
-          placeholder="输入您的恢复分片"
+          placeholder="输入您的恢复码"
           autoComplete="off"
           spellCheck={false}
           disabled={noPacket || packetLoading}

@@ -24,7 +24,7 @@ export type RecoveryCodeModalProps = {
 // Constants
 // ---------------------------------------------------------------------------
 
-const STEPS = ["离线区块", "铸造分片", "抄录密钥", "回读确认"] as const;
+const STEPS = ["离线备份", "生成恢复码", "抄录保存", "回读确认"] as const;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -136,32 +136,32 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
           <KeyRound size={24} className={styles.iconPrimary} />
         </div>
         <h3 className={styles.sectionTitle}>
-          离线恢复区块
+          离线恢复记录
         </h3>
       </div>
 
       <div className={styles.infoBox}>
         <p>
-          恢复码是备用密钥分片：它只在本地铸造成恢复包，用于主密码遗失时重新解封密码库。
+          恢复码是你的离线备用钥匙：它只在本机生成，用于主密码遗失时重新解锁密码库。
         </p>
       </div>
 
       <div className={`${styles.explanationText} ${styles.mt4}`}>
-        <p>离线区块如何工作：</p>
+        <p>恢复码如何工作：</p>
         <ol>
-          <li>本机生成一枚随机备用密钥分片</li>
-          <li>分片用于加密您的密码库密钥</li>
-          <li>加密后的恢复包作为离线恢复区块保存</li>
-          <li>需要恢复时，输入分片即可解封本地密码库密钥</li>
+          <li>本机生成一组只显示一次的恢复码</li>
+          <li>恢复码用于保护你的密码库访问权限</li>
+          <li>恢复包只作为离线备份保存</li>
+          <li>需要恢复时，输入恢复码即可重新解锁密码库</li>
         </ol>
       </div>
 
       <div className={`${styles.warningBox} ${styles.mt4}`}>
         <ShieldAlert size={16} />
         <div>
-          <p className={styles.warningBoxTitle}>备用分片不会上传到服务器</p>
+          <p className={styles.warningBoxTitle}>备用恢复码不会上传到服务器</p>
           <p className={styles.warningBoxSub}>
-            一旦遗失，任何节点或客服都无法替您重铸。
+            一旦遗失，任何节点或客服都无法替您更新。
           </p>
         </div>
       </div>
@@ -171,10 +171,10 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
   const renderGenerateStep = () => (
     <div className={styles.centerContent}>
       <h3 className={styles.sectionTitle}>
-        铸造备用密钥分片
+        生成备用恢复码恢复码
       </h3>
       <p className={styles.sectionSubtitle}>
-        点击下方按钮，在本机生成一枚只显示一次的恢复分片。
+        点击下方按钮，在本机生成一枚只显示一次的恢复码。
       </p>
 
       {generatingError ? (
@@ -186,7 +186,7 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
         loading={generating}
       >
         <KeyRound size={16} />
-        铸造恢复分片
+        生成恢复码
       </Button>
     </div>
   );
@@ -194,13 +194,13 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
   const renderDisplayStep = () => (
     <div>
       <h3 className={styles.sectionTitle}>
-        您的备用密钥分片
+        您的备用恢复码恢复码
       </h3>
 
       <div className={`${styles.warningBox} ${styles.mb4}`}>
         <AlertTriangle size={16} />
         <div>
-          <p className={styles.warningBoxTitle}>这枚分片只显示一次。</p>
+          <p className={styles.warningBoxTitle}>这枚恢复码只显示一次。</p>
           <p className={styles.warningBoxSub}>
             请抄写或打印后离线保存，不要放入云端。
           </p>
@@ -229,7 +229,7 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
 
       <div className={`${styles.warningBanner} ${styles.mt4}`}>
         <p>
-          Obscura 无法通过邮箱或客服重置主密码。如果主密码与备用分片同时丢失，密码库数据将无法恢复。
+          Obscura 无法通过邮箱或客服重置主密码。如果主密码与备用恢复码同时丢失，密码库数据将无法恢复。
         </p>
       </div>
     </div>
@@ -241,30 +241,30 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
         回读确认
       </h3>
       <p className={`${styles.sectionSubtitle} ${styles.sectionSubtitleTight}`}>
-        请输入完整分片，确认这枚离线区块已经被您安全保存。
+        请输入完整恢复码，确认这枚离线记录已经被您安全保存。
       </p>
 
       <div className={styles.inputGroup}>
         <label className={styles.inputLabel}>
-          回读备用分片
+          回读备用恢复码
         </label>
         <input
           type="text"
           className={styles.input}
           value={verificationInput}
           onChange={(e) => setVerificationInput(e.target.value)}
-          placeholder="粘贴或输入完整恢复分片"
+          placeholder="粘贴或输入完整恢复码"
           autoComplete="off"
           spellCheck={false}
         />
         {verificationInput.length > 0 && !isVerificationValid ? (
           <p className={styles.validationError}>
-            分片不匹配，请检查后重新输入。
+            恢复码不匹配，请检查后重新输入。
           </p>
         ) : null}
         {isVerificationValid ? (
           <p className={styles.validationSuccess}>
-            离线分片验证通过
+            离线恢复码验证通过
           </p>
         ) : null}
       </div>
@@ -276,13 +276,13 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
           checked={confirmed}
           onChange={(e) => setConfirmed(e.target.checked)}
         />
-        我已将备用密钥分片离线保存
+        我已将备用恢复码恢复码离线保存
       </label>
     </div>
   );
 
   return (
-    <div className={styles.overlay} role="dialog" aria-label="离线恢复区块设置" onClick={onCancel}>
+    <div className={styles.overlay} role="dialog" aria-label="离线恢复记录设置" onClick={onCancel}>
       <div
         ref={modalRef}
         className={styles.modal}
@@ -297,7 +297,7 @@ export default function RecoveryCodeModal({ onComplete, onCancel, vaultKey }: Re
             <span />
           </div>
           <h2 className={styles.headerTitle}>
-            离线恢复区块
+            离线恢复记录
           </h2>
           <Button
             variant="ghost"

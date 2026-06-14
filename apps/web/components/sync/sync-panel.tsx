@@ -55,11 +55,11 @@ type SyncStatusLabel = "synced" | "pending" | "conflict" | "offline" | "failed" 
 type StatusTone = "success" | "warning" | "danger" | "muted";
 
 const STATUS_CONFIG: Record<SyncStatusLabel, { label: string; tone: StatusTone; icon: typeof Check }> = {
-  synced: { label: "已回执", tone: "success", icon: Check },
-  pending: { label: "待投递", tone: "warning", icon: Clock },
-  conflict: { label: "有分叉", tone: "danger", icon: AlertTriangle },
+  synced: { label: "已同步", tone: "success", icon: Check },
+  pending: { label: "等待同步", tone: "warning", icon: Clock },
+  conflict: { label: "需要处理", tone: "danger", icon: AlertTriangle },
   offline: { label: "离线", tone: "muted", icon: WifiOff },
-  failed: { label: "投递失败", tone: "danger", icon: X },
+  failed: { label: "同步失败", tone: "danger", icon: X },
   unknown: { label: "等待状态", tone: "muted", icon: RefreshCw }
 };
 
@@ -212,10 +212,10 @@ export default function SyncPanel({
           <div className={styles.relayPixelGrid} aria-hidden="true" />
           <div className={styles.cardHeader}>
             <div>
-              <span className={styles.displayMark}>区块同步链路</span>
-              <h2 className={styles.cardTitle}>密文区块中继台</h2>
+              <span className={styles.displayMark}>设备同步</span>
+              <h2 className={styles.cardTitle}>设备同步</h2>
               <p className={styles.cardIntro}>
-                每一次推送与拉取都会被整理成轻量密文区块，在设备节点之间留下可追溯的同步回执。
+                只同步加密后的密码数据，让你的可信设备保持一致，不暴露明文密码。
               </p>
             </div>
             {onSync ? (
@@ -258,7 +258,7 @@ export default function SyncPanel({
           {lastSyncedAt ? (
             <div className={styles.lastSynced}>
               <Clock size={12} />
-              上次上链：{new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastSyncedAt))}
+              上次同步：{new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastSyncedAt))}
             </div>
           ) : null}
 
@@ -277,7 +277,7 @@ export default function SyncPanel({
         <section className={cn(styles.card, embedded && styles.embeddedBay)}>
           <h3 className={styles.statsHeader}>
             <Activity size={16} />
-            区块高度
+            同步进度
             <span className={styles.statsTotal}>
               共 {totalItems} 项
             </span>
@@ -285,10 +285,10 @@ export default function SyncPanel({
           {itemSyncInfos.length > 0 ? (
             <>
               <div className={styles.statsGrid}>
-                <StatCard label="已确认区块" count={syncedCount} tone="success" icon={Check} />
-                <StatCard label="等待打包" count={pendingCount} tone="warning" icon={Clock} />
+                <StatCard label="已同步项目" count={syncedCount} tone="success" icon={Check} />
+                <StatCard label="等待同步" count={pendingCount} tone="warning" icon={Clock} />
                 {embedded || conflictCount > 0 ? (
-                  <StatCard label="分叉冲突" count={conflictCount} tone="danger" icon={AlertTriangle} />
+                  <StatCard label="需要处理" count={conflictCount} tone="danger" icon={AlertTriangle} />
                 ) : null}
                 {embedded || localOnlyCount > 0 ? (
                   <StatCard label="本地暂存" count={localOnlyCount} tone="muted" icon={WifiOff} />
@@ -298,12 +298,12 @@ export default function SyncPanel({
               {/* Progress bar */}
               <div className={styles.progressSection}>
                 <div className={styles.progressLabels}>
-                  <span>链路确认进度</span>
+                  <span>同步进度</span>
                   <span>
                     {totalItems > 0 ? Math.round((syncedCount / totalItems) * 100) : 0}%
                   </span>
                 </div>
-                <progress className={styles.progressBar} value={syncedCount} max={totalItems} aria-label="链路确认进度" />
+                <progress className={styles.progressBar} value={syncedCount} max={totalItems} aria-label="同步进度" />
               </div>
             </>
           ) : (
@@ -321,7 +321,7 @@ export default function SyncPanel({
           <div className={styles.eventListHeader}>
             <h3 className={styles.statsHeader}>
               <Clock size={16} className={styles.mutedIcon} />
-              最近回执
+              最近同步
             </h3>
             {syncEvents.length > 10 ? (
               <button
@@ -335,7 +335,7 @@ export default function SyncPanel({
             ) : null}
           </div>
           {syncEvents.length > 0 ? (
-            <div className={styles.eventList} role="list" aria-label="最近同步中继记录">
+            <div className={styles.eventList} role="list" aria-label="最近同步记录">
               {displayEvents.map((event) => (
                 <div key={event.id} role="listitem">
                   <EventRow event={event} />
@@ -345,7 +345,7 @@ export default function SyncPanel({
           ) : (
             <div className={styles.emptyBay}>
               <Clock size={18} aria-hidden="true" />
-              <span>暂无同步回执</span>
+              <span>暂无同步状态</span>
             </div>
           )}
         </section>

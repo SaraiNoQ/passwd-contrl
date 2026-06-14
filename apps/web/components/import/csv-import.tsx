@@ -53,7 +53,7 @@ const PASSWORD_MANAGER_SOURCES: BrowserSource[] = [
   { id: "generic-json", name: "通用 JSON", description: "通用 JSON 格式 [{ name, url, username, password, notes }]" },
 ];
 
-const STEPS = ["定位源库", "投递文件", "扫描密文", "铸入账本", "上链回执"] as const;
+const STEPS = ["选择来源", "选择文件", "检查内容", "确认导入", "导入结果"] as const;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -233,9 +233,9 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
   const renderSourceStep = () => (
     <div className={styles.stepContent}>
-      <h3 className={styles.stepHeading}>定位外部源库</h3>
+      <h3 className={styles.stepHeading}>选择浏览器来源</h3>
       <p className={styles.stepDescription}>
-        先告诉铸造台这些明文来自哪里，Obscura 会按来源准备对应的解析槽位。
+        选择导出文件来自哪个浏览器，Obscura 会按对应格式读取账号和密码。
       </p>
       <div className={styles.chainRail} aria-hidden="true">
         <span />
@@ -270,9 +270,9 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
         ))}
       </div>
 
-      <h3 className={cn(styles.stepHeading, styles.stepHeadingSpaced)}>定位密码管理器源库</h3>
+      <h3 className={cn(styles.stepHeading, styles.stepHeadingSpaced)}>选择密码管理器来源</h3>
       <p className={styles.stepDescription}>
-        也可以把其它管理器的导出文件投递进来，格式会在本地自动识别。
+        也可以导入其他密码管理器的导出文件，解析过程只在本机完成。
       </p>
       <div className={styles.sourceList} role="radiogroup" aria-label="密码管理器来源">
         {PASSWORD_MANAGER_SOURCES.map((source) => (
@@ -307,16 +307,16 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
   const renderFileStep = () => {
     return (
     <div className={styles.stepContent}>
-      <h3 className={styles.stepHeading}>投递明文文件</h3>
+      <h3 className={styles.stepHeading}>选择导入文件</h3>
       <p className={styles.stepDescription}>
-        从 {selectedSourceName} 导出的文件会短暂停靠在浏览器内存，随后被扫描成待铸账本条目。
+        从 {selectedSourceName} 导出的文件会在浏览器内存中读取，随后转换为待导入的密码记录。
       </p>
 
       <div className={styles.warningBox}>
         <AlertTriangle size={16} />
         <div>
           <p className={styles.warningBoxTitle}>
-            明文文件只是铸造原料，导入完成后请删除原件
+            导出文件包含明文密码，导入完成后请删除原件
           </p>
           <p className={styles.warningBoxDesc}>
             Obscura 不会上传明文数据。所有解析均在浏览器内存中完成。
@@ -352,7 +352,7 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
       {parsedRows.length > 0 && !parseError ? (
         <div className={styles.parseSuccess}>
-          <Check size={14} /> 已扫描 {parsedRows.length} 条待铸记录
+          <Check size={14} /> 已扫描 {parsedRows.length} 条待导入记录
           {rejectedCount > 0 ? (
             <span className={styles.parseWarning}>
               <AlertTriangle size={14} /> 跳过{" "}
@@ -362,14 +362,14 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
         </div>
       ) : null}
     </div>
-  );
-	};
+    );
+  };
 
   const renderPreviewStep = () => (
     <div className={styles.stepContent}>
-      <h3 className={styles.stepHeading}>扫描密文铸件</h3>
+      <h3 className={styles.stepHeading}>检查导入内容</h3>
       <p className={styles.stepDescription}>
-        以下是解析结果的前 10 行。检查网址、用户名与密码槽位，再决定是否写入账本。
+        以下是解析结果的前 10 行。检查网址、用户名与密码，再决定是否写入密码库。
       </p>
 
       {/* Stats summary */}
@@ -397,7 +397,7 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
       {/* Validation legend */}
       <div className={styles.validationLegend}>
-        铸造校验：URL 有效、HTTPS、用户名存在、密码存在、重复项
+        导入检查：URL 有效、HTTPS、用户名存在、密码存在、重复项
       </div>
 
       {/* Preview table */}
@@ -454,9 +454,9 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
   const renderConfirmStep = () => (
     <div className={styles.stepContent}>
-      <h3 className={styles.stepHeading}>确认铸入密文账本</h3>
+      <h3 className={styles.stepHeading}>确认导入密码库</h3>
       <p className={styles.stepDescription}>
-        即将把 {stats.valid} 条有效凭据铸入本地密码库。
+        即将把 {stats.valid} 条有效凭据导入本地密码库。
         {stats.withErrors > 0 ? ` ${stats.withErrors} 条有错误的记录将被跳过。` : ""}
       </p>
 
@@ -504,7 +504,7 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
           </span>
         </p>
         <p className={styles.infoBoxDesc}>
-          所有数据在浏览器内存中加密后写入本地密文账本。
+          所有数据在浏览器内存中加密后写入本地密码库。
         </p>
       </div>
 
@@ -523,11 +523,11 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
   const renderResultStep = () => (
     <div className={styles.stepContent}>
-      <h3 className={styles.stepHeading}>上链回执</h3>
+      <h3 className={styles.stepHeading}>导入结果</h3>
 
       {loading ? (
         <div className={styles.progressContainer}>
-          <p className={styles.resultStatus}>正在铸入密文账本...</p>
+          <p className={styles.resultStatus}>正在导入密码库...</p>
           <div className={styles.progressBar}>
             <div className={styles.progressBarFill} />
           </div>
@@ -549,7 +549,7 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
             <AlertTriangle size={16} />
             <div>
               <p className={styles.warningBoxTitle}>
-                铸造完成后请删除原文件
+                导入完成后请删除原文件
               </p>
               <p className={styles.warningBoxDesc}>
                 导入文件包含明文密码，不应保留在设备上。
@@ -564,13 +564,13 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
               </span>
             </p>
             <p className={styles.infoBoxDesc}>
-              所有数据在浏览器内存中加密后写入本地密文账本。
+              所有数据在浏览器内存中加密后写入本地密码库。
             </p>
           </div>
         </>
       ) : (
         <p className={styles.resultStatus}>
-          尚未铸入任何数据。请返回重新投递文件。
+          尚未导入任何数据。请返回重新同步文件。
         </p>
       )}
     </div>
@@ -600,10 +600,10 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
       {/* Header */}
       <div className={styles.header}>
         <div>
-          <span className={styles.headerKicker}>LOCAL LEDGER FORGE</span>
-          <h2 className={styles.headerTitle}>批量铸入密文账本</h2>
+          <span className={styles.headerKicker}>LOCAL PASSWORD IMPORT</span>
+          <h2 className={styles.headerTitle}>批量导入密码库</h2>
           <p className={styles.headerCopy}>
-            把浏览器或密码管理器的明文导出，短暂停靠在本地内存，扫描、校验，再写入本地加密密码库。
+            把浏览器或密码管理器的导出文件放到本地检查，确认无误后写入加密密码库。
           </p>
         </div>
         <div className={styles.headerGlyph} aria-hidden="true">
@@ -625,14 +625,14 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
         </div>
       </div>
 
-      <div className={styles.forgeSummary} aria-label="导入铸造摘要">
+      <div className={styles.forgeSummary} aria-label="导入摘要">
         <span>
           <small>源库</small>
           <strong>{selectedSourceName}</strong>
         </span>
         <span>
           <small>文件</small>
-          <strong>{fileName ?? "等待投递"}</strong>
+          <strong>{fileName ?? "等待同步"}</strong>
         </span>
         <span>
           <small>有效记录</small>
@@ -642,7 +642,7 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
 
       <div className={styles.forgeBody}>
         {/* Step indicator */}
-        <aside className={styles.pipeline} aria-label="导入铸造流水线">
+        <aside className={styles.pipeline} aria-label="导入流程">
           <div className={styles.stepIndicator} role="list" aria-label="导入进度">
             {STEPS.map((label, i) => (
               <div

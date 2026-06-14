@@ -154,7 +154,7 @@ export function printRecoveryCode(recoveryCode: string): void {
       <rect x="88" y="24" width="8" height="16" fill="#5c6066" opacity="0.42" />
       <rect x="16" y="40" width="56" height="8" fill="#5c6066" opacity="0.42" />
     </svg>
-    <span class="eyebrow">离线恢复分片</span>
+    <span class="eyebrow">离线恢复码</span>
     <h1>Obscura 恢复码</h1>
     <p class="intro">请将这张纸保存在安全的离线位置。恢复码用于在忘记主密码时恢复密码库，它不会再次完整显示。</p>
     <p class="label">恢复码</p>

@@ -37,7 +37,7 @@ const BROWSER_SOURCES: BrowserSource[] = [
   { id: "firefox", name: "Firefox", description: "Firefox 密码管理器" }
 ];
 
-const WIZARD_STEPS = ["定位源库", "投递 CSV", "扫描密文", "铸入账本"] as const;
+const WIZARD_STEPS = ["定位源库", "同步 CSV", "扫描加密内容", "导入列表"] as const;
 
 
 // ---------------------------------------------------------------------------
@@ -224,10 +224,10 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
   const renderFileStep = () => (
     <div>
       <h3 className={styles.sectionTitle}>
-        投递 CSV 明文文件
+        同步 CSV 明文文件
       </h3>
       <p className={styles.description}>
-        从 {BROWSER_SOURCES.find((s) => s.id === selectedSource)?.name ?? "浏览器"} 导出的 CSV 会先在本地内存扫描，再进入铸造队列。
+        从 {BROWSER_SOURCES.find((s) => s.id === selectedSource)?.name ?? "浏览器"} 导出的 CSV 会先在本地内存扫描，再进入生成队列。
       </p>
 
       <div className={styles.warningBox}>
@@ -244,7 +244,7 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
         <button type="button" className={styles.dropZone} onClick={handleDropZoneClick}>
           <Upload size={24} className={styles.dropZoneIcon} />
           <div className={styles.dropZoneFile}>
-            {fileName ?? "点击投递 CSV 文件"}
+            {fileName ?? "点击同步 CSV 文件"}
           </div>
           <div className={styles.dropZoneHint}>支持 .csv 格式，解析过程不上云</div>
         </button>
@@ -265,7 +265,7 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
       {parsedRows.length > 0 && !parseError ? (
         <div className={styles.parseStats}>
           <span className={styles.parseStatSuccess}>
-            <Check size={14} className={styles.parseStatIcon} /> 已扫描 {parsedRows.length} 条待铸记录
+            <Check size={14} className={styles.parseStatIcon} /> 已扫描 {parsedRows.length} 条待导入记录
           </span>
           {rejectedCount > 0 ? (
             <span className={styles.parseStatWarning}>
@@ -280,10 +280,10 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
   const renderPreviewStep = () => (
     <div>
       <h3 className={styles.sectionTitle}>
-        扫描密文铸件
+        扫描导入内容
       </h3>
       <p className={`${styles.description} ${styles.descriptionSpaced}`}>
-        以下是解析结果，请检查校验状态后再继续铸入本地密码库。
+        以下是解析结果，请检查校验状态后再继续导入本地密码库。
       </p>
 
       {/* Stats summary */}
@@ -302,7 +302,7 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
 
       {/* Validation legend */}
       <div className={styles.validationLegend}>
-        铸造校验：URL 有效、HTTPS、用户名存在、密码存在、重复项
+        生成校验：URL 有效、HTTPS、用户名存在、密码存在、重复项
       </div>
 
       {/* Preview table */}
@@ -368,10 +368,10 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
   const renderConfirmStep = () => (
     <div>
       <h3 className={styles.sectionTitle}>
-        确认铸入密文账本
+        确认导入密码库
       </h3>
       <p className={styles.description}>
-        即将把 {stats.valid} 条有效凭据铸入本地密码库。
+        即将把 {stats.valid} 条有效凭据导入本地密码库。
         {stats.withErrors > 0 ? ` ${stats.withErrors} 条有错误的记录将被跳过。` : ""}
       </p>
 
@@ -390,7 +390,7 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
           <strong>Obscura 不会上传明文 CSV。</strong>
         </p>
         <p className={styles.infoBoxDesc}>
-          所有数据在浏览器内存中加密后写入本地密文账本。
+          所有数据在浏览器内存中加密后写入本地密码库。
         </p>
       </div>
 
@@ -432,7 +432,7 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
       <div className={styles.panelHeader}>
         <h2 id="csv-import-wizard-title" className={styles.panelTitle}>
           <PixelImportLedgerIcon className={styles.panelTitleIcon} />
-          CSV 铸账导入
+          CSV 密码导入
         </h2>
         <button type="button" className={styles.ghostButton} onClick={onCancel} aria-label="取消导入">
           <X size={16} />
@@ -489,7 +489,7 @@ export default function CsvImportWizard({ onImport, onCancel }: CsvImportWizardP
           ) : (
             <button type="button" className={styles.primaryButton} onClick={handleConfirmImport}>
               <Upload size={14} />
-              确认铸入
+              确认导入
             </button>
           )}
         </div>

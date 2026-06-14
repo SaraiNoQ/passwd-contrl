@@ -141,14 +141,14 @@
 
 .logoCaption {
   color: var(--color-slate-pencil);
-  font: 800 10px/1.2 var(--font-manrope-variable, var(--font-family));
+  font: 800 var(--text-caption-size) / var(--text-caption-height) var(--font-manrope-variable, var(--font-family));
   letter-spacing: 0.12em;
 }
 
 .lockBadge {
   margin-left: auto;
   font-family: var(--font-manrope-variable, var(--font-family));
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   font-weight: 800;
   letter-spacing: 0.08em;
   padding: 7px 8px;
@@ -181,7 +181,7 @@
   display: block;
   padding: 0 10px 8px;
   color: var(--color-slate-pencil);
-  font: 800 11px/1.2 var(--font-manrope-variable, var(--font-family));
+  font: 800 var(--text-caption-size) / var(--text-caption-height) var(--font-manrope-variable, var(--font-family));
   letter-spacing: 0.14em;
 }
 
@@ -235,7 +235,7 @@
 .navIndex {
   min-width: 30px;
   color: var(--color-ash-mist);
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   font-weight: 800;
   letter-spacing: 0.08em;
 }
@@ -371,7 +371,7 @@
 .accountToggleValue {
   overflow: hidden;
   color: var(--color-slate-pencil);
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -500,7 +500,7 @@
 
 .folderCount {
   font-family: var(--font-manrope-variable, var(--font-family));
-  font-size: 11px;
+  font-size: var(--text-caption-size);
   font-weight: 800;
   color: var(--color-text-muted);
   background: color-mix(in srgb, var(--color-cloud-mist) 70%, var(--color-paper-white));

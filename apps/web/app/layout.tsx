@@ -6,7 +6,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Obscura — 零知识密码管理",
-  description: "基于区块链的零知识密码存储与自动填充应用"
+  description: "本地优先的加密密码管理与自动填充应用"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

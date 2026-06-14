@@ -17,6 +17,8 @@ import type { DeviceInfo } from "../../lib/device-trust";
 import type { EncryptedLocalVault, UnlockedVault } from "../../lib/local-vault";
 import type { ItemSyncInfo } from "../../lib/item-sync";
 import { cn } from "../../lib/utils";
+import { Button } from "../ui/button";
+import { Modal } from "../ui/modal";
 import styles from "./sync-device-panel.module.css";
 
 // ---------------------------------------------------------------------------
@@ -58,11 +60,11 @@ type SyncStatusLabel = "synced" | "pending" | "conflict" | "offline" | "failed" 
 type StatusTone = "success" | "warning" | "danger" | "muted";
 
 const STATUS_CONFIG: Record<SyncStatusLabel, { label: string; tone: StatusTone; icon: typeof Check }> = {
-  synced: { label: "已回执", tone: "success", icon: Check },
-  pending: { label: "待投递", tone: "warning", icon: Clock },
-  conflict: { label: "有分叉", tone: "danger", icon: AlertTriangle },
+  synced: { label: "已同步", tone: "success", icon: Check },
+  pending: { label: "待同步", tone: "warning", icon: Clock },
+  conflict: { label: "有冲突", tone: "danger", icon: AlertTriangle },
   offline: { label: "离线", tone: "muted", icon: WifiOff },
-  failed: { label: "投递失败", tone: "danger", icon: X },
+  failed: { label: "同步失败", tone: "danger", icon: X },
   unknown: { label: "等待状态", tone: "muted", icon: RefreshCw }
 };
 
@@ -196,16 +198,16 @@ export default function SyncDevicePanel({
   const confirmDevice = confirmAction ? devices.find((d) => d.id === confirmAction.deviceId) : null;
   const confirmMessages: Record<typeof confirmAction extends null ? never : NonNullable<typeof confirmAction>["action"], { title: string; desc: string }> = {
     approve: {
-      title: "批准节点入链",
-      desc: `确认允许「${confirmDevice?.name ?? ""}」成为可信设备节点？它将只能同步加密后的密码区块。`
+      title: "批准加入同步",
+      desc: `确认允许「${confirmDevice?.name ?? ""}」成为可信设备？它将只能同步加密后的密码数据。`
     },
     reject: {
-      title: "拒绝节点准入",
-      desc: `确认拒绝「${confirmDevice?.name ?? ""}」的准入请求？该设备将无法加入同步链路。`
+      title: "拒绝设备授权",
+      desc: `确认拒绝「${confirmDevice?.name ?? ""}」的准入请求？该设备将无法加入同步连接。`
     },
     revoke: {
-      title: "撤销节点密钥",
-      desc: `确认撤销「${confirmDevice?.name ?? ""}」的节点密钥？该设备将立即失去同步能力，本地数据不会被删除，但无法再接收新区块。此操作不可轻易撤销。`
+      title: "撤销设备授权",
+      desc: `确认撤销「${confirmDevice?.name ?? ""}」的设备授权？该设备将立即失去同步能力，本地数据不会被删除，但无法再接收新记录。此操作不可轻易撤销。`
     }
   };
 
@@ -217,10 +219,10 @@ export default function SyncDevicePanel({
           <PixelRelayCloud />
           <div className={styles.cardHeader}>
             <div>
-              <span className={styles.displayMark}>设备节点准入</span>
-              <h2 className={styles.cardTitle}>可信节点铸入台</h2>
+              <span className={styles.displayMark}>设备授权</span>
+              <h2 className={styles.cardTitle}>可信设备</h2>
               <p className={styles.cardIntro}>
-                将每台设备视作一枚可撤销节点，只交换加密区块、同步回执与授权状态，不暴露明文路径。
+                管理可以同步密码库的设备。只同步加密后的密码数据，不暴露明文密码。
               </p>
             </div>
             <button
@@ -251,7 +253,7 @@ export default function SyncDevicePanel({
           {lastSyncedAt ? (
             <div className={styles.lastSynced}>
               <Clock size={12} />
-              上次上链：{new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastSyncedAt))}
+              上次同步：{new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastSyncedAt))}
             </div>
           ) : null}
 
@@ -277,7 +279,7 @@ export default function SyncDevicePanel({
               {conflictCount > 0 ? (
                 <div className={styles.dotStat}>
                   <span className={cn(styles.dot, styles.dotDanger)} />
-                  <span>分叉 {conflictCount}</span>
+                  <span>冲突 {conflictCount}</span>
                 </div>
               ) : null}
             </div>
@@ -290,7 +292,7 @@ export default function SyncDevicePanel({
         <div className={styles.deviceHeader}>
           <div>
             <span className={styles.cardEyebrow}>准入网关</span>
-            <h2 className={styles.sectionTitle}>设备节点清单</h2>
+            <h2 className={styles.sectionTitle}>设备清单</h2>
           </div>
           <button
             type="button"
@@ -344,17 +346,17 @@ export default function SyncDevicePanel({
                         className={styles.approveBtn}
                         onClick={() => requestConfirm(device.id, "approve")}
                         disabled={pendingDeviceAction === device.id}
-                        aria-label={`批准节点入链 ${device.name}`}
+                        aria-label={`批准加入同步 ${device.name}`}
                       >
                         <Check size={14} />
-                        批准入链
+                        批准加入
                       </button>
                       <button
                         type="button"
                         className={styles.rejectBtn}
                         onClick={() => requestConfirm(device.id, "reject")}
                         disabled={pendingDeviceAction === device.id}
-                        aria-label={`拒绝节点准入 ${device.name}`}
+                        aria-label={`拒绝设备授权 ${device.name}`}
                       >
                         <X size={14} />
                         拒绝准入
@@ -372,7 +374,7 @@ export default function SyncDevicePanel({
                 已激活节点 ({activeDevices.length})
               </h3>
               {activeDevices.length === 0 ? (
-                <p className={styles.emptyText}>暂无已激活节点，当前同步链路还没有可用设备。</p>
+                <p className={styles.emptyText}>暂无已激活节点，当前同步连接还没有可用设备。</p>
               ) : (
                 activeDevices.map((device) => {
                   const devStatus = deviceStatusLabel(device.status);
@@ -403,7 +405,7 @@ export default function SyncDevicePanel({
                         </div>
                         <div className={styles.deviceMeta}>
                           <Clock size={10} />
-                          已写入准入账本
+                          已写入设备列表
                         </div>
                       </div>
                       {/* Revoke button for non-current approved devices */}
@@ -414,7 +416,7 @@ export default function SyncDevicePanel({
                             className={styles.revokeBtn}
                             onClick={() => requestConfirm(device.id, "revoke")}
                             disabled={pendingDeviceAction === device.id}
-                            aria-label={`撤销节点密钥 ${device.name}`}
+                            aria-label={`撤销设备授权 ${device.name}`}
                           >
                             <ShieldOff size={13} />
                             撤销节点
@@ -430,60 +432,32 @@ export default function SyncDevicePanel({
         ) : (
           <p className={styles.emptyText}>
             {devices.length > 0
-              ? `${devices.length} 台设备已写入准入账本。点击展开查看节点详情。`
-              : "暂无注册设备节点。"}
+              ? `${devices.length} 台设备已写入设备列表。点击展开查看节点详情。`
+              : "暂无注册设备。"}
           </p>
         )}
       </div>
 
-      {/* Confirmation dialog */}
-      {confirmAction && confirmDevice ? (
-        <div
-          className={styles.confirmOverlay}
-          onClick={cancelConfirm}
-        >
-          <div
-            className={cn(styles.confirmDialog, styles[`confirmDialog${confirmAction.action[0]?.toUpperCase()}${confirmAction.action.slice(1)}`])}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="device-confirm-title"
-            aria-describedby="device-confirm-description"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className={styles.confirmHeader}>
-              <div className={styles.confirmIcon}>
-                {confirmAction.action === "revoke" ? (
-                  <ShieldOff size={18} />
-                ) : confirmAction.action === "approve" ? (
-                  <Check size={18} />
-                ) : (
-                  <X size={18} />
-                )}
-              </div>
-              <h3 className={styles.confirmTitle} id="device-confirm-title">
-                {confirmMessages[confirmAction.action].title}
-              </h3>
-            </div>
-            <p className={styles.confirmDesc} id="device-confirm-description">
-              {confirmMessages[confirmAction.action].desc}
-            </p>
-            {confirmAction.action === "revoke" ? (
-              <div className={styles.confirmWarning}>
-                <AlertTriangle size={14} />
-                撤销后该设备节点将无法再接收任何新区块
-              </div>
-            ) : null}
-            <div className={styles.confirmActions}>
-              <button
-                type="button"
-                className={styles.confirmCancel}
-                onClick={cancelConfirm}
-              >
+      <Modal
+        open={Boolean(confirmAction && confirmDevice)}
+        onClose={cancelConfirm}
+        title={confirmAction ? confirmMessages[confirmAction.action].title : "设备授权确认"}
+        eyebrow={
+          confirmAction?.action === "approve"
+            ? "NODE ACCESS / 设备授权"
+            : confirmAction?.action === "reject"
+              ? "ACCESS DENIED / 拒绝加入"
+              : "DEVICE REVOKE / 撤销设备"
+        }
+        status={confirmDevice ? `目标节点：${confirmDevice.name}` : "正在读取目标节点"}
+        footer={
+          confirmAction ? (
+            <>
+              <Button variant="secondary" onClick={cancelConfirm}>
                 取消
-              </button>
-              <button
-                type="button"
-                className={cn(styles.confirmOk, styles[`confirmOk${confirmAction.action[0]?.toUpperCase()}${confirmAction.action.slice(1)}`])}
+              </Button>
+              <Button
+                variant={confirmAction.action === "approve" ? "primary" : "danger"}
                 onClick={() => {
                   if (confirmAction.action === "approve") handleApprove(confirmAction.deviceId);
                   else if (confirmAction.action === "reject") handleReject(confirmAction.deviceId);
@@ -492,11 +466,40 @@ export default function SyncDevicePanel({
                 disabled={pendingDeviceAction === confirmAction.deviceId}
               >
                 {confirmAction.action === "revoke" ? "确认撤销" : "确认"}
-              </button>
+              </Button>
+            </>
+          ) : null
+        }
+      >
+        {confirmAction ? (
+          <div className={styles.nodeConfirmBody}>
+            <div
+              className={cn(
+                styles.nodeConfirmGlyph,
+                confirmAction.action !== "approve" && styles.nodeConfirmGlyphDanger,
+              )}
+              aria-hidden="true"
+            >
+              {confirmAction.action === "revoke" ? (
+                <ShieldOff size={22} />
+              ) : confirmAction.action === "approve" ? (
+                <Check size={22} />
+              ) : (
+                <X size={22} />
+              )}
             </div>
+            <p className={styles.nodeConfirmDescription}>
+              {confirmMessages[confirmAction.action].desc}
+            </p>
+            {confirmAction.action === "revoke" ? (
+              <div className={styles.nodeConfirmWarning} role="alert">
+                <AlertTriangle size={16} aria-hidden="true" />
+                撤销后该设备将无法再接收任何新记录
+              </div>
+            ) : null}
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </Modal>
     </div>
   );
 }

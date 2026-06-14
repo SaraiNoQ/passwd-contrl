@@ -12,7 +12,7 @@ import { printRecoveryCode } from "./recovery-print";
 // ---------------------------------------------------------------------------
 
 const STEPS = [
-  { label: "铸造", number: 1 },
+  { label: "生成", number: 1 },
   { label: "离线保存", number: 2 },
   { label: "回读", number: 3 },
 ] as const;
@@ -88,7 +88,7 @@ export function RecoverySetup({
   // ---------------------------------------------------------------------------
 
   const renderStepIndicator = () => (
-    <div className={styles.stepIndicator} role="list" aria-label="恢复分片保存流程">
+    <div className={styles.stepIndicator} role="list" aria-label="恢复码保存流程">
       {STEPS.map((step, i) => (
         <div key={step.label} className={styles.stepItem} role="listitem">
           <div
@@ -129,11 +129,11 @@ export function RecoverySetup({
   const renderGenerateStep = () => (
     <div className={styles.stepContent}>
       <p className={styles.description}>
-        铸造一枚备用密钥分片，用于主密码遗失时解封密码库。分片不会上传到服务器。
+        生成一枚备用恢复码恢复码，用于主密码遗失时解封密码库。恢复码不会上传到服务器。
       </p>
       <div className={styles.warning}>
         <ShieldAlert size={14} />
-        <span>备用分片只属于本机恢复区块，丢失后无法通过客服找回</span>
+        <span>备用恢复码只属于本机恢复记录，丢失后无法通过客服找回</span>
       </div>
     </div>
   );
@@ -141,11 +141,11 @@ export function RecoverySetup({
   const renderSaveStep = () => (
     <div className={styles.stepContent}>
       <p className={styles.description}>
-        请将备用密钥分片保存在安全的离线位置。此分片不会再次显示。
+        请将备用恢复码恢复码保存在安全的离线位置。此恢复码不会再次显示。
       </p>
       <div className={styles.warning}>
         <ShieldAlert size={14} />
-        <span>请立即抄写或打印分片，关闭后将无法再次查看</span>
+        <span>请立即抄写或打印恢复码，关闭后将无法再次查看</span>
       </div>
       <div className={styles.codeDisplay}>
         <span className={styles.codeRail} aria-hidden="true" />
@@ -193,11 +193,11 @@ export function RecoverySetup({
   const renderConfirmStep = () => (
     <div className={styles.stepContent}>
       <p className={styles.description}>
-        请输入备用密钥分片的最后 8 个字符，确认离线区块已经被您保存。
+        请输入备用恢复码恢复码的最后 8 个字符，确认离线记录已经被您保存。
       </p>
       <div className={styles.verifySection}>
         <label className={styles.verifyLabel} htmlFor="recovery-verify">
-          备用分片末尾 8 位
+          备用恢复码末尾 8 位
         </label>
         <Input
           id="recovery-verify"
@@ -256,7 +256,7 @@ export function RecoverySetup({
             onClick={onGenerateRecoveryCode}
           >
             <KeyRound size={16} />
-            铸造恢复分片
+            生成恢复码
           </Button>
         </div>
       );
@@ -329,12 +329,12 @@ export function RecoverySetup({
       <div className={styles.header}>
         <div className={styles.headerCopy}>
           <span className={styles.kicker}>RECOVERY SHARD / OFFLINE</span>
-          <h3 className={styles.title}>离线恢复区块</h3>
+          <h3 className={styles.title}>离线恢复记录</h3>
           <p className={styles.lead}>
-            把一枚恢复分片铸到纸面世界。它不上传、不托管，只在你确认回读后完成封存。
+            把一枚恢复码保存到纸面或离线位置。它不上传、不托管，只在你确认回读后完成封存。
           </p>
         </div>
-        <div className={styles.statusCard} aria-label="恢复分片状态">
+        <div className={styles.statusCard} aria-label="恢复码状态">
           <span className={styles.statusIcon} aria-hidden="true">
             <KeyRound size={18} />
           </span>
@@ -345,7 +345,7 @@ export function RecoverySetup({
         </div>
       </div>
       <div className={styles.recoveryGrid}>
-        <aside className={styles.timeline} aria-label="恢复分片流程">
+        <aside className={styles.timeline} aria-label="恢复码流程">
           {renderStepIndicator()}
           <div className={styles.timelineNote}>
             <ShieldAlert size={14} />

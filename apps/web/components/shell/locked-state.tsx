@@ -53,7 +53,7 @@ export function LockedState({
   error,
 }: LockedStateProps) {
   const modeLabel = hasLocalVault ? "UNLOCK MODE" : "FORGE MODE";
-  const actionTitle = hasLocalVault ? "唤醒本地密钥" : "铸造主密钥";
+  const actionTitle = hasLocalVault ? "解锁本地密码库" : "创建主密码";
 
   return (
     <div className={styles.lockedLayout}>
@@ -67,20 +67,20 @@ export function LockedState({
         </div>
 
         <div className={styles.brandBlock}>
-          <span className={styles.eyebrow}>密钥铸造台 · 零知识密码库</span>
+          <span className={styles.eyebrow}>本地加密 · 零知识密码库</span>
           <h1 id="locked-title">
-            铸造你的
-            <span>唯一密钥</span>
+            创建你的
+            <span>主密码</span>
           </h1>
           <p>
-            主密码是开启密码库的唯一模具。它只在此设备参与运算，服务器接收的永远只有无法还原的加密数据。
+            主密码就是打开密码库的钥匙。请设置一个只有你记得的密码，它不会上传到服务器，我们只保存加密后的密码库内容。
           </p>
         </div>
 
         <div className={styles.forgeMachine} aria-hidden="true">
           <div className={styles.machineLabel}>
             <span>KEY MATERIAL</span>
-            <strong>{hasLocalVault ? "SEALED / 待解锁" : "READY / 待铸造"}</strong>
+            <strong>{hasLocalVault ? "SEALED / 待解锁" : "READY / 待生成"}</strong>
           </div>
           <div className={styles.keyChamber}>
             <span className={styles.scanLine} />
@@ -111,26 +111,26 @@ export function LockedState({
           </div>
         </div>
 
-        <ol className={styles.forgeSteps} aria-label="密钥保护流程">
+        <ol className={styles.forgeSteps} aria-label="密码保护流程">
           <li>
             <span>01</span>
             <div>
               <strong>本地塑形</strong>
-              <small>主密码不离开设备</small>
+              <small>主密码只留在本机</small>
             </div>
           </li>
           <li>
             <span>02</span>
             <div>
-              <strong>密文封装</strong>
-              <small>敏感字段先加密</small>
+              <strong>加密内容封装</strong>
+              <small>账号密码先加密</small>
             </div>
           </li>
           <li>
             <span>03</span>
             <div>
-              <strong>区块同步</strong>
-              <small>只传输密文版本</small>
+              <strong>记录同步</strong>
+              <small>只同步加密数据</small>
             </div>
           </li>
         </ol>
@@ -175,8 +175,8 @@ export function LockedState({
             <h2 id="forge-action-title">{actionTitle}</h2>
             <p>
               {hasLocalVault
-                ? "输入主密码，恢复这台设备上的加密工作区。"
-                : "设置至少 12 个字符的主密码，启动本地加密工作区。"}
+                ? "输入主密码，打开这台设备上的密码库。"
+                : "设置至少 12 个字符的主密码，用来保护你的账号和密码。"}
             </p>
           </div>
         </div>
@@ -195,7 +195,7 @@ export function LockedState({
           />
           <Button type="submit" loading={loading} className={styles.primarySubmit ?? ""}>
             {hasLocalVault ? <UnlockKeyhole size={18} /> : <Sparkles size={18} />}
-            {loading ? "密钥处理中..." : hasLocalVault ? "解锁密码库" : "开始铸造"}
+            {loading ? "处理中..." : hasLocalVault ? "解锁密码库" : "开始生成"}
           </Button>
         </form>
 

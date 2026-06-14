@@ -196,7 +196,7 @@ export function PasswordGenerator({ onUse, showUseButton }: PasswordGeneratorPro
     <div className={styles.container}>
       <div className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>KEY FORGE</p>
+          <p className={styles.eyebrow}>PASSWORD GENERATOR</p>
           <h3 className={styles.title}>密码生成器</h3>
         </div>
         <div className={styles.entropyBadge}>

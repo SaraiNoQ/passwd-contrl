@@ -328,7 +328,7 @@ export function RecoverySetup({
       <span className={styles.pixelCloudB} aria-hidden="true" />
       <div className={styles.header}>
         <div className={styles.headerCopy}>
-          <span className={styles.kicker}>RECOVERY SHARD / OFFLINE</span>
+          <span className={styles.kicker}>RECOVERY BACKUP</span>
           <h3 className={styles.title}>离线恢复记录</h3>
           <p className={styles.lead}>
             把一枚恢复码保存到纸面或离线位置。它不上传、不托管，只在你确认回读后完成封存。

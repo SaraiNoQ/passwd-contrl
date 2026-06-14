@@ -61,29 +61,47 @@
 
 .mapIntro {
   max-width: 680px;
+  padding: var(--space-2) var(--space-2) var(--space-3);
 }
 
 .eyebrow {
-  display: block;
-  margin-bottom: 10px;
   color: var(--color-primary);
+  display: block;
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 1.8px;
+  line-height: 1;
+  margin: 0;
+  padding-left: 18px;
+  position: relative;
+  text-transform: uppercase;
+}
+
+.eyebrow::before {
+  background: var(--color-primary);
+  box-shadow: 8px 0 0 var(--color-cloud-mist);
+  content: "";
+  height: 8px;
+  image-rendering: pixelated;
+  left: 0;
+  position: absolute;
+  top: 2px;
+  width: 8px;
 }
 
 .mapIntro h2 {
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: clamp(44px, 6vw, 64px);
+  font-size: clamp(34px, 4vw, 44px);
   font-weight: 400;
   letter-spacing: -0.025em;
-  line-height: 0.86;
+  line-height: 1;
+  margin: var(--space-2) 0 0;
 }
 
 .mapIntro p {
   max-width: 620px;
-  margin-top: 16px;
+  margin-top: var(--space-3);
   color: var(--color-text-secondary);
   font-size: 14px;
   line-height: 1.7;
@@ -455,7 +473,7 @@
   }
 
   .mapIntro h2 {
-    font-size: 48px;
+    font-size: 38px;
   }
 
   .mapFooter {

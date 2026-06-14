@@ -60,18 +60,11 @@
 
 .header {
   align-items: flex-end;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--import-cloud) 52%, transparent) 1px, transparent 1px),
-    linear-gradient(color-mix(in srgb, var(--import-cloud) 42%, transparent) 1px, transparent 1px),
-    color-mix(in srgb, var(--import-cloud) 48%, var(--import-paper));
-  background-size: 12px 12px, 12px 12px, auto;
-  border: 1px solid var(--import-cloud);
-  border-radius: 16px;
   display: flex;
   gap: var(--space-5);
   justify-content: space-between;
   overflow: hidden;
-  padding: var(--space-5);
+  padding: var(--space-2) var(--space-2) var(--space-3);
   position: relative;
 }
 
@@ -97,13 +90,13 @@
 }
 
 .headerKicker {
-  color: var(--color-slate-pencil);
+  color: var(--color-signal-orange);
   display: block;
   font-family: var(--font-family);
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.18em;
-  line-height: 1.4;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+  line-height: 1;
   padding-left: 18px;
   position: relative;
   text-transform: uppercase;
@@ -117,17 +110,17 @@
   image-rendering: pixelated;
   left: 0;
   position: absolute;
-  top: 5px;
+  top: 2px;
   width: 8px;
 }
 
 .headerTitle {
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: clamp(38px, 7vw, 58px);
+  font-size: clamp(34px, 4vw, 44px);
   font-weight: 400;
   letter-spacing: -0.025em;
-  line-height: 0.92;
+  line-height: 1;
   margin: var(--space-2) 0 0;
 }
 

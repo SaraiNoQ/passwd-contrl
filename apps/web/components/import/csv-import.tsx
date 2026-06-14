@@ -600,7 +600,7 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
       {/* Header */}
       <div className={styles.header}>
         <div>
-          <span className={styles.headerKicker}>LOCAL PASSWORD IMPORT</span>
+          <span className={styles.headerKicker}>PASSWORD IMPORT</span>
           <h2 className={styles.headerTitle}>批量导入密码库</h2>
           <p className={styles.headerCopy}>
             把浏览器或密码管理器的导出文件放到本地检查，确认无误后写入加密密码库。

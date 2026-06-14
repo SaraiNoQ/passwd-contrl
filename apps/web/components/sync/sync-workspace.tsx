@@ -87,7 +87,7 @@ export default function SyncWorkspace({
         <span className={styles.pixelCloudB} aria-hidden="true" />
 
         <div className={styles.mapIntro}>
-          <span className={styles.eyebrow}>DEVICE SYNC / 04</span>
+          <span className={styles.eyebrow}>DEVICE SYNC</span>
           <h2 id="sync-workspace-title">设备同步地图</h2>
           <p>
             明文密码只在你的设备上解锁。Obscura 只同步加密后的更新、授权状态和同步状态。

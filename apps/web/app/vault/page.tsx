@@ -229,6 +229,7 @@ export default function VaultPage() {
         <TopBar
           searchQuery={ctx.searchQuery}
           onSearchQueryChange={ctx.setSearchQuery}
+          searchLoading={ctx.searchLoading}
           syncStatus={ctx.syncStatus}
           autoLockRemaining={ctx.autoLockRemaining}
           onSyncNow={ctx.syncNow}
@@ -383,6 +384,12 @@ export default function VaultPage() {
               selectedCount={ctx.selectedIds.size}
               onImportEncryptedBackup={(file) => ctx.handleImportEncryptedBackup(file)}
               importBackupStatus={ctx.importBackupStatus}
+              cloudExports={ctx.cloudExports}
+              cloudExportLoading={ctx.cloudExportLoading}
+              cloudExportError={ctx.cloudExportError}
+              onLoadCloudExports={ctx.loadCloudExports}
+              onCreateCloudExport={ctx.createCloudExport}
+              onDeleteCloudExport={ctx.deleteCloudExport}
             />
           ) : null}
 
@@ -440,6 +447,10 @@ export default function VaultPage() {
         loading={ctx.loading}
         error={ctx.error}
         folders={folders}
+        historyVersions={ctx.historyVersions}
+        historyLoading={ctx.historyLoading}
+        historyError={ctx.historyError}
+        onLoadHistory={ctx.loadHistory}
       />
 
       {/* Batch Password Update Drawer */}

@@ -96,7 +96,7 @@ const EVENT_TONE: Record<SyncEvent["type"], StatusTone> = {
 
 function deriveSyncStatus(statusStr: string, isOffline: boolean): SyncStatusLabel {
   if (isOffline) return "offline";
-  // Chinese keywords (produced by vault-app.tsx)
+  // Chinese keywords
   if (statusStr.includes("已同步")) return "synced";
   if (statusStr.includes("冲突")) return "conflict";
   if (statusStr.includes("同步中")) return "pending";

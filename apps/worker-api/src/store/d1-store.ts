@@ -629,16 +629,18 @@ export class D1VaultStore implements VaultStore {
   async searchItemsByTokens(userId: string, tokenHexes: string[]): Promise<string[]> {
     if (tokenHexes.length === 0) return [];
 
-    const likeClauses = tokenHexes.map(() =>
-      `encrypted_search_tokens LIKE ?`
-    );
-    const orClause = likeClauses.length === 1
-      ? likeClauses[0]!
-      : `(${likeClauses.join(" OR ")})`;
-
-    // Build LIKE patterns that match the ciphertext field within the JSON array.
+    // Use INSTR() instead of LIKE to avoid "LIKE or GLOB pattern too complex" errors
+    // with 64-char hex tokens. INSTR() does simple substring matching.
     // The stored JSON for each token is {"alg":"HMAC_SHA256","nonce":"AA","ciphertext":"<hex>"}
-    const patterns = tokenHexes.map((hex) => `%"ciphertext":"${hex}"%`);
+    const instrClauses = tokenHexes.map(() =>
+      `INSTR(encrypted_search_tokens, ?) > 0`
+    );
+    const orClause = instrClauses.length === 1
+      ? instrClauses[0]!
+      : `(${instrClauses.join(" OR ")})`;
+
+    // Build search substrings that match the ciphertext field within the JSON array
+    const patterns = tokenHexes.map((hex) => `"ciphertext":"${hex}"`);
 
     const rows = await this.db
       .prepare(

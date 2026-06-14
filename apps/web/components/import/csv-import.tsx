@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { parsePasswordCsv } from "../../lib/csv-import";
-import { detectImportFormat, parsePasswordImport, type ImportFormat } from "../../lib/password-import";
+import { detectImportFormat, parsePasswordImport, parseOnePasswordPux, type ImportFormat } from "../../lib/password-import";
 import type { ImportLoginRow } from "@zero-vault/shared";
 import { Button } from "../ui/button";
 import { cn } from "../../lib/utils";
@@ -150,13 +150,20 @@ export default function CsvImport({ loading, importStatus, onImport }: CsvImport
       setConfirmChecked(false);
 
       try {
-        const content = await file.text();
-        const format = detectImportFormat(content, file.name);
-        if (format === "unknown") {
-          setParseError("无法识别文件格式。支持 Bitwarden JSON、1Password CSV、浏览器 CSV 和通用 JSON；1PUX 会尝试识别。");
-          return;
+        const isPux = file.name.toLowerCase().endsWith(".1pux");
+        let result: { rows: ImportLoginRow[]; rejected: number };
+
+        if (isPux) {
+          result = await parseOnePasswordPux(file);
+        } else {
+          const content = await file.text();
+          const format = detectImportFormat(content, file.name);
+          if (format === "unknown") {
+            setParseError("无法识别文件格式。支持 Bitwarden JSON、1Password CSV、浏览器 CSV 和通用 JSON；1PUX 会尝试识别。");
+            return;
+          }
+          result = parsePasswordImport(content, format);
         }
-        const result = parsePasswordImport(content, format);
         setParsedRows(result.rows);
         setRejectedCount(result.rejected);
 

@@ -81,7 +81,7 @@ export const getErrorMessage = (error: unknown): string => {
   // user messages.
   if (raw.length < 80 && /^[一-鿿　-〿＀-￯ a-zA-Z0-9.,!?@#$%^&*()_+=\-:;"'<>[\]{}/|\\`~]+$/u.test(raw)) {
     // The message looks like a plain, short, safe string (e.g. thrown from
-    // vault-app.tsx validations like "主密码至少需要 12 个字符。")
+    // Validation messages like "主密码至少需要 12 个字符。")
     return raw;
   }
 

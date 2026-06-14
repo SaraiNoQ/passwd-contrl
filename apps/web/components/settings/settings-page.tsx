@@ -6,6 +6,7 @@ import { Input } from "../ui/input";
 import { PasswordField } from "../ui/password-field";
 import { Modal } from "../ui/modal";
 import { cn } from "../../lib/utils";
+import { CloudExportPanel } from "./cloud-export-panel";
 import styles from "./settings-page.module.css";
 
 export type SettingsPageProps = {
@@ -29,6 +30,13 @@ export type SettingsPageProps = {
   // -- Encrypted backup import --
   onImportEncryptedBackup: (file: File) => Promise<void>;
   importBackupStatus: string;
+  // -- Cloud export --
+  cloudExports?: Array<{ id: string; createdAt: string; algorithm: string }>;
+  cloudExportLoading?: boolean;
+  cloudExportError?: string;
+  onLoadCloudExports?: () => Promise<void>;
+  onCreateCloudExport?: () => Promise<void>;
+  onDeleteCloudExport?: (id: string) => Promise<void>;
 };
 
 const AUTO_LOCK_OPTIONS: { label: string; value: number }[] = [
@@ -64,6 +72,12 @@ export function SettingsPage({
   selectedCount,
   onImportEncryptedBackup,
   importBackupStatus,
+  cloudExports,
+  cloudExportLoading,
+  cloudExportError,
+  onLoadCloudExports,
+  onCreateCloudExport,
+  onDeleteCloudExport,
 }: SettingsPageProps) {
   // Extension ID draft state
   const [extensionIdDraft, setExtensionIdDraft] = useState(extensionId);
@@ -490,6 +504,19 @@ export function SettingsPage({
             </div>
           </div>
         </section>
+
+        {/* Cloud export panel */}
+        {onCreateCloudExport && onDeleteCloudExport && onLoadCloudExports ? (
+          <CloudExportPanel
+            exports={cloudExports ?? []}
+            loading={cloudExportLoading ?? false}
+            error={cloudExportError ?? ""}
+            onLoad={onLoadCloudExports}
+            onCreate={onCreateCloudExport}
+            onDelete={onDeleteCloudExport}
+            disabled={loading}
+          />
+        ) : null}
 
         <section className={cn(styles.card, styles.syncCard)}>
           <div className={styles.cardHeader}>

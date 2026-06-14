@@ -126,10 +126,14 @@ export function buildVaultRoutes(): Hono<{ Bindings: Env }> {
       return c.json({ error: "invalid_search_request" }, 400);
     }
 
-    const store = new D1VaultStore(c.env.DB);
-    const itemIds = await store.searchItemsByTokens(session.userId, parsed.data.tokens);
-    const response = vaultSearchResponseSchema.parse({ itemIds });
-    return c.json(response);
+    try {
+      const store = new D1VaultStore(c.env.DB);
+      const itemIds = await store.searchItemsByTokens(session.userId, parsed.data.tokens);
+      return c.json({ itemIds });
+    } catch (err) {
+      console.error("[vault/search]", err);
+      return c.json({ error: "search_failed" }, 500);
+    }
   });
 
   return app;

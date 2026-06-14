@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Folder, KeyRound, Trash2, Plus } from "lucide-react";
+import { AlertTriangle, Clock, Folder, KeyRound, Trash2, Plus, StickyNote, CreditCard } from "lucide-react";
 import { type FormEvent, useCallback, useMemo, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Drawer } from "../ui/drawer";
@@ -9,9 +9,13 @@ import { PasswordField } from "../ui/password-field";
 import { TotpDisplay } from "../totp-display";
 import { TotpScanner } from "../totp-scanner";
 import { isValidTotpSecret } from "../../lib/totp";
+import { CredentialHistory, type HistoryVersion } from "./credential-history";
 import styles from "./credential-drawer.module.css";
 
+export type ItemType = "login" | "secure_note" | "credit_card";
+
 export interface ItemForm {
+  type: ItemType;
   title: string;
   origin: string;
   username: string;
@@ -19,6 +23,15 @@ export interface ItemForm {
   notes: string;
   folder: string;
   totp?: string;
+  // secure_note
+  noteBody?: string;
+  // credit_card
+  cardholderName?: string;
+  cardNumber?: string;
+  expirationMonth?: string;
+  expirationYear?: string;
+  cvv?: string;
+  brand?: string;
 }
 
 export interface CredentialDrawerProps {
@@ -35,6 +48,11 @@ export interface CredentialDrawerProps {
   error: string;
   /** Existing folder names for autocomplete suggestions. */
   folders: string[];
+  /** History props (optional) */
+  historyVersions?: HistoryVersion[];
+  historyLoading?: boolean;
+  historyError?: string;
+  onLoadHistory?: (itemId: string) => void;
 }
 
 export function CredentialDrawer({
@@ -50,8 +68,13 @@ export function CredentialDrawer({
   loading,
   error,
   folders,
+  historyVersions,
+  historyLoading,
+  historyError,
+  onLoadHistory,
 }: CredentialDrawerProps) {
   const isEditing = editingId !== null;
+  const [activeTab, setActiveTab] = useState<"edit" | "history">("edit");
   const originWarning = itemForm.origin !== "" && !itemForm.origin.startsWith("https://");
 
   // -- Folder autocomplete state --
@@ -95,10 +118,18 @@ export function CredentialDrawer({
           <div>
             <p className={styles.eyebrow}>{isEditing ? "EDIT BLOCK" : "NEW BLOCK"}</p>
             <h3 className={styles.heroTitle}>
-              {isEditing ? "编辑密码记录" : "新增密码记录"}
+              {itemForm.type === "secure_note"
+                ? (isEditing ? "编辑安全笔记" : "新增安全笔记")
+                : itemForm.type === "credit_card"
+                  ? (isEditing ? "编辑信用卡" : "新增信用卡")
+                  : (isEditing ? "编辑密码记录" : "新增密码记录")}
             </h3>
             <p className={styles.heroCopy}>
-              站点、用户名、密码与 TOTP 会在保存后进入本地加密密码库。
+              {itemForm.type === "secure_note"
+                ? "安全笔记会在保存后进入本地加密密码库。"
+                : itemForm.type === "credit_card"
+                  ? "信用卡信息会在保存后进入本地加密密码库。"
+                  : "站点、用户名、密码与 TOTP 会在保存后进入本地加密密码库。"}
             </p>
           </div>
           <div className={styles.heroGlyph} aria-hidden="true">
@@ -108,10 +139,87 @@ export function CredentialDrawer({
           </div>
         </div>
 
+        {/* Tabs: Edit / History (only when editing) */}
+        {isEditing && onLoadHistory ? (
+          <div className={styles.tabBar} role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "edit"}
+              className={`${styles.tab} ${activeTab === "edit" ? styles.tabActive : ""}`}
+              onClick={() => setActiveTab("edit")}
+            >
+              编辑
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "history"}
+              className={`${styles.tab} ${activeTab === "history" ? styles.tabActive : ""}`}
+              onClick={() => setActiveTab("history")}
+            >
+              <Clock size={14} />
+              历史版本
+            </button>
+          </div>
+        ) : null}
+
+        {/* History view */}
+        {activeTab === "history" && isEditing && onLoadHistory ? (
+          <CredentialHistory
+            itemId={editingId!}
+            versions={historyVersions ?? []}
+            loading={historyLoading ?? false}
+            error={historyError ?? ""}
+            onLoad={onLoadHistory}
+          />
+        ) : null}
+
+        {/* Edit form (hidden when viewing history) */}
+        {activeTab === "edit" ? (<>
+
+        {/* Type selector (only visible when creating) */}
+        {!isEditing ? (
+          <div className={styles.typeSelector}>
+            <span className={styles.typeSelectorLabel}>记录类型</span>
+            <div className={styles.typeSelectorOptions}>
+              <button
+                type="button"
+                className={`${styles.typeOption} ${itemForm.type === "login" ? styles.typeOptionActive : ""}`}
+                onClick={() => onFormChange("type", "login")}
+              >
+                <KeyRound size={16} />
+                登录
+              </button>
+              <button
+                type="button"
+                className={`${styles.typeOption} ${itemForm.type === "secure_note" ? styles.typeOptionActive : ""}`}
+                onClick={() => onFormChange("type", "secure_note")}
+              >
+                <StickyNote size={16} />
+                安全笔记
+              </button>
+              <button
+                type="button"
+                className={`${styles.typeOption} ${itemForm.type === "credit_card" ? styles.typeOptionActive : ""}`}
+                onClick={() => onFormChange("type", "credit_card")}
+              >
+                <CreditCard size={16} />
+                信用卡
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Common fields: title + folder */}
         <div className={styles.fieldGrid}>
           <Input
             label="标题"
-            placeholder="例如：GitHub"
+            placeholder={
+              itemForm.type === "secure_note" ? "例如：WiFi 密码"
+                : itemForm.type === "credit_card" ? "例如：招商银行 Visa"
+                : "例如：GitHub"
+            }
             value={itemForm.title}
             onChange={(e) => onFormChange("title", e.target.value)}
           />
@@ -161,82 +269,147 @@ export function CredentialDrawer({
               ) : null}
             </div>
           </div>
-
-          <div className={styles.wideField}>
-            <Input
-              label="网站地址"
-              placeholder="https://example.com"
-              value={itemForm.origin}
-              onChange={(e) => onFormChange("origin", e.target.value)}
-              {...(originWarning ? { error: "自动填充仅支持 HTTPS 站点" } : {})}
-            />
-            {originWarning ? (
-              <span className={styles.originHint}>
-                <AlertTriangle size={12} />
-                自动填充仅支持 HTTPS 站点
-              </span>
-            ) : null}
-          </div>
-
-          <Input
-            label="用户名"
-            placeholder="name@example.com"
-            value={itemForm.username}
-            onChange={(e) => onFormChange("username", e.target.value)}
-          />
-
-          <div className={styles.wideField}>
-            <PasswordField
-              label="密码"
-              placeholder="加密存储"
-              value={itemForm.password}
-              onChange={(e) => onFormChange("password", e.target.value)}
-              onGenerate={onGeneratePassword}
-              onCopy={onCopyPassword}
-            />
-          </div>
         </div>
 
-        <section className={styles.totpSection} aria-labelledby="totp-section-title">
-          <div className={styles.totpHeader}>
-            <div className={styles.totpLabel}>
-              <KeyRound size={16} aria-hidden="true" />
-              <div>
-                <span>TOTP BEACON</span>
-                <h4 id="totp-section-title">两步验证码</h4>
-              </div>
-            </div>
-            <span className={styles.totpState}>
-              {itemForm.totp && isValidTotpSecret(itemForm.totp) ? "信标运行中" : "等待密钥"}
-            </span>
-          </div>
-          <p className={styles.totpCopy}>
-            验证码仅在此设备根据加密密钥生成，每 30 秒更新一次。
-          </p>
-          {itemForm.totp && isValidTotpSecret(itemForm.totp) ? (
-            <div className={styles.totpActive}>
-              <TotpDisplay secret={itemForm.totp} />
-              <button
-                type="button"
-                className={styles.totpRemoveBtn}
-                onClick={() => onFormChange("totp", "")}
-                aria-label="移除 TOTP"
-              >
-                移除
-              </button>
-            </div>
-          ) : (
-            <>
+        {/* ---- Login fields ---- */}
+        {itemForm.type === "login" ? (<>
+          <div className={styles.fieldGrid}>
+            <div className={styles.wideField}>
               <Input
-                placeholder="otpauth://... 或 base32 密钥"
-                value={itemForm.totp ?? ""}
-                onChange={(e) => onFormChange("totp", e.target.value)}
-                aria-label="TOTP 密钥"
+                label="网站地址"
+                placeholder="https://example.com"
+                value={itemForm.origin}
+                onChange={(e) => onFormChange("origin", e.target.value)}
+                {...(originWarning ? { error: "自动填充仅支持 HTTPS 站点" } : {})}
               />
-              <TotpScanner onSecret={(s) => onFormChange("totp", s)} />
-            </>
-          )}
-        </section>
+              {originWarning ? (
+                <span className={styles.originHint}>
+                  <AlertTriangle size={12} />
+                  自动填充仅支持 HTTPS 站点
+                </span>
+              ) : null}
+            </div>
+
+            <Input
+              label="用户名"
+              placeholder="name@example.com"
+              value={itemForm.username}
+              onChange={(e) => onFormChange("username", e.target.value)}
+            />
+
+            <div className={styles.wideField}>
+              <PasswordField
+                label="密码"
+                placeholder="加密存储"
+                value={itemForm.password}
+                onChange={(e) => onFormChange("password", e.target.value)}
+                onGenerate={onGeneratePassword}
+                onCopy={onCopyPassword}
+              />
+            </div>
+          </div>
+
+          <section className={styles.totpSection} aria-labelledby="totp-section-title">
+            <div className={styles.totpHeader}>
+              <div className={styles.totpLabel}>
+                <KeyRound size={16} aria-hidden="true" />
+                <div>
+                  <span>TOTP BEACON</span>
+                  <h4 id="totp-section-title">两步验证码</h4>
+                </div>
+              </div>
+              <span className={styles.totpState}>
+                {itemForm.totp && isValidTotpSecret(itemForm.totp) ? "信标运行中" : "等待密钥"}
+              </span>
+            </div>
+            <p className={styles.totpCopy}>
+              验证码仅在此设备根据加密密钥生成，每 30 秒更新一次。
+            </p>
+            {itemForm.totp && isValidTotpSecret(itemForm.totp) ? (
+              <div className={styles.totpActive}>
+                <TotpDisplay secret={itemForm.totp} />
+                <button
+                  type="button"
+                  className={styles.totpRemoveBtn}
+                  onClick={() => onFormChange("totp", "")}
+                  aria-label="移除 TOTP"
+                >
+                  移除
+                </button>
+              </div>
+            ) : (
+              <>
+                <Input
+                  placeholder="otpauth://... 或 base32 密钥"
+                  value={itemForm.totp ?? ""}
+                  onChange={(e) => onFormChange("totp", e.target.value)}
+                  aria-label="TOTP 密钥"
+                />
+                <TotpScanner onSecret={(s) => onFormChange("totp", s)} />
+              </>
+            )}
+          </section>
+        </>) : null}
+
+        {/* ---- Secure note fields ---- */}
+        {itemForm.type === "secure_note" ? (
+          <div className={styles.wideField}>
+            <Input
+              type="textarea"
+              label="笔记内容"
+              placeholder="输入加密笔记内容..."
+              rows={8}
+              value={itemForm.noteBody ?? ""}
+              onChange={(e) => onFormChange("noteBody", e.target.value)}
+            />
+          </div>
+        ) : null}
+
+        {/* ---- Credit card fields ---- */}
+        {itemForm.type === "credit_card" ? (
+          <div className={styles.fieldGrid}>
+            <div className={styles.wideField}>
+              <Input
+                label="持卡人姓名"
+                placeholder="姓名"
+                value={itemForm.cardholderName ?? ""}
+                onChange={(e) => onFormChange("cardholderName", e.target.value)}
+              />
+            </div>
+            <div className={styles.wideField}>
+              <Input
+                label="卡号"
+                placeholder="0000 0000 0000 0000"
+                value={itemForm.cardNumber ?? ""}
+                onChange={(e) => onFormChange("cardNumber", e.target.value)}
+              />
+            </div>
+            <Input
+              label="到期月"
+              placeholder="MM"
+              value={itemForm.expirationMonth ?? ""}
+              onChange={(e) => onFormChange("expirationMonth", e.target.value)}
+            />
+            <Input
+              label="到期年"
+              placeholder="YYYY"
+              value={itemForm.expirationYear ?? ""}
+              onChange={(e) => onFormChange("expirationYear", e.target.value)}
+            />
+            <Input
+              label="CVV"
+              placeholder="***"
+              value={itemForm.cvv ?? ""}
+              onChange={(e) => onFormChange("cvv", e.target.value)}
+            />
+            <Input
+              label="卡品牌"
+              placeholder="Visa / Mastercard"
+              value={itemForm.brand ?? ""}
+              onChange={(e) => onFormChange("brand", e.target.value)}
+            />
+          </div>
+        ) : null}
 
         <Input
           type="textarea"
@@ -261,7 +434,11 @@ export function CredentialDrawer({
             loading={loading}
             className={styles.saveBtn ?? ""}
           >
-            {loading ? "保存中..." : isEditing ? "保存修改" : "保存凭据"}
+            {loading ? "保存中..." : isEditing ? "保存修改" : (
+              itemForm.type === "secure_note" ? "保存笔记" :
+              itemForm.type === "credit_card" ? "保存信用卡" :
+              "保存凭据"
+            )}
           </Button>
           <Button type="button" variant="secondary" onClick={onClose}>
             取消
@@ -273,6 +450,7 @@ export function CredentialDrawer({
             </Button>
           ) : null}
         </div>
+        </> ) : null}
       </form>
     </Drawer>
   );

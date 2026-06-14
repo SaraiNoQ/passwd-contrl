@@ -1,5 +1,6 @@
 import type { ImportLoginRow } from "@zero-vault/shared";
 import { importLoginRowSchema } from "@zero-vault/shared";
+import JSZip from "jszip";
 import { parsePasswordCsv } from "./csv-import";
 
 // ---------------------------------------------------------------------------
@@ -242,6 +243,25 @@ function parseOnePassword(
   // Treat as 1Password CSV – the existing CSV parser already handles
   // flexible header matching (url/website, username/login/email, etc.)
   return parsePasswordCsv(trimmed);
+}
+
+/**
+ * Parse a 1Password 1PUX file (zip archive containing export.csv).
+ *
+ * 1PUX is the native 1Password export format. The zip contains an
+ * `export.csv` file with the actual credential data. This function
+ * extracts and parses that CSV.
+ */
+export async function parseOnePasswordPux(
+  file: File,
+): Promise<{ rows: ImportLoginRow[]; rejected: number }> {
+  const zip = await JSZip.loadAsync(file);
+  const csvFile = zip.file("export.csv");
+  if (!csvFile) {
+    throw new Error("1PUX 文件中未找到 export.csv");
+  }
+  const csvText = await csvFile.async("text");
+  return parsePasswordCsv(csvText);
 }
 
 // ---------------------------------------------------------------------------

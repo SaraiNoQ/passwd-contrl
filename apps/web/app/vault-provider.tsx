@@ -12,28 +12,41 @@ import {
   type ReactNode
 } from "react";
 import {
-  addCredential,
-  deleteCredential,
+  addItem,
+  deleteItem,
   loadEncryptedLocalVault,
   persistUnlockedVault,
-  updateCredential,
+  updateItem,
   type EncryptedLocalVault,
   type UnlockedVault,
   type VaultItem
 } from "../lib/local-vault";
-import { isLogin } from "../lib/item-types";
+import { isLogin, isSecureNote, isCreditCard } from "../lib/item-types";
 import {
   fetchCurrentUser,
+  fetchItemHistory,
+  getErrorMessage,
   loginAccount,
   logoutAccount,
   pullVault,
-  registerAccount
+  registerAccount,
+  saveRecoveryPacketToServer
 } from "../lib/api-client";
-import { getSyncedLocalVaultItem } from "../lib/sync-vault";
 import {
+  getSyncedLocalVaultItem,
   loadConflictIds,
-  loadLastSyncedAt
+  loadItemRevisionMap,
+  loadLastSyncedAt,
+  saveItemRevisionMap
 } from "../lib/sync-vault";
+import { decryptItemFromSync } from "../lib/local-vault";
+import { generateQueryToken } from "../lib/search-tokens";
+import { requestJson } from "../lib/crypto-utils";
+import type {
+  CiphertextEnvelope,
+  VaultItemCiphertext,
+  VaultSearchResponse
+} from "@zero-vault/shared";
 import {
   clearVaultSessionFromExtension,
   getExtensionBridgeCapabilities,
@@ -76,24 +89,26 @@ import {
   handleRecoverVault
 } from "../lib/vault-recovery";
 import {
+  generateRecoveryCode,
+  createRecoveryPacket,
+  saveRecoveryPacket
+} from "../lib/recovery";
+import {
   handleRefreshDevices,
   handleApproveDevice as approveDeviceAction,
   handleRejectDevice as rejectDeviceAction,
   handleRevokeDevice as revokeDeviceAction
 } from "../lib/vault-device";
+import type { ItemType, ItemForm } from "../components/credentials/credential-drawer";
+import {
+  enqueueOfflineMutation,
+  dequeueOfflineMutations,
+  getOfflineQueueSize
+} from "../lib/offline-queue";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-export type ItemForm = {
-  title: string;
-  origin: string;
-  username: string;
-  password: string;
-  notes: string;
-  folder: string;
-};
 
 type SyncEvent = {
   id: string;
@@ -146,6 +161,7 @@ const DEFAULT_SYNC_INTERVAL = 900;
 // ---------------------------------------------------------------------------
 
 const emptyItemForm: ItemForm = {
+  type: "login",
   title: "",
   origin: "",
   username: "",
@@ -222,11 +238,13 @@ export interface VaultContextValue {
   importStatus: string;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
+  searchLoading: boolean;
   loading: boolean;
   copiedField: string | null;
   deleteConfirmId: string | null;
   setDeleteConfirmId: (id: string | null) => void;
   isOffline: boolean;
+  offlineQueueCount: number;
 
   // -- Item-level sync --
   itemSyncInfos: ItemSyncInfo[];
@@ -244,6 +262,8 @@ export interface VaultContextValue {
   setRecoveryInputCode: (v: string) => void;
   recoveryPassword: string;
   setRecoveryPassword: (v: string) => void;
+  regeneratingRecovery: boolean;
+  handleRegenerateRecovery: () => Promise<string>;
 
   // -- Device trust --
   devices: DeviceInfo[];
@@ -347,6 +367,20 @@ export interface VaultContextValue {
   // -- Copy --
   handleCopy: (text: string, fieldId: string) => Promise<void>;
 
+  // -- Item history --
+  historyVersions: Array<{ revision: number; createdAt: string; item: VaultItem }>;
+  historyLoading: boolean;
+  historyError: string;
+  loadHistory: (itemId: string) => Promise<void>;
+
+  // -- Cloud export --
+  cloudExports: Array<{ id: string; createdAt: string; algorithm: string }>;
+  cloudExportLoading: boolean;
+  cloudExportError: string;
+  loadCloudExports: () => Promise<void>;
+  createCloudExport: () => Promise<void>;
+  deleteCloudExport: (exportId: string) => Promise<void>;
+
   // -- Navigation --
   NAV_IDS: typeof NAV_IDS;
 }
@@ -383,11 +417,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [showSecrets, setShowSecrets] = useState(false);
   const [importStatus, setImportStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [serverSearchIds, setServerSearchIds] = useState<Set<string> | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const autoLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isOffline, setIsOffline] = useState(false);
+  const [offlineQueueCount, setOfflineQueueCount] = useState(() => getOfflineQueueSize());
 
   // -- Item-level sync state --
   const [itemSyncInfos, setItemSyncInfos] = useState<ItemSyncInfo[]>([]);
@@ -401,6 +438,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [showRecoveryEntry, setShowRecoveryEntry] = useState(false);
   const [recoveryInputCode, setRecoveryInputCode] = useState("");
   const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [regeneratingRecovery, setRegeneratingRecovery] = useState(false);
 
   // -- Device trust state --
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
@@ -432,6 +470,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   // -- Sync event log --
   const [syncEvents, setSyncEvents] = useState<SyncEvent[]>([]);
+
+  // -- Item history state --
+  const [historyVersions, setHistoryVersions] = useState<Array<{ revision: number; createdAt: string; item: VaultItem }>>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+
+  // -- Cloud export state --
+  const [cloudExports, setCloudExports] = useState<Array<{ id: string; createdAt: string; algorithm: string }>>([]);
+  const [cloudExportLoading, setCloudExportLoading] = useState(false);
+  const [cloudExportError, setCloudExportError] = useState("");
 
   const addSyncEvent = useCallback((event: Omit<SyncEvent, "id" | "timestamp">) => {
     setSyncEvents((prev) => [
@@ -590,6 +638,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Replay any queued offline mutations before syncing
+    const pendingMutations = dequeueOfflineMutations();
+    if (pendingMutations.length > 0) {
+      setOfflineQueueCount(0);
+      addSyncEvent({ type: "push", description: `重放 ${pendingMutations.length} 条离线变更` });
+    }
+
     setLoading(true);
     addSyncEvent({ type: "pull", description: "开始同步…" });
     try {
@@ -704,16 +759,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => undefined);
 
-    const goOnline = () => setIsOffline(false);
+    setIsOffline(!navigator.onLine);
+  }, [refreshExtensionBridgeCapabilities]);
+
+  // -- Online/offline detection with auto-sync on reconnect --
+  useEffect(() => {
+    const goOnline = () => {
+      setIsOffline(false);
+      if (getOfflineQueueSize() > 0) {
+        void syncNow();
+      }
+    };
     const goOffline = () => setIsOffline(true);
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
-    setIsOffline(!navigator.onLine);
     return () => {
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
     };
-  }, [refreshExtensionBridgeCapabilities]);
+  }, [syncNow]);
 
   // -- Device auto-registration --
   useEffect(() => {
@@ -783,11 +847,27 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     const q = searchQuery.toLowerCase().trim();
     if (q) {
-      items = items.filter(
+      // Local text filter
+      const localMatches = items.filter(
         (item) =>
           item.title.toLowerCase().includes(q) ||
-          (isLogin(item) && (item.origin.toLowerCase().includes(q) || item.username.toLowerCase().includes(q)))
+          (isLogin(item) && (item.origin.toLowerCase().includes(q) || item.username.toLowerCase().includes(q))) ||
+          (isSecureNote(item) && (item.noteBody?.toLowerCase().includes(q) ?? false)) ||
+          (isCreditCard(item) && (
+            (item.cardholderName?.toLowerCase().includes(q) ?? false) ||
+            (item.cardNumber?.toLowerCase().includes(q) ?? false) ||
+            (item.brand?.toLowerCase().includes(q) ?? false)
+          ))
       );
+
+      // If server search returned IDs, merge: local matches ∪ server matches
+      if (serverSearchIds && serverSearchIds.size > 0) {
+        const localIds = new Set(localMatches.map((i) => i.id));
+        const serverMatches = items.filter((i) => serverSearchIds.has(i.id) && !localIds.has(i.id));
+        items = [...localMatches, ...serverMatches];
+      } else {
+        items = localMatches;
+      }
     }
     switch (filterMode) {
       case "weak":
@@ -814,7 +894,49 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         break;
     }
     return items;
-  }, [unlockedVault, searchQuery, filterMode, folderFilter, itemSyncInfos, itemConflicts]);
+  }, [unlockedVault, searchQuery, filterMode, folderFilter, itemSyncInfos, itemConflicts, serverSearchIds]);
+
+  // -- Encrypted server search (debounced) --
+  useEffect(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!unlockedVault || q.length < 2) {
+      setServerSearchIds(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const terms = q.split(/[\s\-_.,;:!?]+/).map((t) => t.trim()).filter((t) => t.length >= 2);
+        if (terms.length === 0) {
+          setServerSearchIds(null);
+          return;
+        }
+        const tokens: string[] = [];
+        for (const term of terms) {
+          const token = await generateQueryToken(unlockedVault, term);
+          if (token) tokens.push(token);
+        }
+        if (tokens.length === 0) {
+          setServerSearchIds(null);
+          return;
+        }
+        const response = await requestJson<VaultSearchResponse>("/vault/search", {
+          method: "POST",
+          headers: { "x-zero-vault-csrf": csrfToken },
+          body: JSON.stringify({ tokens }),
+        });
+        setServerSearchIds(new Set(response.itemIds));
+      } catch {
+        // Server search is optional; local filtering still works
+        setServerSearchIds(null);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, unlockedVault, csrfToken]);
 
   const hasLocalVault = encryptedVault !== null;
 
@@ -964,22 +1086,50 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setEditingId(item.id);
     if (isLogin(item)) {
       setItemForm({
+        type: "login",
         title: item.title,
         origin: item.origin,
         username: item.username,
         password: item.password,
         notes: item.notes,
-        folder: item.folder ?? ""
+        folder: item.folder ?? "",
+        ...(item.totp !== undefined ? { totp: item.totp } : {})
       });
-    } else {
-      // Non-login items: populate title/notes/folder only
+    } else if (isSecureNote(item)) {
       setItemForm({
+        type: "secure_note",
         title: item.title,
         origin: "",
         username: "",
         password: "",
         notes: item.notes,
-        folder: item.folder ?? ""
+        folder: item.folder ?? "",
+        noteBody: item.noteBody ?? ""
+      });
+    } else if (isCreditCard(item)) {
+      setItemForm({
+        type: "credit_card",
+        title: item.title,
+        origin: "",
+        username: "",
+        password: "",
+        notes: item.notes,
+        folder: item.folder ?? "",
+        cardholderName: item.cardholderName ?? "",
+        cardNumber: item.cardNumber ?? "",
+        expirationMonth: item.expirationMonth ?? "",
+        expirationYear: item.expirationYear ?? "",
+        cvv: item.cvv ?? "",
+        brand: item.brand ?? ""
+      });
+    } else {
+      // Fallback for any future item types
+      const base = item as VaultItem;
+      setItemForm({
+        ...emptyItemForm,
+        title: base.title,
+        notes: base.notes,
+        folder: base.folder ?? ""
       });
     }
     setError("");
@@ -1001,36 +1151,87 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setError("请先解锁密码库。");
       return;
     }
-    if (!itemForm.origin.startsWith("https://")) {
-      setError("自动填充仅支持 HTTPS 站点。");
-      return;
+    // Type-specific validation
+    if (itemForm.type === "login") {
+      if (!itemForm.origin.startsWith("https://")) {
+        setError("自动填充仅支持 HTTPS 站点。");
+        return;
+      }
+      if (!itemForm.password) {
+        setError("密码不能为空。");
+        return;
+      }
     }
-    if (!itemForm.password) {
-      setError("密码不能为空。");
-      return;
-    }
+
     setLoading(true);
     try {
       let nextVault: UnlockedVault;
-      if (editingId) {
-        nextVault = updateCredential(unlockedVault, editingId, {
-          title: itemForm.title || new URL(itemForm.origin).hostname,
+      const baseUpdates = {
+        title: itemForm.title,
+        notes: itemForm.notes,
+        folder: itemForm.folder
+      };
+
+      if (itemForm.type === "login") {
+        const loginTitle = itemForm.title || new URL(itemForm.origin).hostname;
+        const loginData = {
+          type: "login" as const,
+          title: loginTitle,
           origin: itemForm.origin,
           username: itemForm.username,
           password: itemForm.password,
           notes: itemForm.notes,
-          folder: itemForm.folder
-        });
+          folder: itemForm.folder,
+          customFields: [],
+          ...(itemForm.totp ? { totp: itemForm.totp } : {})
+        };
+        if (editingId) {
+          nextVault = updateItem(unlockedVault, editingId, loginData);
+        } else {
+          nextVault = addItem(unlockedVault, loginData);
+        }
+      } else if (itemForm.type === "secure_note") {
+        const noteData = {
+          type: "secure_note" as const,
+          ...baseUpdates,
+          customFields: [],
+          noteBody: itemForm.noteBody ?? ""
+        };
+        if (editingId) {
+          nextVault = updateItem(unlockedVault, editingId, noteData);
+        } else {
+          nextVault = addItem(unlockedVault, noteData);
+        }
+      } else if (itemForm.type === "credit_card") {
+        const cardData = {
+          type: "credit_card" as const,
+          ...baseUpdates,
+          customFields: [],
+          cardholderName: itemForm.cardholderName ?? "",
+          cardNumber: itemForm.cardNumber ?? "",
+          expirationMonth: itemForm.expirationMonth ?? "",
+          expirationYear: itemForm.expirationYear ?? "",
+          cvv: itemForm.cvv ?? "",
+          brand: itemForm.brand ?? ""
+        };
+        if (editingId) {
+          nextVault = updateItem(unlockedVault, editingId, cardData);
+        } else {
+          nextVault = addItem(unlockedVault, cardData);
+        }
       } else {
-        nextVault = addCredential(unlockedVault, {
-          ...itemForm,
-          title: itemForm.title || new URL(itemForm.origin).hostname
-        });
+        setError("未知的记录类型。");
+        return;
       }
       const persisted = await persistUnlockedVault(nextVault);
       setUnlockedVault(persisted.unlocked);
       publishExtensionSession(persisted.unlocked.snapshot.items);
       setEncryptedVault(persisted.encrypted);
+      if (isOffline) {
+        const itemId = editingId ?? persisted.unlocked.snapshot.items[0]?.id ?? "";
+        enqueueOfflineMutation({ type: "upsert", itemId, timestamp: new Date().toISOString(), retryCount: 0 });
+        setOfflineQueueCount(getOfflineQueueSize());
+      }
       setItemForm(emptyItemForm);
       setEditingId(null);
       setDrawerOpen(false);
@@ -1039,18 +1240,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [unlockedVault, itemForm, editingId, publishExtensionSession]);
+  }, [unlockedVault, itemForm, editingId, publishExtensionSession, isOffline]);
 
   // -- Delete item --
   const confirmDelete = useCallback(async (id: string) => {
     if (!unlockedVault) return;
     setLoading(true);
     try {
-      const nextVault = deleteCredential(unlockedVault, id);
+      const nextVault = deleteItem(unlockedVault, id);
       const persisted = await persistUnlockedVault(nextVault);
       setUnlockedVault(persisted.unlocked);
       publishExtensionSession(persisted.unlocked.snapshot.items);
       setEncryptedVault(persisted.encrypted);
+      if (isOffline) {
+        enqueueOfflineMutation({ type: "delete", itemId: id, timestamp: new Date().toISOString(), retryCount: 0 });
+        setOfflineQueueCount(getOfflineQueueSize());
+      }
       setDeleteConfirmId(null);
       if (editingId === id) {
         setEditingId(null);
@@ -1062,7 +1267,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [unlockedVault, editingId, publishExtensionSession]);
+  }, [unlockedVault, editingId, publishExtensionSession, isOffline]);
 
   // -- Batch delete --
   const batchDeleteCredentials = useCallback(async (ids: string[]) => {
@@ -1075,13 +1280,20 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       let nextVault = unlockedVault;
       for (const id of idSet) {
         if (nextVault.snapshot.items.some((item) => item.id === id)) {
-          nextVault = deleteCredential(nextVault, id);
+          nextVault = deleteItem(nextVault, id);
         }
       }
       const persisted = await persistUnlockedVault(nextVault);
       setUnlockedVault(persisted.unlocked);
       publishExtensionSession(persisted.unlocked.snapshot.items);
       setEncryptedVault(persisted.encrypted);
+      if (isOffline) {
+        const now = new Date().toISOString();
+        for (const id of idSet) {
+          enqueueOfflineMutation({ type: "delete", itemId: id, timestamp: now, retryCount: 0 });
+        }
+        setOfflineQueueCount(getOfflineQueueSize());
+      }
       setDeleteConfirmId(null);
       if (editingId && idSet.has(editingId)) {
         setEditingId(null);
@@ -1093,7 +1305,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [unlockedVault, editingId, publishExtensionSession]);
+  }, [unlockedVault, editingId, publishExtensionSession, isOffline]);
 
   // -- Batch update password --
   const batchUpdatePassword = useCallback(async (ids: string[], newPassword: string) => {
@@ -1105,21 +1317,29 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const idSet = new Set(ids);
       let nextVault = unlockedVault;
       for (const id of idSet) {
-        if (nextVault.snapshot.items.some((item) => item.id === id)) {
-          nextVault = updateCredential(nextVault, id, { password: newPassword });
+        const existingItem = nextVault.snapshot.items.find((item) => item.id === id);
+        if (existingItem && isLogin(existingItem)) {
+          nextVault = updateItem(nextVault, id, { password: newPassword } as Partial<VaultItem>);
         }
       }
       const persisted = await persistUnlockedVault(nextVault);
       setUnlockedVault(persisted.unlocked);
       publishExtensionSession(persisted.unlocked.snapshot.items);
       setEncryptedVault(persisted.encrypted);
+      if (isOffline) {
+        const now = new Date().toISOString();
+        for (const id of idSet) {
+          enqueueOfflineMutation({ type: "upsert", itemId: id, timestamp: now, retryCount: 0 });
+        }
+        setOfflineQueueCount(getOfflineQueueSize());
+      }
       setStatus(`已更新 ${ids.length} 个凭据`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "批量更新密码失败。");
     } finally {
       setLoading(false);
     }
-  }, [unlockedVault, publishExtensionSession]);
+  }, [unlockedVault, publishExtensionSession, isOffline]);
 
   // -- Generate password --
   const handleGeneratePassword = useCallback(() => {
@@ -1306,6 +1526,141 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setRecoveryCode("");
     setRecoveryConfirmed(false);
   }, []);
+
+  // -- Regenerate recovery code --
+  const handleRegenerateRecovery = useCallback(async (): Promise<string> => {
+    if (!unlockedVault) throw new Error("请先解锁密码库。");
+    setRegeneratingRecovery(true);
+    try {
+      const vaultKeyBytes =
+        unlockedVault.runtime === "webcrypto-mvp"
+          ? new Uint8Array(await crypto.subtle.exportKey("raw", unlockedVault.key))
+          : unlockedVault.key;
+
+      const code = generateRecoveryCode();
+      const packet = await createRecoveryPacket(code, vaultKeyBytes);
+      saveRecoveryPacket(packet);
+
+      if (csrfToken) {
+        await saveRecoveryPacketToServer(csrfToken, packet).catch(() => undefined);
+      }
+
+      return code;
+    } finally {
+      setRegeneratingRecovery(false);
+    }
+  }, [unlockedVault, csrfToken]);
+
+  // -- Item history --
+  const loadHistory = useCallback(async (itemId: string) => {
+    if (!unlockedVault) return;
+    setHistoryLoading(true);
+    setHistoryError("");
+    setHistoryVersions([]);
+    try {
+      const response = await fetchItemHistory(itemId);
+      const versions: Array<{ revision: number; createdAt: string; item: VaultItem }> = [];
+      for (const version of response.versions) {
+        try {
+          const decrypted = await decryptItemFromSync(
+            unlockedVault,
+            version.encryptedItemKey as CiphertextEnvelope,
+            version.encryptedPayload as CiphertextEnvelope,
+            version.id
+          );
+          versions.push({
+            revision: version.revision,
+            createdAt: version.updatedAt,
+            item: decrypted,
+          });
+        } catch {
+          // Skip versions that cannot be decrypted
+        }
+      }
+      setHistoryVersions(versions);
+    } catch (e) {
+      setHistoryError(e instanceof Error ? getErrorMessage(e) : "加载历史版本失败。");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [unlockedVault]);
+
+  // -- Cloud export (vault-settings) --
+  const loadCloudExports = useCallback(async () => {
+    if (!csrfToken) return;
+    try {
+      const response = await requestJson<{ exports: Array<{ id: string; createdAt: string; algorithm: string }> }>("/exports");
+      setCloudExports(response.exports);
+    } catch {
+      // Silently fail - cloud exports are optional
+    }
+  }, [csrfToken]);
+
+  const createCloudExport = useCallback(async () => {
+    if (!encryptedVault || !csrfToken) return;
+    setCloudExportLoading(true);
+    setCloudExportError("");
+    try {
+      const exportId = crypto.randomUUID();
+      await requestJson<{ ok: true }>("/exports/create", {
+        method: "POST",
+        headers: {
+          "x-zero-vault-csrf": csrfToken,
+          "X-Export-Id": exportId,
+          "X-Export-Algorithm": "XCHACHA20_POLY1305",
+          "content-type": "application/octet-stream",
+        },
+        // The encrypted vault is already a JSON-serialized ciphertext blob.
+        // Sending it as application/octet-stream matches the backend's arrayBuffer() reader.
+        // The server stores raw bytes — it never parses the content.
+        body: JSON.stringify(encryptedVault),
+      });
+      await loadCloudExports();
+    } catch (e) {
+      setCloudExportError(e instanceof Error ? getErrorMessage(e) : "上传云端备份失败。");
+    } finally {
+      setCloudExportLoading(false);
+    }
+  }, [encryptedVault, csrfToken, loadCloudExports]);
+
+  const deleteCloudExport = useCallback(async (exportId: string) => {
+    if (!csrfToken) return;
+    try {
+      await requestJson<{ ok: true }>(`/exports/${exportId}`, {
+        method: "DELETE",
+        headers: { "x-zero-vault-csrf": csrfToken },
+      });
+      setCloudExports((prev) => prev.filter((e) => e.id !== exportId));
+    } catch {
+      // Silently fail
+    }
+  }, [csrfToken]);
+
+  // -- GET item-sync hydration (Phase 2.4) --
+  useEffect(() => {
+    if (!user || !csrfToken) return;
+    // Hydrate item revision map from server on login
+    (async () => {
+      try {
+        const response = await requestJson<{ serverRevision: number; items: VaultItemCiphertext[]; deletedItemIds: string[] }>("/vault/item-sync");
+        const serverRevisionMap: Record<string, number> = {};
+        for (const item of response.items) {
+          serverRevisionMap[item.id] = item.revision;
+        }
+        // Merge server revisions into local map (server wins on conflicts)
+        const localMap = loadItemRevisionMap();
+        const merged: Record<string, number> = { ...localMap };
+        for (const [id, rev] of Object.entries(serverRevisionMap)) {
+          if ((merged[id] ?? 0) < rev) {
+            merged[id] = rev;
+          }
+        }
+        saveItemRevisionMap(merged);
+      } catch {
+        // Non-critical: first sync may produce false conflicts but self-corrects
+      }
+    })();
+  }, [user, csrfToken]);
 
   // -- Device trust (vault-device) --
   const refreshDevicesCb = useCallback(async () => {
@@ -1514,12 +1869,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     itemForm, setItemForm, editingId, setEditingId,
     error, setError, status, syncStatus, syncConflict,
     extensionBridge, canRestoreFromCloud, showSecrets,
-    importStatus, searchQuery, setSearchQuery,
-    loading, copiedField, deleteConfirmId, setDeleteConfirmId, isOffline,
+    importStatus, searchQuery, setSearchQuery, searchLoading,
+    loading, copiedField, deleteConfirmId, setDeleteConfirmId, isOffline, offlineQueueCount,
     itemSyncInfos, itemConflicts, lastSyncedAt,
     showRecoveryModal, recoveryCode, recoveryConfirmed, setRecoveryConfirmed,
     showRecoveryEntry, setShowRecoveryEntry, recoveryInputCode, setRecoveryInputCode,
-    recoveryPassword, setRecoveryPassword,
+    recoveryPassword, setRecoveryPassword, regeneratingRecovery,
+    handleRegenerateRecovery,
     devices, currentDeviceId, showDeviceSection, setShowDeviceSection,
     activeNav, setActiveNav, drawerOpen,
     filterMode, setFilterMode, folderFilter, setFolderFilter, passwordRevealedId, setPasswordRevealedId,
@@ -1552,6 +1908,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     handleExportCsvSelected: handleExportCsvSelectedCb,
     handleExportEncryptedSelected: handleExportEncryptedSelectedCb,
     handleCopy,
+    historyVersions, historyLoading, historyError, loadHistory,
+    cloudExports, cloudExportLoading, cloudExportError, loadCloudExports, createCloudExport, deleteCloudExport,
     NAV_IDS
   };
 

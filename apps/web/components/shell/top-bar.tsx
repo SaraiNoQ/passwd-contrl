@@ -1,6 +1,6 @@
 "use client";
 
-import { Blocks, Clock, Menu, RefreshCw, Search, X, Zap } from "lucide-react";
+import { Blocks, Clock, Loader2, Menu, RefreshCw, Search, X, Zap } from "lucide-react";
 import { useMemo } from "react";
 import styles from "./top-bar.module.css";
 
@@ -14,6 +14,7 @@ type VaultStatus = {
 type TopBarProps = {
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
+  searchLoading?: boolean;
   syncStatus: string;
   autoLockRemaining: number;
   onSyncNow: () => void;
@@ -44,6 +45,7 @@ function formatDateTime(iso: string): string {
 export default function TopBar({
   searchQuery,
   onSearchQueryChange,
+  searchLoading,
   syncStatus,
   autoLockRemaining,
   onSyncNow,
@@ -83,7 +85,7 @@ export default function TopBar({
         </div>
 
         <div className={styles.search}>
-          <Search size={16} />
+          {searchLoading ? <Loader2 size={16} className={styles.searchSpinner} /> : <Search size={16} />}
           <input
             type="text"
             value={searchQuery}

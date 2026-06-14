@@ -141,7 +141,10 @@ export async function generateSearchTokens(
     const hex = await hmacSha256Hex(vaultKey, `${SEARCH_DOMAIN}${term}`);
     tokens.push({
       alg: "HMAC_SHA256",
-      nonce: "AA", // unused for HMAC; valid base64url placeholder to satisfy the schema
+      // HMAC-SHA256 does not use a nonce, but the CiphertextEnvelope schema requires the field.
+      // The placeholder value "AA" (base64url-encoded zero byte) satisfies the schema without
+      // affecting the security of the HMAC computation.
+      nonce: "AA",
       ciphertext: hex
     });
   }

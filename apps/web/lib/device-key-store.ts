@@ -4,6 +4,11 @@ const KEY_NAME = "device-private-key";
 
 const openDb = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") {
+      reject(new Error("设备密钥存储不可用"));
+      return;
+    }
+
     const request = indexedDB.open(DB_NAME, 1);
 
     request.onupgradeneeded = () => {
@@ -32,15 +37,30 @@ const withStore = async <T>(
 };
 
 export const saveDevicePrivateKey = async (privateKey: Uint8Array): Promise<void> => {
-  await withStore("readwrite", (store) => store.put(privateKey, KEY_NAME));
+  try {
+    await withStore("readwrite", (store) => store.put(privateKey, KEY_NAME));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`设备密钥保存失败: ${message}`);
+  }
 };
 
 export const loadDevicePrivateKey = async (): Promise<Uint8Array | null> => {
-  const result = await withStore("readonly", (store) => store.get(KEY_NAME));
-  return result ? new Uint8Array(result as ArrayBuffer) : null;
+  try {
+    const result = await withStore("readonly", (store) => store.get(KEY_NAME));
+    return result ? new Uint8Array(result as ArrayBuffer) : null;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`设备密钥读取失败: ${message}`);
+  }
 };
 
 export const hasDevicePrivateKey = async (): Promise<boolean> => {
-  const key = await loadDevicePrivateKey();
-  return key !== null;
+  try {
+    const key = await loadDevicePrivateKey();
+    return key !== null;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`设备密钥读取失败: ${message}`);
+  }
 };

@@ -15,9 +15,11 @@ import {
   ArrowDown,
   Download,
   KeyRound,
+  StickyNote,
+  CreditCard,
 } from "lucide-react";
-import type { VaultItem, VaultLogin } from "../../lib/local-vault";
-import { isLogin } from "../../lib/item-types";
+import type { VaultItem, VaultLogin, VaultSecureNote, VaultCreditCard } from "../../lib/local-vault";
+import { isLogin, isSecureNote, isCreditCard } from "../../lib/item-types";
 import { cn } from "../../lib/utils";
 import styles from "./credential-list.module.css";
 
@@ -224,10 +226,9 @@ export function CredentialList({
     return dupes;
   }, [items]);
 
-  /* ---- Sorted items (login items only for credential list) ---- */
+  /* ---- Sorted items ---- */
 
-  const loginItems = useMemo(() => items.filter(isLogin), [items]);
-  const sortedItems = useMemo(() => sortCredentials(loginItems, sortField, sortDirection) as VaultLogin[], [loginItems, sortField, sortDirection]);
+  const sortedItems = useMemo(() => sortCredentials(items, sortField, sortDirection), [items, sortField, sortDirection]);
 
   /* ---- Sort handler ---- */
 
@@ -542,9 +543,11 @@ export function CredentialList({
               </div>
 
               {sortedItems.map((item, index) => {
-                const strength = getPasswordStrength(item.password);
-                const strengthToneClass = styles[`strengthTone${strength.tone[0]?.toUpperCase()}${strength.tone.slice(1)}`] ?? "";
                 const isSelected = selectedIds.has(item.id);
+                const itemIsLogin = isLogin(item);
+                const itemIsNote = isSecureNote(item);
+                const itemIsCard = isCreditCard(item);
+
                 return (
                   <article
                     className={cn(styles.ledgerCard, isSelected && styles.ledgerCardSelected)}
@@ -568,54 +571,97 @@ export function CredentialList({
                     >
                       <span className={styles.cardIndex}>{String(index + 1).padStart(2, "0")}</span>
                       <div className={styles.cardIdentity}>
-                        <div className={styles.cellName}>{item.title}</div>
+                        <div className={styles.cellName}>
+                          {itemIsNote ? <StickyNote size={14} className={styles.typeIcon} /> : null}
+                          {itemIsCard ? <CreditCard size={14} className={styles.typeIcon} /> : null}
+                          {item.title}
+                        </div>
                         <div className={styles.cellOrigin}>
-                          {item.origin}
+                          {itemIsLogin ? item.origin : null}
+                          {itemIsNote ? (item.noteBody?.split("\n")[0]?.slice(0, 60) || "空笔记") : null}
+                          {itemIsCard ? `${item.brand || "信用卡"} ·•••• ${(item.cardNumber || "").slice(-4)}` : null}
                           {item.folder ? <span className={styles.folderTag}>{item.folder}</span> : null}
                         </div>
                       </div>
                     </button>
 
-                    <div className={styles.secretPanel}>
-                      <div className={styles.secretLine}>
-                        <span className={styles.secretLabel}>用户</span>
-                        <span className={styles.cellText}>{item.username || "无用户名"}</span>
+                    {/* Login: password panel */}
+                    {itemIsLogin ? (
+                      <div className={styles.secretPanel}>
+                        <div className={styles.secretLine}>
+                          <span className={styles.secretLabel}>用户</span>
+                          <span className={styles.cellText}>{item.username || "无用户名"}</span>
+                        </div>
+                        <div className={styles.secretLine}>
+                          <span className={styles.secretLabel}>密码</span>
+                          <span
+                            className={cn(
+                              styles.cellPassword,
+                              passwordRevealedId === item.id && styles.cellPasswordRevealed,
+                            )}
+                          >
+                            {passwordRevealedId === item.id ? item.password : "••••••••••••"}
+                          </span>
+                        </div>
+                        {(() => {
+                          const strength = getPasswordStrength(item.password);
+                          const strengthToneClass = styles[`strengthTone${strength.tone[0]?.toUpperCase()}${strength.tone.slice(1)}`] ?? "";
+                          return (
+                            <div className={styles.strengthContainer} aria-label={`密码强度 ${strength.label}`}>
+                              <progress className={cn(styles.strengthBar, strengthToneClass)} value={strength.score} max={100} />
+                              <span className={cn(styles.strengthLabel, strengthToneClass)}>
+                                {strength.label}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
-                      <div className={styles.secretLine}>
-                        <span className={styles.secretLabel}>密码</span>
-                        <span
-                          className={cn(
-                            styles.cellPassword,
-                            passwordRevealedId === item.id && styles.cellPasswordRevealed,
-                          )}
-                        >
-                          {passwordRevealedId === item.id ? item.password : "••••••••••••"}
-                        </span>
+                    ) : null}
+
+                    {/* Secure note: preview */}
+                    {itemIsNote ? (
+                      <div className={styles.secretPanel}>
+                        <div className={styles.secretLine}>
+                          <span className={styles.secretLabel}>笔记</span>
+                          <span className={styles.cellText}>
+                            {(item.noteBody || "").slice(0, 80) || "空笔记"}
+                          </span>
+                        </div>
                       </div>
-                      <div className={styles.strengthContainer} aria-label={`密码强度 ${strength.label}`}>
-                        <progress className={cn(styles.strengthBar, strengthToneClass)} value={strength.score} max={100} />
-                        <span className={cn(styles.strengthLabel, strengthToneClass)}>
-                          {strength.label}
-                        </span>
+                    ) : null}
+
+                    {/* Credit card: info */}
+                    {itemIsCard ? (
+                      <div className={styles.secretPanel}>
+                        <div className={styles.secretLine}>
+                          <span className={styles.secretLabel}>持卡人</span>
+                          <span className={styles.cellText}>{item.cardholderName || "未填写"}</span>
+                        </div>
+                        <div className={styles.secretLine}>
+                          <span className={styles.secretLabel}>卡号</span>
+                          <span className={styles.cellText}>•••• •••• •••• {(item.cardNumber || "").slice(-4) || "----"}</span>
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
 
                     {/* Actions */}
                     <div className={styles.actions} onClick={(e) => e.stopPropagation()}>
-                      {/* Toggle password visibility */}
-                      <button
-                        className={styles.actionButton}
-                        type="button"
-                        onClick={() => onTogglePasswordReveal(item.id)}
-                        title={passwordRevealedId === item.id ? "隐藏密码" : "显示密码"}
-                        aria-label={`${passwordRevealedId === item.id ? "隐藏" : "显示"} ${item.title} 的密码`}
-                        aria-pressed={passwordRevealedId === item.id}
-                      >
-                        {passwordRevealedId === item.id ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
+                      {/* Toggle password visibility (login only) */}
+                      {itemIsLogin ? (
+                        <button
+                          className={styles.actionButton}
+                          type="button"
+                          onClick={() => onTogglePasswordReveal(item.id)}
+                          title={passwordRevealedId === item.id ? "隐藏密码" : "显示密码"}
+                          aria-label={`${passwordRevealedId === item.id ? "隐藏" : "显示"} ${item.title} 的密码`}
+                          aria-pressed={passwordRevealedId === item.id}
+                        >
+                          {passwordRevealedId === item.id ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      ) : null}
 
-                      {/* Copy username */}
-                      {item.username ? (
+                      {/* Copy username (login only) */}
+                      {itemIsLogin && item.username ? (
                         <button
                           className={styles.actionButton}
                           type="button"
@@ -631,28 +677,47 @@ export function CredentialList({
                         </button>
                       ) : null}
 
-                      {/* Copy password */}
-                      <button
-                        className={styles.actionButton}
-                        type="button"
-                        onClick={() => handleCopy(item.password, `pass-${item.id}`, onCopyPassword, item.id)}
-                        title="复制密码"
-                        aria-label={copiedField === `pass-${item.id}` ? `已复制 ${item.title} 的密码` : `复制 ${item.title} 的密码`}
-                      >
-                        {copiedField === `pass-${item.id}` ? (
-                          <Check size={14} className={styles.actionSuccessIcon} />
-                        ) : (
-                          <Copy size={14} />
-                        )}
-                      </button>
+                      {/* Copy password (login only) */}
+                      {itemIsLogin ? (
+                        <button
+                          className={styles.actionButton}
+                          type="button"
+                          onClick={() => handleCopy(item.password, `pass-${item.id}`, onCopyPassword, item.id)}
+                          title="复制密码"
+                          aria-label={copiedField === `pass-${item.id}` ? `已复制 ${item.title} 的密码` : `复制 ${item.title} 的密码`}
+                        >
+                          {copiedField === `pass-${item.id}` ? (
+                            <Check size={14} className={styles.actionSuccessIcon} />
+                          ) : (
+                            <Copy size={14} />
+                          )}
+                        </button>
+                      ) : null}
+
+                      {/* Copy card number (credit card only) */}
+                      {itemIsCard && item.cardNumber ? (
+                        <button
+                          className={styles.actionButton}
+                          type="button"
+                          onClick={() => handleCopy(item.cardNumber, `card-${item.id}`, onCopyUsername, item.id)}
+                          title="复制卡号"
+                          aria-label={copiedField === `card-${item.id}` ? `已复制 ${item.title} 的卡号` : `复制 ${item.title} 的卡号`}
+                        >
+                          {copiedField === `card-${item.id}` ? (
+                            <Check size={14} className={styles.actionSuccessIcon} />
+                          ) : (
+                            <Copy size={14} />
+                          )}
+                        </button>
+                      ) : null}
 
                       {/* Edit */}
                       <button
                         className={cn(styles.actionButton, styles.actionButtonEdit)}
                         type="button"
                         onClick={() => onEdit(item)}
-                        title="编辑凭据"
-                        aria-label="编辑凭据"
+                        title="编辑"
+                        aria-label="编辑"
                       >
                         <Pencil size={14} />
                       </button>
@@ -683,8 +748,8 @@ export function CredentialList({
                           className={cn(styles.actionButton, styles.actionButtonDanger)}
                           type="button"
                           onClick={() => onDeleteConfirm(item.id)}
-                          title="删除凭据"
-                          aria-label="删除凭据"
+                          title="删除"
+                          aria-label="删除"
                         >
                           <Trash2 size={14} />
                         </button>

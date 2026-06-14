@@ -15,7 +15,7 @@ import {
   type UnlockedVault
 } from "./local-vault";
 import { isLogin } from "./item-types";
-import { detectImportFormat, parsePasswordImport } from "./password-import";
+import { detectImportFormat, parsePasswordImport, parseOnePasswordPux } from "./password-import";
 import { deleteAccount } from "./api-client";
 
 // ---------------------------------------------------------------------------
@@ -159,13 +159,22 @@ export async function handleImportPasswords(
   unlockedVault: UnlockedVault
 ): Promise<ImportPasswordsResult> {
   try {
-    const content = await file.text();
-    const format = detectImportFormat(content, file.name);
-    if (format === "unknown") {
-      return { status: "unknown-format" };
-    }
+    const isPux = file.name.toLowerCase().endsWith(".1pux");
+    let parsed: { rows: import("@zero-vault/shared").ImportLoginRow[]; rejected: number };
+    let format: string;
 
-    const parsed = parsePasswordImport(content, format);
+    if (isPux) {
+      parsed = await parseOnePasswordPux(file);
+      format = "1password";
+    } else {
+      const content = await file.text();
+      const detected = detectImportFormat(content, file.name);
+      if (detected === "unknown") {
+        return { status: "unknown-format" };
+      }
+      format = detected;
+      parsed = parsePasswordImport(content, detected);
+    }
     const validRows = parsed.rows.filter((row) => {
       try {
         const url = new URL(row.origin);

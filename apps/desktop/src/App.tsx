@@ -16,6 +16,8 @@ import {
 import type { ImportLoginRow, VaultItem } from "@zero-vault/shared";
 import { useAuthState } from "./state/auth-state";
 import { useVaultState } from "./state/vault-state";
+import { useOfflineSync } from "./hooks/use-offline-sync";
+import { useFolders } from "./hooks/use-folders";
 import { Sidebar } from "./components/shell/sidebar";
 import { TopBar } from "./components/shell/top-bar";
 import { LockedState } from "./components/shell/locked-state";
@@ -319,14 +321,31 @@ export function App() {
   const vault = useVaultState();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  const { addItem, updateItem, deleteItem, sync } = vault;
+  const { addItem, updateItem, deleteItem, sync, pushOfflineQueue } = vault;
   const { csrfToken } = auth;
+  const ownerUserId = auth.user?.id;
 
   const [activePage, setActivePage] = useState<PageId>("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<VaultItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [syncEvents, setSyncEvents] = useState<SyncEvent[]>([]);
+
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  const syncFn = useCallback(async () => {
+    if (!csrfToken || !ownerUserId) {
+      if (auth.user) showToast("同步暂不可用：缺少会话令牌");
+      return;
+    }
+    await pushOfflineQueue(csrfToken, ownerUserId);
+    await sync();
+  }, [pushOfflineQueue, sync, csrfToken, ownerUserId, auth.user, showToast]);
+
+  const offlineSync = useOfflineSync(syncFn);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"add" | "edit">("add");
@@ -335,14 +354,12 @@ export function App() {
   const [importOpen, setImportOpen] = useState(false);
   const [recoverySetupOpen, setRecoverySetupOpen] = useState(false);
   const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+
+  const { folders, folderCounts, uncategorizedCount } = useFolders(vault.items);
 
   const isAuthenticated = auth.user !== null;
   const isUnlocked = isAuthenticated && !vault.isLocked;
-
-  const showToast = useCallback((message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 3000);
-  }, []);
 
   const addSyncEvent = useCallback((event: Omit<SyncEvent, "id" | "timestamp">) => {
     setSyncEvents((prev) => [
@@ -436,6 +453,7 @@ export function App() {
     setImportOpen(false);
     setRecoverySetupOpen(false);
     setRecoveryModalOpen(false);
+    setSelectedFolder(null);
     setActivePage("dashboard");
   }, [vault]);
 
@@ -478,6 +496,9 @@ export function App() {
           ? await addItem(item, csrfToken, auth.user.id)
           : await updateItem(item, csrfToken, auth.user.id);
       if (!result.ok) {
+        if (result.error === "网络错误，请检查连接") {
+          offlineSync.enqueueItem(item.id, "upsert");
+        }
         showToast(result.error);
         return;
       }
@@ -509,6 +530,9 @@ export function App() {
 
     const result = await deleteItem(deletingItem.id, csrfToken, auth.user.id);
     if (!result.ok) {
+      if (result.error === "网络错误，请检查连接") {
+        offlineSync.enqueueItem(deletingItem.id, "delete");
+      }
       showToast(result.error);
       return;
     }
@@ -557,7 +581,16 @@ export function App() {
 
   const handleResolveConflict = useCallback(
     async (itemId: string, action: ConflictAction) => {
-      const result = await vault.resolveConflict(itemId, actionToStrategy(action));
+      if (!csrfToken || !auth.user) {
+        showToast("登录已过期，请重新登录");
+        return;
+      }
+      const result = await vault.resolveConflict(
+        itemId,
+        actionToStrategy(action),
+        csrfToken,
+        auth.user.id,
+      );
       if (!result.ok) {
         showToast(result.error);
         return;
@@ -568,15 +601,21 @@ export function App() {
         itemCount: 1,
       });
     },
-    [vault, addSyncEvent, showToast],
+    [vault, csrfToken, auth.user, addSyncEvent, showToast],
   );
 
   const handleResolveAll = useCallback(
     async (action: ConflictAction) => {
+      if (!csrfToken || !auth.user) {
+        showToast("登录已过期，请重新登录");
+        return;
+      }
       for (const conflict of conflictItems) {
         const result = await vault.resolveConflict(
           conflict.itemId,
           actionToStrategy(action),
+          csrfToken,
+          auth.user.id,
         );
         if (!result.ok) {
           showToast(result.error);
@@ -589,7 +628,7 @@ export function App() {
         itemCount: conflictItems.length,
       });
     },
-    [vault, conflictItems, addSyncEvent, showToast],
+    [vault, conflictItems, csrfToken, auth.user, addSyncEvent, showToast],
   );
 
   const handleRecoveryComplete = useCallback(
@@ -715,6 +754,15 @@ export function App() {
         onNavigate={handleNavigate}
         onLock={handleLock}
         syncStatus={syncStatus}
+        isOffline={!offlineSync.isOnline}
+        isUnlocked={isUnlocked}
+        folders={folders}
+        allCount={vault.items.length}
+        folderCounts={folderCounts}
+        uncategorizedCount={uncategorizedCount}
+        selectedFolder={selectedFolder}
+        onFolderSelect={setSelectedFolder}
+        credentialsNavId="credentials"
       />
 
       <main className={styles.main}>
@@ -725,6 +773,10 @@ export function App() {
           onSync={handleSync}
           autoLockMinutes={vault.autoLockMinutes}
           searchInputRef={searchInputRef}
+          isOnline={offlineSync.isOnline}
+          pendingCount={offlineSync.pendingCount}
+          failedCount={offlineSync.failedCount}
+          onRetryNow={offlineSync.retryNow}
         />
 
         <div className={styles.content}>
@@ -753,6 +805,7 @@ export function App() {
                   onSelect={setSelectedItem}
                   onAdd={handleAdd}
                   loading={vault.isLoading}
+                  selectedFolder={selectedFolder}
                 />
               </div>
 
@@ -845,6 +898,16 @@ export function App() {
                   if (!result.ok) throw new Error(result.error);
                 })
               }
+              onFetchSharedKey={async (masterPassword) => {
+                if (!auth.user) throw new Error("登录已过期");
+                const result = await vault.fetchSharedVaultKey(
+                  csrfToken,
+                  auth.user.id,
+                  masterPassword,
+                );
+                if (!result.ok) throw new Error(result.error);
+                showToast("共享密钥已获取，设备就绪");
+              }}
             />
           )}
 

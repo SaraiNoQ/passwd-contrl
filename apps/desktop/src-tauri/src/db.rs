@@ -22,6 +22,7 @@ pub struct StoredItemJson {
     pub item_revision: i64,
     pub last_synced_at: String,
     pub has_conflict: bool,
+    pub conflict_server_item_revision: Option<i64>,
 }
 
 // ── State wrapper ────────────────────────────────────────────────────────────
@@ -39,7 +40,8 @@ CREATE TABLE IF NOT EXISTS ciphertext_items (
     ciphertext_json TEXT NOT NULL,
     item_revision INTEGER NOT NULL,
     last_synced_at TEXT NOT NULL,
-    has_conflict  INTEGER NOT NULL DEFAULT 0
+    has_conflict  INTEGER NOT NULL DEFAULT 0,
+    conflict_server_item_revision INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS sync_metadata (
@@ -56,6 +58,12 @@ pub fn db_init(db_path: String) -> Result<(), String> {
     let conn = Connection::open(&db_path).map_err(|e| format!("db open failed: {e}"))?;
     conn.execute_batch(SCHEMA)
         .map_err(|e| format!("schema creation failed: {e}"))?;
+
+    // Migrate existing databases: add conflict_server_item_revision column
+    // if it was created before the column was added to the schema.
+    let _ = conn.execute_batch(
+        "ALTER TABLE ciphertext_items ADD COLUMN conflict_server_item_revision INTEGER;"
+    );
     Ok(())
 }
 
@@ -64,7 +72,7 @@ pub fn db_init(db_path: String) -> Result<(), String> {
 pub fn db_get_all_ciphertext(state: tauri::State<'_, DbConnection>) -> Result<Vec<StoredItemJson>, String> {
     let conn = state.0.lock().map_err(|_| "db lock poisoned".to_string())?;
     let mut stmt = conn
-        .prepare("SELECT item_id, ciphertext_json, item_revision, last_synced_at, has_conflict FROM ciphertext_items")
+        .prepare("SELECT item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision FROM ciphertext_items")
         .map_err(|e| format!("prepare failed: {e}"))?;
 
     let rows = stmt
@@ -75,6 +83,7 @@ pub fn db_get_all_ciphertext(state: tauri::State<'_, DbConnection>) -> Result<Ve
                 item_revision: row.get(2)?,
                 last_synced_at: row.get(3)?,
                 has_conflict: row.get::<_, i64>(4)? != 0,
+                conflict_server_item_revision: row.get(5)?,
             })
         })
         .map_err(|e| format!("query failed: {e}"))?;
@@ -94,7 +103,7 @@ pub fn db_get_ciphertext_by_id(
 ) -> Result<Option<StoredItemJson>, String> {
     let conn = state.0.lock().map_err(|_| "db lock poisoned".to_string())?;
     let mut stmt = conn
-        .prepare("SELECT item_id, ciphertext_json, item_revision, last_synced_at, has_conflict FROM ciphertext_items WHERE item_id = ?1")
+        .prepare("SELECT item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision FROM ciphertext_items WHERE item_id = ?1")
         .map_err(|e| format!("prepare failed: {e}"))?;
 
     let mut rows = stmt
@@ -105,6 +114,7 @@ pub fn db_get_ciphertext_by_id(
                 item_revision: row.get(2)?,
                 last_synced_at: row.get(3)?,
                 has_conflict: row.get::<_, i64>(4)? != 0,
+                conflict_server_item_revision: row.get(5)?,
             })
         })
         .map_err(|e| format!("query failed: {e}"))?;
@@ -124,17 +134,19 @@ pub fn db_upsert_ciphertext(
     item_revision: i64,
     last_synced_at: String,
     has_conflict: bool,
+    conflict_server_item_revision: Option<i64>,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|_| "db lock poisoned".to_string())?;
     conn.execute(
-        "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict)
-         VALUES (?1, ?2, ?3, ?4, ?5)
+        "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(item_id) DO UPDATE SET
              ciphertext_json = excluded.ciphertext_json,
              item_revision = excluded.item_revision,
              last_synced_at = excluded.last_synced_at,
-             has_conflict = excluded.has_conflict",
-        params![item_id, ciphertext_json, item_revision, last_synced_at, has_conflict as i64],
+             has_conflict = excluded.has_conflict,
+             conflict_server_item_revision = excluded.conflict_server_item_revision",
+        params![item_id, ciphertext_json, item_revision, last_synced_at, has_conflict as i64, conflict_server_item_revision],
     )
     .map_err(|e| format!("upsert failed: {e}"))?;
     Ok(())
@@ -287,14 +299,14 @@ mod tests {
         let conn = db.0.lock().unwrap();
 
         conn.execute(
-            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params!["item-1", r#"{"id":"item-1"}"#, 1i64, "2025-01-01T00:00:00Z", 0i64],
+            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params!["item-1", r#"{"id":"item-1"}"#, 1i64, "2025-01-01T00:00:00Z", 0i64, Option::<i64>::None],
         )
         .unwrap();
 
         let mut stmt = conn
-            .prepare("SELECT item_id, ciphertext_json, item_revision, last_synced_at, has_conflict FROM ciphertext_items WHERE item_id = ?1")
+            .prepare("SELECT item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision FROM ciphertext_items WHERE item_id = ?1")
             .unwrap();
         let item: StoredItemJson = stmt
             .query_row(params!["item-1"], |row| {
@@ -304,6 +316,7 @@ mod tests {
                     item_revision: row.get(2)?,
                     last_synced_at: row.get(3)?,
                     has_conflict: row.get::<_, i64>(4)? != 0,
+                    conflict_server_item_revision: row.get(5)?,
                 })
             })
             .unwrap();
@@ -311,6 +324,7 @@ mod tests {
         assert_eq!(item.item_id, "item-1");
         assert_eq!(item.item_revision, 1);
         assert!(!item.has_conflict);
+        assert!(item.conflict_server_item_revision.is_none());
     }
 
     #[test]
@@ -319,34 +333,36 @@ mod tests {
         let conn = db.0.lock().unwrap();
 
         conn.execute(
-            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params!["item-1", r#"{"v":1}"#, 1i64, "2025-01-01T00:00:00Z", 0i64],
+            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params!["item-1", r#"{"v":1}"#, 1i64, "2025-01-01T00:00:00Z", 0i64, Option::<i64>::None],
         )
         .unwrap();
 
         conn.execute(
-            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict)
-             VALUES (?1, ?2, ?3, ?4, ?5)
+            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
              ON CONFLICT(item_id) DO UPDATE SET
                  ciphertext_json = excluded.ciphertext_json,
                  item_revision = excluded.item_revision,
                  last_synced_at = excluded.last_synced_at,
-                 has_conflict = excluded.has_conflict",
-            params!["item-1", r#"{"v":2}"#, 2i64, "2025-01-02T00:00:00Z", 1i64],
+                 has_conflict = excluded.has_conflict,
+                 conflict_server_item_revision = excluded.conflict_server_item_revision",
+            params!["item-1", r#"{"v":2}"#, 2i64, "2025-01-02T00:00:00Z", 1i64, Some(7i64)],
         )
         .unwrap();
 
         let mut stmt = conn
-            .prepare("SELECT ciphertext_json, item_revision, has_conflict FROM ciphertext_items WHERE item_id = ?1")
+            .prepare("SELECT ciphertext_json, item_revision, has_conflict, conflict_server_item_revision FROM ciphertext_items WHERE item_id = ?1")
             .unwrap();
-        let (json, rev, conflict): (String, i64, i64) = stmt
-            .query_row(params!["item-1"], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+        let (json, rev, conflict, conflict_server_item_revision): (String, i64, i64, Option<i64>) = stmt
+            .query_row(params!["item-1"], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
             .unwrap();
 
         assert_eq!(json, r#"{"v":2}"#);
         assert_eq!(rev, 2);
         assert_eq!(conflict, 1);
+        assert_eq!(conflict_server_item_revision, Some(7));
     }
 
     #[test]
@@ -355,9 +371,9 @@ mod tests {
         let conn = db.0.lock().unwrap();
 
         conn.execute(
-            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params!["item-1", r#"{}"#, 1i64, "2025-01-01T00:00:00Z", 0i64],
+            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params!["item-1", r#"{}"#, 1i64, "2025-01-01T00:00:00Z", 0i64, Option::<i64>::None],
         )
         .unwrap();
 
@@ -425,21 +441,21 @@ mod tests {
         let conn = db.0.lock().unwrap();
 
         conn.execute(
-            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params!["a", r#"{}"#, 1i64, "2025-01-01T00:00:00Z", 1i64],
+            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params!["a", r#"{}"#, 1i64, "2025-01-01T00:00:00Z", 1i64, Some(2i64)],
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params!["b", r#"{}"#, 1i64, "2025-01-01T00:00:00Z", 0i64],
+            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params!["b", r#"{}"#, 1i64, "2025-01-01T00:00:00Z", 0i64, Option::<i64>::None],
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params!["c", r#"{}"#, 1i64, "2025-01-01T00:00:00Z", 1i64],
+            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params!["c", r#"{}"#, 1i64, "2025-01-01T00:00:00Z", 1i64, Some(3i64)],
         )
         .unwrap();
 
@@ -463,9 +479,9 @@ mod tests {
         let conn = db.0.lock().unwrap();
 
         conn.execute(
-            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params!["item-1", r#"{}"#, 1i64, "2025-01-01T00:00:00Z", 0i64],
+            "INSERT INTO ciphertext_items (item_id, ciphertext_json, item_revision, last_synced_at, has_conflict, conflict_server_item_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params!["item-1", r#"{}"#, 1i64, "2025-01-01T00:00:00Z", 0i64, Option::<i64>::None],
         )
         .unwrap();
         conn.execute(

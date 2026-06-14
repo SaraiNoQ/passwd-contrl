@@ -35,6 +35,11 @@ import {
   type SyncResult,
 } from "../lib/sync/desktop-sync-service";
 import type { DesktopApiClient } from "../lib/api/desktop-api-client";
+import { generateSearchTokens } from "../lib/search-tokens";
+import {
+  dequeueOfflineMutations,
+  enqueueOfflineMutation,
+} from "../lib/offline-queue";
 
 // ── Dependency injection ──────────────────────────────────────────────────────
 
@@ -54,7 +59,7 @@ export function configureVaultDependencies(deps: {
   if (deps.cryptoAdapter) cryptoAdapter = deps.cryptoAdapter;
   if (deps.ciphertextStore) ciphertextStore = deps.ciphertextStore;
   if (deps.secureStore) secureStore = deps.secureStore;
-  if (deps.apiClient) apiClient = deps.apiClient;
+  if (deps.apiClient !== undefined) apiClient = deps.apiClient;
   if (deps.syncService !== undefined) {
     syncService = deps.syncService;
   } else if (deps.apiClient) {
@@ -213,10 +218,16 @@ export interface VaultState {
   recoverWithVaultKey: (key: Uint8Array) => Promise<void>;
   lock: () => void;
   sync: () => Promise<DesktopActionResult<SyncResult>>;
+  pushOfflineQueue: (
+    csrfToken: string,
+    ownerUserId: string,
+  ) => Promise<DesktopActionResult<{ processed: number; requeued: number }>>;
   refreshSyncSnapshot: () => Promise<void>;
   resolveConflict: (
     itemId: string,
     strategy: "keep_local" | "accept_remote" | "create_copy" | "skip",
+    csrfToken: string,
+    ownerUserId: string,
   ) => Promise<DesktopActionResult>;
   refreshDevices: () => Promise<void>;
   registerDevice: (
@@ -263,6 +274,12 @@ export interface VaultState {
   deleteAccount: (csrfToken: string) => Promise<DesktopActionResult>;
   clearError: () => void;
   setAutoLockMinutes: (minutes: number) => void;
+  /** Fetch shared vault key after another device approves this device. Requires master password to re-wrap. */
+  fetchSharedVaultKey: (
+    csrfToken: string,
+    ownerUserId: string,
+    masterPassword: string,
+  ) => Promise<DesktopActionResult>;
 }
 
 export function useVaultState(): VaultState {
@@ -556,32 +573,240 @@ export function useVaultState(): VaultState {
     }
   }, [isLocked, vaultKey, loadDecryptedItems]);
 
+  const pushOfflineQueue = useCallback(
+    async (
+      csrfToken: string,
+      ownerUserId: string,
+    ): Promise<DesktopActionResult<{ processed: number; requeued: number }>> => {
+      if (isLocked || !vaultKey) {
+        return actionFail(new Error("密码库已锁定，请先解锁"));
+      }
+
+      const client = apiClient;
+      if (!client) {
+        return actionFail(new Error("API 客户端未配置"));
+      }
+
+      const entries = dequeueOfflineMutations();
+      let processed = 0;
+      let requeued = 0;
+      const networkFailures: typeof entries = [];
+      // Snapshot items to avoid stale closure across async iterations
+      const itemsSnapshot = items;
+      // Track which entries were actually processed for outer catch recovery
+      const processedEntryIds = new Set<string>();
+
+      try {
+        for (const entry of entries) {
+          try {
+            if (entry.type === "upsert") {
+              const item = itemsSnapshot.find((i) => i.id === entry.itemId);
+              if (!item) {
+                // Skip entries for which we no longer have plaintext
+                processed += 1;
+                processedEntryIds.add(entry.itemId);
+                continue;
+              }
+
+              const now = new Date().toISOString();
+              const encrypted = await cryptoAdapter.encryptItem(vaultKey, item, item.id);
+              const existing = await ciphertextStore.getById(item.id);
+              const currentRevision = existing?.itemRevision ?? 0;
+              const baseRevision = await ciphertextStore.getServerRevision();
+
+              const upsert: ItemLevelEncryptedUpsert = {
+                id: item.id,
+                ownerUserId,
+                revision: currentRevision + 1,
+                createdAt: existing?.ciphertext.createdAt ?? now,
+                updatedAt: now,
+                encryptedItemKey: encrypted.encryptedItemKey,
+                encryptedPayload: encrypted.encryptedPayload,
+                encryptedSearchTokens: await generateSearchTokens(vaultKey, item),
+                baseItemRevision: currentRevision,
+              };
+
+              const response = await client.updateItem(csrfToken, upsert, baseRevision);
+
+              if (response.conflicts.length > 0) {
+                const conflictIds = await ciphertextStore.getConflictIds();
+                const conflict = response.conflicts.find((c) => c.itemId === item.id);
+                for (const c of response.conflicts) conflictIds.add(c.itemId);
+                await ciphertextStore.setConflictIds(conflictIds);
+                await ciphertextStore.setServerRevision(response.serverRevision);
+                await ciphertextStore.upsert({
+                  itemId: item.id,
+                  ciphertext: {
+                    id: item.id,
+                    ownerUserId,
+                    revision: currentRevision,
+                    createdAt: existing?.ciphertext.createdAt ?? now,
+                    updatedAt: now,
+                    encryptedItemKey: encrypted.encryptedItemKey,
+                    encryptedPayload: encrypted.encryptedPayload,
+                    encryptedSearchTokens: await generateSearchTokens(vaultKey, item),
+                  },
+                  itemRevision: currentRevision,
+                  lastSyncedAt: now,
+                  hasConflict: true,
+                  conflictServerItemRevision: conflict?.serverItemRevision,
+                });
+                processed += 1;
+                processedEntryIds.add(entry.itemId);
+                continue;
+              }
+
+              const storedRevision =
+                response.applied.upsertedItemIds.includes(item.id)
+                  ? (response.serverRevision ?? currentRevision + 1)
+                  : currentRevision + 1;
+              await ciphertextStore.upsert({
+                itemId: item.id,
+                ciphertext: {
+                  id: item.id,
+                  ownerUserId,
+                  revision: storedRevision,
+                  createdAt: existing?.ciphertext.createdAt ?? now,
+                  updatedAt: now,
+                  encryptedItemKey: encrypted.encryptedItemKey,
+                  encryptedPayload: encrypted.encryptedPayload,
+                  encryptedSearchTokens: await generateSearchTokens(vaultKey, item),
+                },
+                itemRevision: storedRevision,
+                lastSyncedAt: now,
+                hasConflict: false,
+                conflictServerItemRevision: undefined,
+              });
+              await ciphertextStore.setServerRevision(response.serverRevision);
+              await ciphertextStore.setLastSyncedAt(now);
+              processed += 1;
+              processedEntryIds.add(entry.itemId);
+            } else if (entry.type === "delete") {
+              const existing = await ciphertextStore.getById(entry.itemId);
+              const currentRevision = existing?.itemRevision ?? 0;
+              const baseRevision = await ciphertextStore.getServerRevision();
+
+              const response = await client.deleteItem(
+                csrfToken,
+                entry.itemId,
+                currentRevision,
+                ownerUserId,
+                baseRevision,
+              );
+
+              if (response.conflicts.length > 0) {
+                const conflictIds = await ciphertextStore.getConflictIds();
+                const conflict = response.conflicts.find((c) => c.itemId === entry.itemId);
+                for (const c of response.conflicts) conflictIds.add(c.itemId);
+                await ciphertextStore.setConflictIds(conflictIds);
+                await ciphertextStore.setServerRevision(response.serverRevision);
+                if (existing) {
+                  await ciphertextStore.upsert({
+                    ...existing,
+                    hasConflict: true,
+                    conflictServerItemRevision: conflict?.serverItemRevision,
+                  });
+                }
+                processed += 1;
+                processedEntryIds.add(entry.itemId);
+                continue;
+              }
+
+              await ciphertextStore.delete(entry.itemId);
+              await ciphertextStore.setServerRevision(response.serverRevision);
+              await ciphertextStore.setLastSyncedAt(new Date().toISOString());
+
+              if (mountedRef.current) {
+                setItems((prev) => prev.filter((i) => i.id !== entry.itemId));
+              }
+              processed += 1;
+              processedEntryIds.add(entry.itemId);
+            }
+          } catch (err: unknown) {
+            const message = getErrorMessage(err);
+            if (message === "网络错误，请检查连接") {
+              networkFailures.push(entry);
+            } else {
+              // Conflicts, auth errors, and other permanent failures are not re-enqueued
+              processed += 1;
+              processedEntryIds.add(entry.itemId);
+            }
+          }
+        }
+
+        for (const entry of networkFailures) {
+          enqueueOfflineMutation(entry);
+          requeued += 1;
+        }
+
+        await refreshSyncSnapshot();
+        return actionOk({ processed, requeued });
+      } catch {
+        // Unexpected outer failure — re-enqueue anything not yet accounted for
+        for (const entry of entries) {
+          const alreadyHandled =
+            processedEntryIds.has(entry.itemId) || networkFailures.includes(entry);
+          if (!alreadyHandled) {
+            enqueueOfflineMutation(entry);
+            requeued += 1;
+          }
+        }
+        await refreshSyncSnapshot();
+        return actionOk({ processed, requeued });
+      }
+    },
+    [isLocked, vaultKey, items, refreshSyncSnapshot],
+  );
+
   const resolveConflict = useCallback(
     async (
       itemId: string,
       strategy: "keep_local" | "accept_remote" | "create_copy" | "skip",
+      csrfToken: string,
+      ownerUserId: string,
     ): Promise<DesktopActionResult> => {
       const service = syncService;
       if (!service) {
         setError("同步服务未配置");
         return actionFail(new Error("同步服务未配置"));
       }
+      if (!vaultKey) {
+        setError("密码库已锁定，请先解锁");
+        return actionFail(new Error("密码库已锁定，请先解锁"));
+      }
+
+      const localItem = items.find((item) => item.id === itemId);
+      if (!localItem) {
+        setError("未找到冲突项目");
+        return actionFail(new Error("未找到冲突项目"));
+      }
 
       setIsLoading(true);
       setError(null);
       try {
-        await service.resolveConflict(itemId, strategy);
+        const result = await service.resolveConflict(itemId, strategy, {
+          localItem,
+          vaultKey,
+          csrfToken,
+          ownerUserId,
+        });
+        if (result.clonedItemId) {
+          setItems((prev) => [
+            ...prev,
+            { ...localItem, id: result.clonedItemId! },
+          ]);
+        }
         await refreshSyncSnapshot();
         return actionOk(undefined);
       } catch (err: unknown) {
-        const result = actionFail(err);
-        if (mountedRef.current) setError(result.error);
-        return result;
+        const failed = actionFail(err);
+        if (mountedRef.current) setError(failed.error);
+        return failed;
       } finally {
         if (mountedRef.current) setIsLoading(false);
       }
     },
-    [refreshSyncSnapshot],
+    [items, refreshSyncSnapshot, vaultKey],
   );
 
   const refreshDevices = useCallback(async (): Promise<void> => {
@@ -752,28 +977,14 @@ export function useVaultState(): VaultState {
       setError(null);
       try {
         const recoveryKey = await cryptoAdapter.deriveRecoveryKey(recoveryCode);
-        const importedKey = await globalThis.crypto.subtle.importKey(
-          "raw",
-          recoveryKey.slice().buffer as ArrayBuffer,
-          "AES-GCM",
-          false,
-          ["encrypt"],
-        );
-        const nonce = globalThis.crypto.getRandomValues(new Uint8Array(12));
-        const aad = new TextEncoder().encode("zero-vault.recovery.v1");
-        const ciphertext = await globalThis.crypto.subtle.encrypt(
-          {
-            name: "AES-GCM",
-            iv: nonce.buffer as ArrayBuffer,
-            additionalData: aad,
-          },
-          importedKey,
-          vaultKey.slice().buffer as ArrayBuffer,
+        const encrypted = await cryptoAdapter.encryptRecoveryPacket(
+          recoveryKey,
+          vaultKey,
         );
         const packet: RecoveryPacketEnvelope = {
-          alg: "AES_256_GCM",
-          nonce: bytesToBase64url(nonce),
-          ciphertext: bytesToBase64url(new Uint8Array(ciphertext)),
+          alg: "XCHACHA20_POLY1305",
+          nonce: bytesToBase64url(encrypted.nonce),
+          ciphertext: bytesToBase64url(encrypted.ciphertext),
         };
 
         await client.uploadRecoveryPacket(csrfToken, {
@@ -827,7 +1038,7 @@ export function useVaultState(): VaultState {
           updatedAt: now,
           encryptedItemKey: encrypted.encryptedItemKey,
           encryptedPayload: encrypted.encryptedPayload,
-          encryptedSearchTokens: [],
+          encryptedSearchTokens: await generateSearchTokens(vaultKey, item),
           baseItemRevision: 0,
         };
 
@@ -835,7 +1046,8 @@ export function useVaultState(): VaultState {
 
         if (response.conflicts.length > 0) {
           const conflictIds = await ciphertextStore.getConflictIds();
-          for (const conflict of response.conflicts) conflictIds.add(conflict.itemId);
+          const conflict = response.conflicts.find((c) => c.itemId === item.id);
+          for (const c of response.conflicts) conflictIds.add(c.itemId);
           await ciphertextStore.setConflictIds(conflictIds);
           await ciphertextStore.setServerRevision(response.serverRevision);
           await ciphertextStore.upsert({
@@ -848,11 +1060,12 @@ export function useVaultState(): VaultState {
               updatedAt: now,
               encryptedItemKey: encrypted.encryptedItemKey,
               encryptedPayload: encrypted.encryptedPayload,
-              encryptedSearchTokens: [],
+              encryptedSearchTokens: await generateSearchTokens(vaultKey, item),
             },
             itemRevision: 0,
             lastSyncedAt: now,
             hasConflict: true,
+            conflictServerItemRevision: conflict?.serverItemRevision,
           });
           await refreshSyncSnapshot();
           const result = actionFail(new Error("sync_conflict"));
@@ -875,11 +1088,12 @@ export function useVaultState(): VaultState {
             updatedAt: now,
             encryptedItemKey: encrypted.encryptedItemKey,
             encryptedPayload: encrypted.encryptedPayload,
-            encryptedSearchTokens: [],
+            encryptedSearchTokens: await generateSearchTokens(vaultKey, item),
           },
           itemRevision: storedRevision,
           lastSyncedAt: now,
           hasConflict: false,
+          conflictServerItemRevision: undefined,
         });
         await ciphertextStore.setServerRevision(response.serverRevision);
         await ciphertextStore.setLastSyncedAt(now);
@@ -943,7 +1157,7 @@ export function useVaultState(): VaultState {
           updatedAt: now,
           encryptedItemKey: encrypted.encryptedItemKey,
           encryptedPayload: encrypted.encryptedPayload,
-          encryptedSearchTokens: [],
+          encryptedSearchTokens: await generateSearchTokens(vaultKey, item),
           baseItemRevision: currentRevision,
         };
 
@@ -951,7 +1165,8 @@ export function useVaultState(): VaultState {
 
         if (response.conflicts.length > 0) {
           const conflictIds = await ciphertextStore.getConflictIds();
-          for (const conflict of response.conflicts) conflictIds.add(conflict.itemId);
+          const conflict = response.conflicts.find((c) => c.itemId === item.id);
+          for (const c of response.conflicts) conflictIds.add(c.itemId);
           await ciphertextStore.setConflictIds(conflictIds);
           await ciphertextStore.setServerRevision(response.serverRevision);
           await ciphertextStore.upsert({
@@ -964,11 +1179,12 @@ export function useVaultState(): VaultState {
               updatedAt: now,
               encryptedItemKey: encrypted.encryptedItemKey,
               encryptedPayload: encrypted.encryptedPayload,
-              encryptedSearchTokens: [],
+              encryptedSearchTokens: await generateSearchTokens(vaultKey, item),
             },
             itemRevision: currentRevision,
             lastSyncedAt: now,
             hasConflict: true,
+            conflictServerItemRevision: conflict?.serverItemRevision,
           });
           await refreshSyncSnapshot();
           const result = actionFail(new Error("sync_conflict"));
@@ -991,11 +1207,12 @@ export function useVaultState(): VaultState {
             updatedAt: now,
             encryptedItemKey: encrypted.encryptedItemKey,
             encryptedPayload: encrypted.encryptedPayload,
-            encryptedSearchTokens: [],
+            encryptedSearchTokens: await generateSearchTokens(vaultKey, item),
           },
           itemRevision: storedRevision,
           lastSyncedAt: now,
           hasConflict: false,
+          conflictServerItemRevision: undefined,
         });
         await ciphertextStore.setServerRevision(response.serverRevision);
         await ciphertextStore.setLastSyncedAt(now);
@@ -1059,10 +1276,17 @@ export function useVaultState(): VaultState {
 
         if (response.conflicts.length > 0) {
           const conflictIds = await ciphertextStore.getConflictIds();
-          for (const conflict of response.conflicts) conflictIds.add(conflict.itemId);
+          const conflict = response.conflicts.find((c) => c.itemId === itemId);
+          for (const c of response.conflicts) conflictIds.add(c.itemId);
           await ciphertextStore.setConflictIds(conflictIds);
           await ciphertextStore.setServerRevision(response.serverRevision);
-          if (existing) await ciphertextStore.upsert({ ...existing, hasConflict: true });
+          if (existing) {
+            await ciphertextStore.upsert({
+              ...existing,
+              hasConflict: true,
+              conflictServerItemRevision: conflict?.serverItemRevision,
+            });
+          }
           await refreshSyncSnapshot();
           const result = actionFail(new Error("sync_conflict"));
           if (mountedRef.current) setError(result.error);
@@ -1321,6 +1545,101 @@ export function useVaultState(): VaultState {
     [currentDeviceId, devices, lockVault],
   );
 
+  const fetchSharedVaultKey = useCallback(
+    async (
+      csrfToken: string,
+      ownerUserId: string,
+      masterPassword: string,
+    ): Promise<DesktopActionResult> => {
+      if (isLocked || !vaultKey) {
+        return actionFail(new Error("密码库已锁定，请先解锁"));
+      }
+
+      const client = apiClient;
+      if (!client) {
+        return actionFail(new Error("API 客户端未配置"));
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const storedDeviceId = await secureStore.getItem("device_id");
+        if (!storedDeviceId) {
+          throw new Error("请在获取共享密钥前先注册设备");
+        }
+
+        const privKeyB64 = await secureStore.getItem(
+          `device_private_key_${storedDeviceId}`,
+        );
+        if (!privKeyB64) {
+          throw new Error("设备私钥缺失，请重新注册");
+        }
+
+        // Fetch encrypted vault key from server
+        const response = await client.fetchDeviceVaultKey(
+          csrfToken,
+          storedDeviceId,
+        );
+
+        // Decode and decrypt
+        const encryptedBlob = base64urlToBytes(response.encryptedVaultKey);
+        const devicePrivateKey = base64urlToBytes(privKeyB64);
+        const sharedVaultKey = await cryptoAdapter.decryptVaultKeyOnDevice(
+          encryptedBlob,
+          devicePrivateKey,
+        );
+
+        if (sharedVaultKey.length !== 32) {
+          throw new Error("共享密钥格式错误");
+        }
+
+        // Re-derive key encryption key from master password
+        const saltB64 = await secureStore.getItem("vault_salt");
+        const paramsJson = await secureStore.getItem("vault_params");
+        if (!saltB64 || !paramsJson) {
+          throw new Error("本地密码库参数缺失");
+        }
+
+        const salt = Uint8Array.from(atob(saltB64), (c) => c.charCodeAt(0));
+        const params = JSON.parse(paramsJson) as {
+          memoryKib: number;
+          iterations: number;
+          parallelism: number;
+        };
+        const keyEncryptionKey = await cryptoAdapter.deriveVaultKey(
+          masterPassword,
+          salt,
+          params,
+        );
+
+        // Wrap the new vault key with the key encryption key
+        const wrappedKey = await wrapVaultKey(keyEncryptionKey, sharedVaultKey);
+        await secureStore.setItem(
+          "wrapped_vault_key",
+          JSON.stringify(wrappedKey),
+        );
+
+        // Update vault key in state and re-decrypt cached items
+        setVaultKey(sharedVaultKey);
+        await loadDecryptedItems(sharedVaultKey);
+
+        if (mountedRef.current) {
+          setAutoLockMinutes(autoLockMinutes);
+        }
+
+        return actionOk(undefined);
+      } catch (err: unknown) {
+        const result = actionFail(err);
+        if (mountedRef.current) setError(result.error);
+        return result;
+      } finally {
+        if (mountedRef.current) setIsLoading(false);
+      }
+    },
+    [isLocked, vaultKey, loadDecryptedItems, autoLockMinutes],
+  );
+
   const clearError = useCallback(() => setError(null), []);
 
   return useMemo(
@@ -1346,6 +1665,7 @@ export function useVaultState(): VaultState {
       recoverWithVaultKey,
       lock: lockVault,
       sync,
+      pushOfflineQueue,
       refreshSyncSnapshot,
       resolveConflict,
       refreshDevices,
@@ -1362,6 +1682,7 @@ export function useVaultState(): VaultState {
       exportCsv,
       exportEncryptedBackup,
       deleteAccount,
+      fetchSharedVaultKey,
       clearError,
       setAutoLockMinutes,
     }),
@@ -1369,11 +1690,12 @@ export function useVaultState(): VaultState {
       items, isLocked, isLoading, isSyncing, isDeviceLoading, error,
       lastSyncedAt, conflictCount, storedItems, conflictIds, devices,
       currentDeviceId, vaultKey, recoveryPacket, autoLockMinutes, hasLocalVault,
-      unlock, recoverWithVaultKey, lockVault, sync, refreshSyncSnapshot,
+      unlock, recoverWithVaultKey, lockVault, sync, pushOfflineQueue, refreshSyncSnapshot,
       resolveConflict, refreshDevices, registerDevice, approveDevice,
       rejectDevice, revokeDevice, refreshRecoveryPacket, createRecoveryPacket,
       addItem, updateItem, deleteItem,
       changeMasterPassword, exportCsv, exportEncryptedBackup, deleteAccount,
+      fetchSharedVaultKey,
       clearError, setAutoLockMinutes,
     ],
   );

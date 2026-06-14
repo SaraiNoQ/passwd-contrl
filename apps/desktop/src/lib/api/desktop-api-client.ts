@@ -296,6 +296,18 @@ export class DesktopApiClient {
     });
   }
 
+  async fetchDeviceVaultKey(
+    csrfToken: string,
+    deviceId: string
+  ): Promise<DeviceVaultKeyResponse> {
+    return this.request<DeviceVaultKeyResponse>(
+      `/devices/${deviceId}/key`,
+      {
+        headers: { "x-zero-vault-csrf": csrfToken },
+      }
+    );
+  }
+
   // ── Recovery ────────────────────────────────────────────────────────────
 
   async uploadRecoveryPacket(

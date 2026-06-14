@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, RefreshCw, Search } from "lucide-react";
+import { AlertCircle, Clock, RefreshCw, Search, WifiOff, RotateCcw } from "lucide-react";
 import { useMemo, type RefObject } from "react";
 import styles from "./top-bar.module.css";
 
@@ -17,6 +17,14 @@ export interface TopBarProps {
   autoLockMinutes?: number;
   /** Optional ref for global shortcuts. */
   searchInputRef?: RefObject<HTMLInputElement | null>;
+  /** Whether the app is currently online */
+  isOnline?: boolean;
+  /** Number of pending offline mutations */
+  pendingCount?: number;
+  /** Number of failed offline mutations */
+  failedCount?: number;
+  /** Callback to trigger an immediate retry */
+  onRetryNow?: () => void;
 }
 
 function formatAutoLockTime(minutes: number): string {
@@ -43,6 +51,10 @@ export const TopBar = memo(function TopBar({
   onSync,
   autoLockMinutes,
   searchInputRef,
+  isOnline,
+  pendingCount,
+  failedCount,
+  onRetryNow,
 }: TopBarProps) {
   const autoLockDisplay = useMemo(
     () => formatAutoLockTime(autoLockMinutes ?? 0),
@@ -85,6 +97,39 @@ export const TopBar = memo(function TopBar({
             <Clock size={12} />
             自动封存 {autoLockDisplay}
           </span>
+        ) : null}
+
+        {isOnline === false ? (
+          <span className={`${styles.badge} ${styles.badgeDanger}`}>
+            <WifiOff size={12} />
+            离线
+          </span>
+        ) : null}
+
+        {pendingCount && pendingCount > 0 ? (
+          <span className={`${styles.badge} ${styles.badgeWarning}`}>
+            <RefreshCw size={12} />
+            待同步 {pendingCount}
+          </span>
+        ) : null}
+
+        {failedCount && failedCount > 0 ? (
+          <span className={`${styles.badge} ${styles.badgeDanger}`}>
+            <AlertCircle size={12} />
+            失败 {failedCount}
+          </span>
+        ) : null}
+
+        {onRetryNow && (pendingCount ?? 0) > 0 ? (
+          <button
+            className={styles.syncButton}
+            type="button"
+            onClick={onRetryNow}
+            title="立即重试"
+          >
+            <RotateCcw size={14} />
+            重试
+          </button>
         ) : null}
 
         {onSync ? (

@@ -16,3 +16,4 @@ test-results/
 *.csv
 *.sqlite
 *.sqlite3
+.omo/*

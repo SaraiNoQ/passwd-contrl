@@ -31,6 +31,11 @@ function makeCryptoAdapter(): DesktopCryptoAdapter {
       publicKey: new Uint8Array(32).fill(1),
       privateKey: new Uint8Array(32).fill(2),
     }),
+    encryptRecoveryPacket: vi.fn().mockResolvedValue({
+      nonce: new Uint8Array(24),
+      ciphertext: new Uint8Array(32),
+    }),
+    decryptRecoveryPacket: vi.fn().mockResolvedValue(new Uint8Array(32)),
     encryptVaultKeyForDevice: vi
       .fn()
       .mockResolvedValue(new Uint8Array(32).fill(3)),

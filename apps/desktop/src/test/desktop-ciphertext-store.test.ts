@@ -36,6 +36,7 @@ function makeStoredItem(id: string, overrides?: Partial<StoredItem>): StoredItem
     itemRevision: 1,
     lastSyncedAt: "2025-01-01T00:00:00Z",
     hasConflict: false,
+    conflictServerItemRevision: undefined,
     ...overrides,
   };
 }

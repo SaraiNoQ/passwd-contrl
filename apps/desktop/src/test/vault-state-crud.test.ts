@@ -317,6 +317,7 @@ describe("useVaultState — CRUD operations", () => {
         itemRevision: 1,
         lastSyncedAt: "2026-01-01T00:00:00.000Z",
         hasConflict: false,
+        conflictServerItemRevision: undefined,
       });
 
       const updated = { ...item, title: "Updated Title" };

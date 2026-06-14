@@ -185,6 +185,8 @@ fn main() {
             crypto::encrypt_item,
             crypto::generate_recovery_code,
             crypto::derive_recovery_key,
+            crypto::encrypt_recovery_packet,
+            crypto::decrypt_recovery_packet,
             crypto::generate_device_keypair,
             crypto::encrypt_vault_key_for_device,
             crypto::decrypt_vault_key_on_device,

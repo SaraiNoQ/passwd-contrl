@@ -32,6 +32,20 @@ The desktop app expects the Worker API during local auth/sync development:
 pnpm --filter @zero-vault/worker-api dev
 ```
 
+## API URL / CSP
+
+The Content-Security-Policy `connect-src` directive is configured via the `ZERO_VAULT_API_URL` environment variable at Tauri build time. Set it before running or building the native app:
+
+```sh
+# Development
+ZERO_VAULT_API_URL=http://localhost:8787 pnpm --dir apps/desktop exec tauri dev
+
+# Production build
+ZERO_VAULT_API_URL=https://api.zerovault.example pnpm --dir apps/desktop exec tauri build
+```
+
+If `ZERO_VAULT_API_URL` is not set, Tauri will fail to resolve the CSP and the app will not start.
+
 ## Documentation
 
 Desktop development specifications live in `docs/mac-dev/`.

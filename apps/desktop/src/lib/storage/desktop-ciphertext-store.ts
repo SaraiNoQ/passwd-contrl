@@ -21,6 +21,7 @@ export interface StoredItem {
   itemRevision: number;
   lastSyncedAt: string;
   hasConflict: boolean;
+  conflictServerItemRevision: number | undefined;
 }
 
 export interface DesktopCiphertextStore {
@@ -46,6 +47,7 @@ interface StoredItemRow {
   item_revision: number;
   last_synced_at: string;
   has_conflict: boolean;
+  conflict_server_item_revision: number | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -57,6 +59,7 @@ function rowToStoredItem(row: StoredItemRow): StoredItem {
     itemRevision: row.item_revision,
     lastSyncedAt: row.last_synced_at,
     hasConflict: row.has_conflict,
+    conflictServerItemRevision: row.conflict_server_item_revision ?? undefined,
   };
 }
 
@@ -89,6 +92,7 @@ export class SqliteCiphertextStore implements DesktopCiphertextStore {
       itemRevision: item.itemRevision,
       lastSyncedAt: item.lastSyncedAt,
       hasConflict: item.hasConflict,
+      conflictServerItemRevision: item.conflictServerItemRevision ?? null,
     });
   }
 

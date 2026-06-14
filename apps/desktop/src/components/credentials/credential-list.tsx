@@ -50,6 +50,10 @@ export interface CredentialListProps {
   /** Loading state. */
   loading?: boolean;
   className?: string;
+  /** Folder filter: null=all, ''=uncategorized, string=specific folder */
+  selectedFolder?: string | null;
+  /** Total count of items (after folder filter but before search) for display */
+  totalCountOverride?: number;
 }
 
 export function CredentialList({
@@ -59,13 +63,21 @@ export function CredentialList({
   onAdd,
   loading = false,
   className,
+  selectedFolder = null,
+  totalCountOverride,
 }: CredentialListProps) {
   const [localFilter, setLocalFilter] = useState("");
 
   const effectiveQuery = searchQuery || localFilter;
 
+  const folderFiltered = useMemo(() => {
+    if (selectedFolder === null) return items;
+    const normalized = selectedFolder.trim();
+    return items.filter((item) => (item.folder?.trim() || "") === normalized);
+  }, [items, selectedFolder]);
+
   const filteredItems = useMemo(() => {
-    const loginItems = items.filter(isLogin);
+    const loginItems = folderFiltered.filter(isLogin);
     if (!effectiveQuery.trim()) return loginItems;
 
     const q = effectiveQuery.toLowerCase();
@@ -75,7 +87,7 @@ export function CredentialList({
         item.origin.toLowerCase().includes(q) ||
         item.username.toLowerCase().includes(q),
     );
-  }, [items, effectiveQuery]);
+  }, [folderFiltered, effectiveQuery]);
 
   const sortedItems = useMemo(
     () =>
@@ -86,7 +98,10 @@ export function CredentialList({
     [filteredItems],
   );
 
-  const totalCount = useMemo(() => items.filter(isLogin).length, [items]);
+  const totalCount = useMemo(
+    () => totalCountOverride ?? folderFiltered.filter(isLogin).length,
+    [totalCountOverride, folderFiltered],
+  );
 
   const emptyState = effectiveQuery.trim()
     ? {

@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  KeyRound,
   Monitor,
   Plus,
   RefreshCw,
@@ -41,6 +42,8 @@ export type DeviceManagementPanelProps = {
   onReject: (deviceId: string) => Promise<void>;
   /** Revoke an approved device. */
   onRevoke: (deviceId: string) => Promise<void>;
+  /** Fetch shared vault key after being approved (new-device join). */
+  onFetchSharedKey?: (masterPassword: string) => Promise<void>;
   /** Vault key for encrypting when approving devices. */
   vaultKey?: Uint8Array;
   /** Whether currently loading. */
@@ -95,6 +98,7 @@ export function DeviceManagementPanel({
   onApprove,
   onReject,
   onRevoke,
+  onFetchSharedKey,
   vaultKey,
   loading = false,
   onRefresh,
@@ -103,9 +107,10 @@ export function DeviceManagementPanel({
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     deviceId: string;
-    action: "approve" | "reject" | "revoke" | "register";
+    action: "approve" | "reject" | "revoke" | "register" | "fetch_key";
   } | null>(null);
   const [registerName, setRegisterName] = useState("");
+  const [masterPassword, setMasterPassword] = useState("");
 
   const pendingDevices = devices.filter((d) => d.status === "pending");
   const activeDevices = devices.filter((d) => d.status === "approved");
@@ -146,6 +151,23 @@ export function DeviceManagementPanel({
       setPendingAction(null);
     }
   }, [registerName, cryptoAdapter, onRegister]);
+
+  // ── Fetch shared key (new-device join) ──────────────────────────────────────
+
+  const handleFetchSharedKey = useCallback(async () => {
+    if (!masterPassword.trim()) return;
+    if (!onFetchSharedKey) return;
+    setPendingAction("fetch_key");
+    try {
+      await onFetchSharedKey(masterPassword.trim());
+      setMasterPassword("");
+      setConfirmAction(null);
+    } catch {
+      // Error handled by caller
+    } finally {
+      setPendingAction(null);
+    }
+  }, [masterPassword, onFetchSharedKey]);
 
   // ── Approve device ──────────────────────────────────────────────────────────
 
@@ -238,6 +260,11 @@ export function DeviceManagementPanel({
       desc: `将生成 X25519 密钥对，私钥仅保存在本设备。公钥「${registerName}」将发送至服务器进行注册。`,
       danger: false,
     },
+    fetch_key: {
+      title: "获取共享密钥",
+      desc: "您的设备已被另一台设备批准。请输入主密码以解密并本地保管共享密钥。之后即可开始同步。",
+      danger: false,
+    },
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -303,6 +330,33 @@ export function DeviceManagementPanel({
                 pendingAction={pendingAction}
               />
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* New device join — current device waiting for approval */}
+      {!loading && currentDeviceId && pendingDevices.some((d) => d.id === currentDeviceId) && (
+        <section className={styles.section}>
+          <h3 className={styles.sectionTitle}>
+            <Smartphone size={14} className={styles.sectionTitleIcon} />
+            本设备待核准
+          </h3>
+          <div className={styles.joinNotice}>
+            <div className={styles.joinNoticeText}>
+              当前桌面端正在等待其他已信任设备批准。请在已有可信设备上批准此设备的入链请求。
+            </div>
+            <button
+              type="button"
+              className={styles.joinCheckBtn}
+              onClick={() => {
+                setConfirmAction({ deviceId: currentDeviceId, action: "fetch_key" });
+                setMasterPassword("");
+              }}
+              disabled={pendingAction !== null}
+            >
+              <RefreshCw size={14} />
+              检查批准状态
+            </button>
           </div>
         </section>
       )}
@@ -406,6 +460,8 @@ export function DeviceManagementPanel({
                   <Check size={18} />
                 ) : confirmAction.action === "register" ? (
                   <Plus size={18} />
+                ) : confirmAction.action === "fetch_key" ? (
+                  <KeyRound size={18} />
                 ) : (
                   <X size={18} />
                 )}
@@ -435,6 +491,31 @@ export function DeviceManagementPanel({
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && registerName.trim()) {
                       void handleRegister();
+                    }
+                  }}
+                />
+              </div>
+            ) : confirmAction.action === "fetch_key" ? (
+              <div style={{ padding: "0 var(--space-5)" }}>
+                <input
+                  type="password"
+                  placeholder="输入主密码以解密共享密钥"
+                  value={masterPassword}
+                  onChange={(e) => setMasterPassword(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "var(--space-2) var(--space-3)",
+                    border: "1px solid var(--color-cloud-mist)",
+                    borderRadius: "var(--radius-md)",
+                    fontSize: "var(--text-body-sm-size)",
+                    color: "var(--color-text-primary)",
+                    background: "var(--color-bg-input)",
+                    outline: "none",
+                  }}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && masterPassword.trim()) {
+                      void handleFetchSharedKey();
                     }
                   }}
                 />
@@ -474,12 +555,16 @@ export function DeviceManagementPanel({
                     void handleReject(confirmAction.deviceId);
                   } else if (confirmAction.action === "revoke") {
                     void handleRevoke(confirmAction.deviceId);
+                  } else if (confirmAction.action === "fetch_key") {
+                    void handleFetchSharedKey();
                   }
                 }}
                 disabled={
                   pendingAction !== null ||
                   (confirmAction.action === "register" &&
-                    !registerName.trim())
+                    !registerName.trim()) ||
+                  (confirmAction.action === "fetch_key" &&
+                    !masterPassword.trim())
                 }
               >
                 {confirmAction.action === "revoke"

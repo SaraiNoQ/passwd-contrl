@@ -17,6 +17,8 @@ import type {
   ItemLevelSyncPullResponse,
   ItemLevelSyncPlan,
   ItemLevelSyncResponse,
+  VaultItem,
+  ItemLevelEncryptedUpsert,
 } from "@zero-vault/shared";
 
 // ── Mock API client ───────────────────────────────────────────────────────────
@@ -63,6 +65,22 @@ function makeStoredCiphertext(itemId: string, revision = 1) {
       ciphertext: b64,
     },
     encryptedSearchTokens: [],
+  };
+}
+
+function makeVaultItem(itemId: string, title = "test"): VaultItem {
+  return {
+    id: itemId,
+    type: "login",
+    title,
+    folder: "",
+    notes: "",
+    customFields: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    origin: "https://example.com",
+    username: "user",
+    password: "pass",
   };
 }
 
@@ -114,6 +132,7 @@ describe("DesktopSyncServiceImpl", () => {
         itemRevision: 1,
         lastSyncedAt: "2026-01-01T00:00:00.000Z",
         hasConflict: false,
+        conflictServerItemRevision: undefined,
       });
 
       const api = createMockApiClient({
@@ -258,6 +277,23 @@ describe("DesktopSyncServiceImpl", () => {
   // ── resolveConflict ─────────────────────────────────────────────────────────
 
   describe("resolveConflict", () => {
+    function makeResolveOptions(
+      itemId: string,
+      title = "local-title",
+    ): {
+      localItem: VaultItem;
+      vaultKey: Uint8Array;
+      csrfToken: string;
+      ownerUserId: string;
+    } {
+      return {
+        localItem: makeVaultItem(itemId, title),
+        vaultKey: new Uint8Array(32),
+        csrfToken: "test-csrf-token",
+        ownerUserId: "00000000-0000-0000-0000-000000000001",
+      };
+    }
+
     it("removes the item from conflict IDs", async () => {
       const itemId = "33333333-3333-3333-3333-333333333333";
       await store.setConflictIds(new Set([itemId]));
@@ -268,7 +304,7 @@ describe("DesktopSyncServiceImpl", () => {
         crypto,
       );
 
-      await service.resolveConflict(itemId, "keep_local");
+      await service.resolveConflict(itemId, "keep_local", makeResolveOptions(itemId));
 
       const conflicts = await store.getConflictIds();
       expect(conflicts.has(itemId)).toBe(false);
@@ -282,6 +318,7 @@ describe("DesktopSyncServiceImpl", () => {
         itemRevision: 1,
         lastSyncedAt: "2026-01-01T00:00:00.000Z",
         hasConflict: true,
+        conflictServerItemRevision: undefined,
       });
       await store.setConflictIds(new Set([itemId]));
 
@@ -291,7 +328,7 @@ describe("DesktopSyncServiceImpl", () => {
         crypto,
       );
 
-      await service.resolveConflict(itemId, "accept_remote");
+      await service.resolveConflict(itemId, "accept_remote", makeResolveOptions(itemId));
 
       const stored = await store.getById(itemId);
       expect(stored!.hasConflict).toBe(false);
@@ -308,24 +345,142 @@ describe("DesktopSyncServiceImpl", () => {
         service.resolveConflict(
           "55555555-5555-5555-5555-555555555555",
           "skip",
+          makeResolveOptions("55555555-5555-5555-5555-555555555555"),
         ),
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual({});
     });
 
-    it("works with create_copy strategy", async () => {
-      const itemId = "66666666-6666-6666-6666-666666666666";
+    it("keep_local re-encrypts and pushes the local item", async () => {
+      const itemId = "77777777-7777-7777-7777-777777777777";
+      await store.upsert({
+        itemId,
+        ciphertext: makeStoredCiphertext(itemId, 5),
+        itemRevision: 5,
+        lastSyncedAt: "2026-01-01T00:00:00.000Z",
+        hasConflict: true,
+        conflictServerItemRevision: 7,
+      });
+      await store.setConflictIds(new Set([itemId]));
+      await store.setServerRevision(10);
+
+      let receivedPlan: ItemLevelSyncPlan | undefined;
+      const api = createMockApiClient({
+        pushItemLevelSync: async (_csrf: string, plan: ItemLevelSyncPlan) => {
+          receivedPlan = plan;
+          return {
+            protocol: "item_level_v1" as const,
+            serverRevision: 11,
+            applied: { upsertedItemIds: [itemId], deletedItemIds: [] },
+            conflicts: [],
+          };
+        },
+      });
+      service = new DesktopSyncServiceImpl(api, store, crypto);
+
+      await service.resolveConflict(itemId, "keep_local", makeResolveOptions(itemId));
+
+      expect(receivedPlan).toBeDefined();
+      expect(receivedPlan!.baseRevision).toBe(10);
+      expect(receivedPlan!.upserts).toHaveLength(1);
+      const upsert = receivedPlan!.upserts[0]!;
+      expect(upsert.id).toBe(itemId);
+      expect(upsert.baseItemRevision).toBe(7);
+      expect(upsert.revision).toBe(8);
+
+      const stored = await store.getById(itemId);
+      expect(stored!.hasConflict).toBe(false);
+      expect(stored!.itemRevision).toBe(11);
+      expect(stored!.conflictServerItemRevision).toBeUndefined();
+    });
+
+    it("keep_local preserves conflict if server still conflicts", async () => {
+      const itemId = "88888888-8888-8888-8888-888888888888";
+      await store.upsert({
+        itemId,
+        ciphertext: makeStoredCiphertext(itemId, 5),
+        itemRevision: 5,
+        lastSyncedAt: "2026-01-01T00:00:00.000Z",
+        hasConflict: true,
+        conflictServerItemRevision: 7,
+      });
       await store.setConflictIds(new Set([itemId]));
 
-      service = new DesktopSyncServiceImpl(
-        createMockApiClient(),
-        store,
-        crypto,
-      );
+      const api = createMockApiClient({
+        pushItemLevelSync: async () => ({
+          protocol: "item_level_v1" as const,
+          serverRevision: 12,
+          applied: { upsertedItemIds: [], deletedItemIds: [] },
+          conflicts: [
+            {
+              itemId,
+              operation: "upsert" as const,
+              reason: "server_revision_advanced" as const,
+              clientBaseRevision: 10,
+              serverRevision: 12,
+              serverItemRevision: 8,
+            },
+          ],
+        }),
+      });
+      service = new DesktopSyncServiceImpl(api, store, crypto);
 
-      await service.resolveConflict(itemId, "create_copy");
+      await service.resolveConflict(itemId, "keep_local", makeResolveOptions(itemId));
+
+      const conflicts = await store.getConflictIds();
+      expect(conflicts.has(itemId)).toBe(true);
+      const stored = await store.getById(itemId);
+      expect(stored!.hasConflict).toBe(true);
+      expect(stored!.conflictServerItemRevision).toBe(8);
+    });
+
+    it("create_copy clones the item with a new id and pushes it", async () => {
+      const itemId = "66666666-6666-6666-6666-666666666666";
+      await store.upsert({
+        itemId,
+        ciphertext: makeStoredCiphertext(itemId, 3),
+        itemRevision: 3,
+        lastSyncedAt: "2026-01-01T00:00:00.000Z",
+        hasConflict: true,
+        conflictServerItemRevision: undefined,
+      });
+      await store.setConflictIds(new Set([itemId]));
+      await store.setServerRevision(10);
+
+      let receivedPlan: ItemLevelSyncPlan | undefined;
+      const api = createMockApiClient({
+        pushItemLevelSync: async (_csrf: string, plan: ItemLevelSyncPlan) => {
+          receivedPlan = plan;
+          return {
+            protocol: "item_level_v1" as const,
+            serverRevision: 11,
+            applied: { upsertedItemIds: plan.upserts.map((u) => u.id), deletedItemIds: [] },
+            conflicts: [],
+          };
+        },
+      });
+      service = new DesktopSyncServiceImpl(api, store, crypto);
+
+      const result = await service.resolveConflict(itemId, "create_copy", makeResolveOptions(itemId));
+
+      expect(result.clonedItemId).toBeDefined();
+      expect(result.clonedItemId).not.toBe(itemId);
+      expect(receivedPlan).toBeDefined();
+      expect(receivedPlan!.upserts).toHaveLength(1);
+      const upsert = receivedPlan!.upserts[0]!;
+      expect(upsert.id).toBe(result.clonedItemId);
+      expect(upsert.baseItemRevision).toBe(0);
+      expect(upsert.revision).toBe(0);
 
       const conflicts = await store.getConflictIds();
       expect(conflicts.has(itemId)).toBe(false);
+
+      const original = await store.getById(itemId);
+      expect(original!.hasConflict).toBe(false);
+
+      const clone = await store.getById(result.clonedItemId!);
+      expect(clone).not.toBeNull();
+      expect(clone!.hasConflict).toBe(false);
+      expect(clone!.itemRevision).toBe(11);
     });
   });
 });

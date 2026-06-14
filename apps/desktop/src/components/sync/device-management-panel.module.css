@@ -590,6 +590,55 @@
   filter: brightness(1.1);
 }
 
+/* ── New-device join notice ─────────────────────────────────────────────────── */
+
+.joinNotice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px dashed var(--color-primary-border);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+}
+
+.joinNoticeText {
+  font-size: var(--text-body-sm-size);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.joinCheckBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-paper-white);
+  font-size: var(--text-button-size);
+  font-weight: var(--text-button-weight);
+  cursor: pointer;
+  transition: filter var(--transition-fast), transform var(--transition-fast);
+  align-self: flex-start;
+  border: none;
+}
+
+.joinCheckBtn:hover {
+  filter: brightness(1.05);
+}
+
+.joinCheckBtn:active {
+  transform: translateY(1px);
+}
+
+.joinCheckBtn:disabled {
+  background: color-mix(in srgb, var(--color-cloud-mist) 54%, var(--color-paper-white));
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  filter: none;
+}
+
 /* ── Empty state ───────────────────────────────────────────────────────────── */
 
 .empty {

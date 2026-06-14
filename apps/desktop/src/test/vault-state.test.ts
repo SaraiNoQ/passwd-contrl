@@ -57,7 +57,7 @@ function createMockSyncService(
       applied: { upsertedItemIds: [], deletedItemIds: [] },
       conflicts: [],
     }),
-    resolveConflict: async () => {},
+    resolveConflict: async () => ({}),
     ...overrides,
   };
 }
@@ -157,6 +157,7 @@ describe("useVaultState", () => {
         },
         itemRevision: 1,
         lastSyncedAt: "2026-01-01T00:00:00.000Z",
+        conflictServerItemRevision: undefined,
         hasConflict: false,
       });
 

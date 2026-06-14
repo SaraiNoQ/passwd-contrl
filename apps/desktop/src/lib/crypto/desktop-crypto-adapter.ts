@@ -65,6 +65,25 @@ export interface DesktopCryptoAdapter {
   deriveRecoveryKey(recoveryCode: string): Promise<Uint8Array>;
 
   /**
+   * Encrypt a vault key with a recovery key using XChaCha20-Poly1305.
+   * Returns an object with `nonce` and `ciphertext` as Uint8Arrays.
+   */
+  encryptRecoveryPacket(
+    recoveryKey: Uint8Array,
+    vaultKey: Uint8Array,
+  ): Promise<{ nonce: Uint8Array; ciphertext: Uint8Array }>;
+
+  /**
+   * Decrypt a vault key from a recovery packet using XChaCha20-Poly1305.
+   * Returns the vault key bytes (32 bytes).
+   */
+  decryptRecoveryPacket(
+    recoveryKey: Uint8Array,
+    nonce: Uint8Array,
+    ciphertext: Uint8Array,
+  ): Promise<Uint8Array>;
+
+  /**
    * Generate an X25519 keypair for device trust.
    * The private key must never leave the device.
    */
@@ -211,6 +230,36 @@ export class TauriCryptoAdapter implements DesktopCryptoAdapter {
     return new Uint8Array(result);
   }
 
+  async encryptRecoveryPacket(
+    recoveryKey: Uint8Array,
+    vaultKey: Uint8Array,
+  ): Promise<{ nonce: Uint8Array; ciphertext: Uint8Array }> {
+    const result = await invoke<{ nonce: number[]; ciphertext: number[] }>(
+      "encrypt_recovery_packet",
+      {
+        recoveryKey: Array.from(recoveryKey),
+        vaultKey: Array.from(vaultKey),
+      },
+    );
+    return {
+      nonce: new Uint8Array(result.nonce),
+      ciphertext: new Uint8Array(result.ciphertext),
+    };
+  }
+
+  async decryptRecoveryPacket(
+    recoveryKey: Uint8Array,
+    nonce: Uint8Array,
+    ciphertext: Uint8Array,
+  ): Promise<Uint8Array> {
+    const result = await invoke<number[]>("decrypt_recovery_packet", {
+      recoveryKey: Array.from(recoveryKey),
+      nonce: Array.from(nonce),
+      ciphertext: Array.from(ciphertext),
+    });
+    return new Uint8Array(result);
+  }
+
   async generateDeviceKeypair(): Promise<{
     publicKey: Uint8Array;
     privateKey: Uint8Array;
@@ -289,10 +338,13 @@ export class TestDoubleCryptoAdapter implements DesktopCryptoAdapter {
     encryptedPayload: CiphertextEnvelope,
     _itemId: string
   ): Promise<VaultItem> {
-    // Test double: ciphertext is base64-encoded JSON
-    const decoded = atob(
+    // Test double: ciphertext is base64url-encoded UTF-8 JSON
+    const binStr = atob(
       encryptedPayload.ciphertext.replace(/-/g, "+").replace(/_/g, "/")
     );
+    const bytes = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.codePointAt(i)!;
+    const decoded = new TextDecoder().decode(bytes);
     return JSON.parse(decoded) as VaultItem;
   }
 
@@ -306,7 +358,9 @@ export class TestDoubleCryptoAdapter implements DesktopCryptoAdapter {
   }> {
     // Test double: store plaintext JSON as base64url "ciphertext"
     const json = JSON.stringify(item);
-    const b64 = btoa(json).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const utf8 = new TextEncoder().encode(json);
+    const binStr = Array.from(utf8).map((b) => String.fromCodePoint(b)).join("");
+    const b64 = btoa(binStr).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     this.itemStore.set(itemId, json);
 
     const dummyNonce = bytesToBase64url(new Uint8Array(24));
@@ -341,6 +395,26 @@ export class TestDoubleCryptoAdapter implements DesktopCryptoAdapter {
       hash[i] = input[i] ?? 0;
     }
     return hash;
+  }
+
+  async encryptRecoveryPacket(
+    _recoveryKey: Uint8Array,
+    vaultKey: Uint8Array,
+  ): Promise<{ nonce: Uint8Array; ciphertext: Uint8Array }> {
+    // Test double: "encrypt" is identity (not real crypto)
+    return {
+      nonce: new Uint8Array(24),
+      ciphertext: new Uint8Array(vaultKey),
+    };
+  }
+
+  async decryptRecoveryPacket(
+    _recoveryKey: Uint8Array,
+    _nonce: Uint8Array,
+    ciphertext: Uint8Array,
+  ): Promise<Uint8Array> {
+    // Test double: "decrypt" returns the ciphertext as-is
+    return new Uint8Array(ciphertext);
   }
 
   async generateDeviceKeypair(): Promise<{

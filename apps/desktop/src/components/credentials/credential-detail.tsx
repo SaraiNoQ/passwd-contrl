@@ -24,6 +24,8 @@ import type {
 } from "@zero-vault/shared";
 import { cn } from "../../lib/utils";
 import { copyToClipboard } from "../../lib/clipboard";
+import { TotpDisplay } from "./totp-display";
+import { isValidTotpSecret } from "../../lib/totp";
 import styles from "./credential-detail.module.css";
 
 /* ---------------------------------------------------------------------------
@@ -286,7 +288,13 @@ export function CredentialDetail({
               </div>
             </div>
 
-            {login.totp && (
+            {login.totp && isValidTotpSecret(login.totp) && (
+              <div className={styles.fieldRow}>
+                <TotpDisplay secret={login.totp} />
+              </div>
+            )}
+
+            {login.totp && !isValidTotpSecret(login.totp) && (
               <FieldRow
                 label="TOTP 密钥"
                 value={login.totp}

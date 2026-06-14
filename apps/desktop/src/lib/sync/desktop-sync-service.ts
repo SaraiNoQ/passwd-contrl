@@ -20,6 +20,8 @@ import type {
   ItemLevelSyncPlan,
   ItemLevelSyncResponse,
   VaultItemCiphertext,
+  VaultItem,
+  ItemLevelEncryptedUpsert,
 } from "@zero-vault/shared";
 import type { DesktopApiClient } from "../api/desktop-api-client";
 import type {
@@ -27,6 +29,7 @@ import type {
   StoredItem,
 } from "../storage/desktop-ciphertext-store";
 import type { DesktopCryptoAdapter } from "../crypto/desktop-crypto-adapter";
+import { generateSearchTokens } from "../search-tokens";
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -34,6 +37,17 @@ export interface SyncResult {
   pulled: number;
   conflicts: string[];
   serverRevision: number;
+}
+
+export interface ResolveConflictOptions {
+  localItem: VaultItem;
+  vaultKey: Uint8Array;
+  csrfToken: string;
+  ownerUserId: string;
+}
+
+export interface ResolveConflictResult {
+  clonedItemId?: string;
 }
 
 export interface DesktopSyncService {
@@ -45,10 +59,16 @@ export interface DesktopSyncService {
   resolveConflict(
     itemId: string,
     strategy: "keep_local" | "accept_remote" | "create_copy" | "skip",
-  ): Promise<void>;
+    options: ResolveConflictOptions,
+  ): Promise<ResolveConflictResult>;
 }
 
 // ── Implementation ────────────────────────────────────────────────────────────
+
+/** Per-session counter: tracks consecutive keep_local failures per itemId.
+ *  After 3 failures, resolveKeepLocal will escalate to create_copy automatically. */
+const KEEP_LOCAL_RETRY_LIMIT = 3;
+const keepLocalAttempts = new Map<string, number>();
 
 export class DesktopSyncServiceImpl implements DesktopSyncService {
   constructor(
@@ -83,32 +103,207 @@ export class DesktopSyncServiceImpl implements DesktopSyncService {
     return this.apiClient.pushItemLevelSync(csrfToken, plan);
   }
 
-  /**
-   * Resolve a single conflict by removing its conflict marker.
-   *
-   * MVP strategy:
-   * - "keep_local" / "skip": remove conflict marker (local ciphertext is kept).
-   * - "accept_remote": remove conflict marker (remote was already stored on pull).
-   * - "create_copy": remove conflict marker (caller is responsible for creating
-   *   a new item via pushSync).
-   */
   async resolveConflict(
     itemId: string,
     strategy: "keep_local" | "accept_remote" | "create_copy" | "skip",
-  ): Promise<void> {
+    options: ResolveConflictOptions,
+  ): Promise<ResolveConflictResult> {
     if (strategy === "skip") {
-      return;
+      return {};
     }
 
+    if (strategy === "accept_remote") {
+      return this.clearConflictMarker(itemId);
+    }
+
+    if (strategy === "keep_local") {
+      return this.resolveKeepLocal(itemId, options);
+    }
+
+    return this.resolveCreateCopy(itemId, options);
+  }
+
+  private async clearConflictMarker(itemId: string): Promise<ResolveConflictResult> {
     const conflicts = await this.ciphertextStore.getConflictIds();
     conflicts.delete(itemId);
     await this.ciphertextStore.setConflictIds(conflicts);
 
-    // Clear the hasConflict flag on the stored item if it exists.
     const stored = await this.ciphertextStore.getById(itemId);
     if (stored) {
-      await this.ciphertextStore.upsert({ ...stored, hasConflict: false });
+      await this.ciphertextStore.upsert({
+        ...stored,
+        hasConflict: false,
+        conflictServerItemRevision: undefined,
+      });
     }
+    return {};
+  }
+
+  private async resolveKeepLocal(
+    itemId: string,
+    options: ResolveConflictOptions,
+  ): Promise<ResolveConflictResult> {
+    const stored = await this.ciphertextStore.getById(itemId);
+    if (!stored) {
+      return this.clearConflictMarker(itemId);
+    }
+
+    const { localItem, vaultKey, csrfToken, ownerUserId } = options;
+    const now = new Date().toISOString();
+    const encrypted = await this._cryptoAdapter.encryptItem(vaultKey, localItem, itemId);
+    const serverItemRevision =
+      stored.conflictServerItemRevision ?? stored.itemRevision;
+    const baseRevision = await this.ciphertextStore.getServerRevision();
+
+    const upsert: ItemLevelEncryptedUpsert = {
+      id: itemId,
+      ownerUserId,
+      revision: serverItemRevision + 1,
+      createdAt: stored.ciphertext.createdAt,
+      updatedAt: now,
+      encryptedItemKey: encrypted.encryptedItemKey,
+      encryptedPayload: encrypted.encryptedPayload,
+      encryptedSearchTokens: await generateSearchTokens(vaultKey, localItem),
+      baseItemRevision: serverItemRevision,
+    };
+
+    const response = await this.pushSync(csrfToken, {
+      protocol: "item_level_v1",
+      baseRevision,
+      upserts: [upsert],
+      deletes: [],
+    });
+
+    if (response.conflicts.length > 0) {
+      // Increment retry counter for this item
+      const attempts = (keepLocalAttempts.get(itemId) ?? 0) + 1;
+      keepLocalAttempts.set(itemId, attempts);
+
+      // After KEEP_LOCAL_RETRY_LIMIT consecutive failures, escalate to create_copy
+      if (attempts >= KEEP_LOCAL_RETRY_LIMIT) {
+        keepLocalAttempts.delete(itemId);
+        return this.resolveCreateCopy(itemId, options);
+      }
+
+      const conflictIds = await this.ciphertextStore.getConflictIds();
+      for (const conflict of response.conflicts) {
+        conflictIds.add(conflict.itemId);
+      }
+      await this.ciphertextStore.setConflictIds(conflictIds);
+      await this.ciphertextStore.setServerRevision(response.serverRevision);
+
+      const newServerItemRevision = response.conflicts.find(
+        (c) => c.itemId === itemId,
+      )?.serverItemRevision;
+      await this.ciphertextStore.upsert({
+        ...stored,
+        ciphertext: { ...upsert, revision: serverItemRevision },
+        itemRevision: serverItemRevision,
+        lastSyncedAt: now,
+        hasConflict: true,
+        conflictServerItemRevision: newServerItemRevision ?? serverItemRevision,
+      });
+      return {};
+    }
+
+    // On success, clear the retry counter
+    keepLocalAttempts.delete(itemId);
+
+    const storedRevision = response.applied.upsertedItemIds.includes(itemId)
+      ? response.serverRevision
+      : serverItemRevision + 1;
+    await this.ciphertextStore.upsert({
+      ...stored,
+      ciphertext: {
+        ...upsert,
+        revision: storedRevision,
+      },
+      itemRevision: storedRevision,
+      lastSyncedAt: now,
+      hasConflict: false,
+      conflictServerItemRevision: undefined,
+    });
+    await this.ciphertextStore.setServerRevision(response.serverRevision);
+    return {};
+  }
+
+  private async resolveCreateCopy(
+    itemId: string,
+    options: ResolveConflictOptions,
+  ): Promise<ResolveConflictResult> {
+    const { localItem, vaultKey, csrfToken, ownerUserId } = options;
+    const clonedItemId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const clonedItem = {
+      ...localItem,
+      id: clonedItemId,
+      title: `${localItem.title} (副本)`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const encrypted = await this._cryptoAdapter.encryptItem(
+      vaultKey,
+      clonedItem,
+      clonedItemId,
+    );
+    const baseRevision = await this.ciphertextStore.getServerRevision();
+
+    const upsert: ItemLevelEncryptedUpsert = {
+      id: clonedItemId,
+      ownerUserId,
+      revision: 0,
+      createdAt: now,
+      updatedAt: now,
+      encryptedItemKey: encrypted.encryptedItemKey,
+      encryptedPayload: encrypted.encryptedPayload,
+      encryptedSearchTokens: [],
+      baseItemRevision: 0,
+    };
+
+    const response = await this.pushSync(csrfToken, {
+      protocol: "item_level_v1",
+      baseRevision,
+      upserts: [upsert],
+      deletes: [],
+    });
+
+    const stored = await this.ciphertextStore.getById(itemId);
+    if (stored) {
+      await this.ciphertextStore.upsert({
+        ...stored,
+        hasConflict: false,
+        conflictServerItemRevision: undefined,
+      });
+    }
+
+    const conflicts = await this.ciphertextStore.getConflictIds();
+    conflicts.delete(itemId);
+
+    if (response.conflicts.length > 0) {
+      for (const conflict of response.conflicts) {
+        conflicts.add(conflict.itemId);
+      }
+    }
+    await this.ciphertextStore.setConflictIds(conflicts);
+    await this.ciphertextStore.setServerRevision(response.serverRevision);
+
+    if (response.conflicts.length === 0) {
+      const storedRevision = response.applied.upsertedItemIds.includes(
+        clonedItemId,
+      )
+        ? response.serverRevision
+        : 1;
+      await this.ciphertextStore.upsert({
+        itemId: clonedItemId,
+        ciphertext: { ...upsert, revision: storedRevision },
+        itemRevision: storedRevision,
+        lastSyncedAt: now,
+        hasConflict: false,
+        conflictServerItemRevision: undefined,
+      });
+    }
+
+    return { clonedItemId };
   }
 
   // ── Internal ──────────────────────────────────────────────────────────────
@@ -117,7 +312,6 @@ export class DesktopSyncServiceImpl implements DesktopSyncService {
     response: ItemLevelSyncPullResponse,
   ): Promise<SyncResult> {
     const now = new Date().toISOString();
-    const conflictIds: string[] = [];
 
     // Store each item's ciphertext
     for (const item of response.items) {
@@ -127,6 +321,7 @@ export class DesktopSyncServiceImpl implements DesktopSyncService {
         itemRevision: item.revision,
         lastSyncedAt: now,
         hasConflict: false,
+        conflictServerItemRevision: undefined,
       };
       await this.ciphertextStore.upsert(stored);
     }
@@ -140,11 +335,8 @@ export class DesktopSyncServiceImpl implements DesktopSyncService {
     await this.ciphertextStore.setServerRevision(response.serverRevision);
     await this.ciphertextStore.setLastSyncedAt(now);
 
-    // Merge any existing conflict IDs with new ones
+    // Preserve existing conflict markers from local store
     const existingConflicts = await this.ciphertextStore.getConflictIds();
-    for (const id of conflictIds) {
-      existingConflicts.add(id);
-    }
     await this.ciphertextStore.setConflictIds(existingConflicts);
 
     return {

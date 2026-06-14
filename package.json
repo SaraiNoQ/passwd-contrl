@@ -9,6 +9,7 @@
     "dev": "pnpm run dev:worker & pnpm run dev:web",
     "dev:worker": "pnpm --filter @zero-vault/worker-api dev",
     "dev:web": "pnpm --filter @zero-vault/web dev",
+    "dev:desktop": "pnpm run dev:worker & ZERO_VAULT_API_URL=http://localhost:8787 pnpm --dir apps/desktop exec tauri dev",
     "dev:extension": "pnpm --filter @zero-vault/extension dev",
     "lint": "pnpm -r --if-present lint",
     "test": "pnpm -r --if-present test",

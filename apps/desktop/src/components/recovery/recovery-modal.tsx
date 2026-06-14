@@ -57,7 +57,12 @@ export function RecoveryModal({
       return;
     }
 
-    if (encryptedRecoveryPacket.alg !== "AES_256_GCM") {
+    if (encryptedRecoveryPacket.alg === "AES_256_GCM") {
+      setError("恢复数据包是旧版格式，请重新生成恢复数据包以使用当前版本。");
+      return;
+    }
+
+    if (encryptedRecoveryPacket.alg !== "XCHACHA20_POLY1305") {
       setError("恢复数据包格式不受支持。");
       return;
     }
@@ -70,31 +75,14 @@ export function RecoveryModal({
       const recoveryKey = await cryptoAdapter.deriveRecoveryKey(recoveryCode.trim());
 
       // Decrypt the vault key using the recovery key
-      // The encryptedRecoveryPacket contains the vault key encrypted with the recovery key
-      // We need to decrypt it using AES-GCM
       const nonceBytes = base64urlToBytes(encryptedRecoveryPacket.nonce);
       const ciphertextBytes = base64urlToBytes(encryptedRecoveryPacket.ciphertext);
 
-      const derivedKey = await globalThis.crypto.subtle.importKey(
-        "raw",
-        recoveryKey.slice().buffer as ArrayBuffer,
-        "AES-GCM",
-        false,
-        ["decrypt"],
+      const vaultKey = await cryptoAdapter.decryptRecoveryPacket(
+        recoveryKey,
+        nonceBytes,
+        ciphertextBytes,
       );
-
-      const aad = new TextEncoder().encode("zero-vault.recovery.v1");
-      const plaintext = await globalThis.crypto.subtle.decrypt(
-        {
-          name: "AES-GCM",
-          iv: nonceBytes.buffer as ArrayBuffer,
-          additionalData: aad,
-        },
-        derivedKey,
-        ciphertextBytes.slice().buffer as ArrayBuffer,
-      );
-
-      const vaultKey = new Uint8Array(plaintext);
       if (vaultKey.length !== 32) {
         throw new Error("恢复的密钥长度无效");
       }

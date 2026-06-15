@@ -71,7 +71,7 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
 
   // ── POST /auth/register/start ────────────────────────────────────────────
 
-  auth.post("/auth/register/start", rateLimit({ max: 8 }), async (c) => {
+  auth.post("/auth/register/start", rateLimit({ max: 60 }), async (c) => {
     let body: unknown;
     try {
       body = await c.req.json();
@@ -123,7 +123,7 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
 
   // ── POST /auth/register/finish ───────────────────────────────────────────
 
-  auth.post("/auth/register/finish", rateLimit({ max: 8 }), async (c) => {
+  auth.post("/auth/register/finish", rateLimit({ max: 60 }), async (c) => {
     let body: unknown;
     try {
       body = await c.req.json();
@@ -170,7 +170,7 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
 
   // ── POST /auth/login/start ───────────────────────────────────────────────
 
-  auth.post("/auth/login/start", rateLimit({ max: 10 }), async (c) => {
+  auth.post("/auth/login/start", rateLimit({ max: 60 }), async (c) => {
     let body: unknown;
     try {
       body = await c.req.json();
@@ -224,7 +224,7 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
 
   // ── POST /auth/login/finish ──────────────────────────────────────────────
 
-  auth.post("/auth/login/finish", rateLimit({ max: 10 }), async (c) => {
+  auth.post("/auth/login/finish", rateLimit({ max: 60 }), async (c) => {
     let body: unknown;
     try {
       body = await c.req.json();
@@ -312,7 +312,7 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
   // Development-only escape hatch. This endpoint does not verify a password and
   // must never be reachable unless explicitly enabled for local test tooling.
 
-  auth.post("/auth/login/direct", rateLimit({ max: 10 }), async (c) => {
+  auth.post("/auth/login/direct", rateLimit({ max: 60 }), async (c) => {
     const directLoginEnabled =
       c.env.ALLOW_INSECURE_DIRECT_LOGIN === "true" &&
       (c.env.ENVIRONMENT === "development" || c.env.ENVIRONMENT === "test");

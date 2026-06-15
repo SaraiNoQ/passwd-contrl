@@ -335,7 +335,7 @@ export function Sidebar({
                 </Button>
               </>
             ) : (
-              <form className={styles.accountForm} onSubmit={onRegister}>
+              <form className={styles.accountForm} onSubmit={onRegister} noValidate>
                 <input
                   className={styles.accountInput}
                   autoComplete="email"

@@ -234,6 +234,7 @@ export function CredentialList({
 
   const handleSortFieldChange = useCallback((field: SortField) => {
     setSortField(field);
+    setSortDirection("asc");
   }, []);
 
   const toggleSortDirection = useCallback(() => {

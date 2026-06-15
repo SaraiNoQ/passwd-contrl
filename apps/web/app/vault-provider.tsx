@@ -571,7 +571,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       clearTimeout(autoLockTimer.current);
     }
     autoLockStartRef.current = Date.now();
-    setAutoLockRemaining(autoLockMs);
+    // Keep autoLockRemaining out of here: the 1s interval is the only writer.
+    // Writing the full timeout on every interaction made the badge jump back
+    // to 5:00 whenever the user scrolled or clicked.
     if (unlockedVault) {
       autoLockTimer.current = setTimeout(() => {
         setUnlockedVault(null);
@@ -1019,26 +1021,32 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const submitRegister = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    const email = accountEmail.trim();
+    if (!email) {
+      setError("请输入邮箱地址。");
+      return;
+    }
     if (accountPassword.length < 12) {
       setError("账户密码至少需要 12 个字符。");
       return;
     }
     setLoading(true);
     try {
-      const { recoveryCode } = await registerAccount(accountEmail, accountPassword);
+      const { recoveryCode } = await registerAccount(email, accountPassword);
       setRecoveryCode(recoveryCode);
       setRecoveryConfirmed(false);
       setShowRecoveryModal(true);
 
-      const session = await loginAccount(accountEmail, accountPassword);
+      const session = await loginAccount(email, accountPassword);
       setUser(session.user);
       setCsrfToken(session.csrfToken);
+      setAccountEmail(session.user.email);
       setAccountPassword("");
       setSyncStatus(`已登录 · 版本 ${session.user.serverRevision}`);
       const remote = await pullVault().catch(() => null);
       setCanRestoreFromCloud(!loadEncryptedLocalVault() && !!remote && getSyncedLocalVaultItem(remote.items) !== null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "注册失败。");
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -1047,17 +1055,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // -- Login --
   const submitLogin = useCallback(async () => {
     setError("");
+    const email = accountEmail.trim();
+    if (!email) {
+      setError("请输入邮箱地址。");
+      return;
+    }
+    if (accountPassword.length < 12) {
+      setError("账户密码至少需要 12 个字符。");
+      return;
+    }
     setLoading(true);
     try {
-      const session = await loginAccount(accountEmail, accountPassword);
+      const session = await loginAccount(email, accountPassword);
       setUser(session.user);
       setCsrfToken(session.csrfToken);
+      setAccountEmail(session.user.email);
       setAccountPassword("");
       setSyncStatus(`已登录 · 版本 ${session.user.serverRevision}`);
+      setError("");
       const remote = await pullVault().catch(() => null);
       setCanRestoreFromCloud(!loadEncryptedLocalVault() && !!remote && getSyncedLocalVaultItem(remote.items) !== null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "登录失败。");
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }

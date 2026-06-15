@@ -92,4 +92,10 @@ describe("api client", () => {
     const { fetchCurrentUser } = await importClient("http://localhost:8787");
     await expect(fetchCurrentUser()).rejects.toThrow("network_error");
   });
+
+  it("maps internal auth error codes to Chinese user-facing text", async () => {
+    const { getErrorMessage } = await importClient("http://localhost:8787");
+
+    expect(getErrorMessage(new Error("invalid_credentials"))).toBe("邮箱或密码不正确");
+  });
 });

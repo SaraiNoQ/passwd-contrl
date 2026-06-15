@@ -90,6 +90,7 @@ export function Sidebar({
   onClose,
 }: SidebarProps) {
   const [foldersExpanded, setFoldersExpanded] = useState(true);
+  const identityStatus = user ? user.email : unlocked ? "本机已登录" : "注册 / 登录";
 
   const handleFolderClick = useCallback(
     (folder: string | null) => {
@@ -301,7 +302,7 @@ export function Sidebar({
           <Settings size={18} />
           <span className={styles.accountToggleCopy}>
             <span className={styles.accountToggleTitle}>身份节点</span>
-            <span className={styles.accountToggleValue}>{user ? user.email : "注册 / 登录"}</span>
+            <span className={styles.accountToggleValue}>{identityStatus}</span>
           </span>
         </button>
 
@@ -362,6 +363,7 @@ export function Sidebar({
                   {loading ? "处理中..." : "注册"}
                 </Button>
                 <Button
+                  type="button"
                   variant="ghost"
                   size="sm"
                   loading={loading}

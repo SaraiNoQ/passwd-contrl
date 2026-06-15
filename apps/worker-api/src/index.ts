@@ -20,10 +20,20 @@ const app = new Hono<{ Bindings: Env }>();
 // Safe error handler — never expose stack traces or internal messages
 app.onError(errorHandler);
 
-// CORS with configurable origins
+// CORS with configurable origins — in development mode, allow any localhost/127.0.0.1 origin
 app.use("*", async (c, next) => {
+  const isDev = c.env.ENVIRONMENT === "development";
   const corsMiddleware = cors({
-    origin: c.env.CORS_ORIGIN ?? "*",
+    origin: isDev
+      ? (origin) => {
+          // Allow any localhost or 127.0.0.1 origin (browsers treat them as distinct origins)
+          if (!origin) return c.env.CORS_ORIGIN ?? "http://127.0.0.1:3000";
+          if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+            return origin;
+          }
+          return c.env.CORS_ORIGIN ?? "http://127.0.0.1:3000";
+        }
+      : c.env.CORS_ORIGIN ?? "*",
     credentials: true
   });
   return corsMiddleware(c, next);

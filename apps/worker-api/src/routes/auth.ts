@@ -31,7 +31,13 @@ export function resolveOpaqueServerSetup(env: Env, opaqueServer: Pick<OpaqueServ
   if (env.OPAQUE_SERVER_SETUP) {
     return env.OPAQUE_SERVER_SETUP;
   }
-  generatedOpaqueServerSetup ??= opaqueServer.createSetup();
+  if (!generatedOpaqueServerSetup) {
+    generatedOpaqueServerSetup = opaqueServer.createSetup();
+    console.log(
+      "[OPAQUE] Generated new server setup. Add this to wrangler.toml [vars] to persist across restarts:\n" +
+      `OPAQUE_SERVER_SETUP = "${generatedOpaqueServerSetup}"`
+    );
+  }
   return generatedOpaqueServerSetup;
 }
 

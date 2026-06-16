@@ -55,6 +55,17 @@ export interface CredentialDrawerProps {
   onLoadHistory?: (itemId: string) => void;
 }
 
+function FieldLabel({ children, required }: { children: string; required?: boolean }) {
+  return (
+    <span className={styles.fieldLabel}>
+      <span>{children}</span>
+      <span className={required ? styles.requiredBadge : styles.optionalBadge}>
+        {required ? "必填" : "可选"}
+      </span>
+    </span>
+  );
+}
+
 export function CredentialDrawer({
   isOpen,
   onClose,
@@ -126,10 +137,10 @@ export function CredentialDrawer({
             </h3>
             <p className={styles.heroCopy}>
               {itemForm.type === "secure_note"
-                ? "安全笔记会在保存后进入本地加密密码库。"
+                ? "保存到本地加密库。"
                 : itemForm.type === "credit_card"
-                  ? "信用卡信息会在保存后进入本地加密密码库。"
-                  : "站点、用户名、密码与 TOTP 会在保存后进入本地加密密码库。"}
+                  ? "保存到本地加密库。"
+                  : "保存到本地加密库。"}
             </p>
           </div>
           <div className={styles.heroGlyph} aria-hidden="true">
@@ -181,7 +192,9 @@ export function CredentialDrawer({
         {/* Type selector (only visible when creating) */}
         {!isEditing ? (
           <div className={styles.typeSelector}>
-            <span className={styles.typeSelectorLabel}>记录类型</span>
+            <span className={styles.typeSelectorLabel}>
+              <FieldLabel required>记录类型</FieldLabel>
+            </span>
             <div className={styles.typeSelectorOptions}>
               <button
                 type="button"
@@ -214,7 +227,8 @@ export function CredentialDrawer({
         {/* Common fields: title + folder */}
         <div className={styles.fieldGrid}>
           <Input
-            label="标题"
+            id="credential-title"
+            label={<FieldLabel>标题</FieldLabel>}
             placeholder={
               itemForm.type === "secure_note" ? "例如：WiFi 密码"
                 : itemForm.type === "credit_card" ? "例如：招商银行 Visa"
@@ -227,7 +241,7 @@ export function CredentialDrawer({
           <div className={styles.folderWrapper}>
             <div className={styles.folderLabel}>
               <Folder size={14} />
-              文件夹
+              <FieldLabel>文件夹</FieldLabel>
             </div>
             <div className={styles.folderInputContainer}>
               <input
@@ -276,7 +290,8 @@ export function CredentialDrawer({
           <div className={styles.fieldGrid}>
             <div className={styles.wideField}>
               <Input
-                label="网站地址"
+                id="credential-origin"
+                label={<FieldLabel required>网站地址</FieldLabel>}
                 placeholder="https://example.com"
                 value={itemForm.origin}
                 onChange={(e) => onFormChange("origin", e.target.value)}
@@ -291,7 +306,8 @@ export function CredentialDrawer({
             </div>
 
             <Input
-              label="用户名"
+              id="credential-username"
+              label={<FieldLabel>用户名</FieldLabel>}
               placeholder="name@example.com"
               value={itemForm.username}
               onChange={(e) => onFormChange("username", e.target.value)}
@@ -299,7 +315,8 @@ export function CredentialDrawer({
 
             <div className={styles.wideField}>
               <PasswordField
-                label="密码"
+                id="credential-password"
+                label={<FieldLabel required>密码</FieldLabel>}
                 placeholder="加密存储"
                 value={itemForm.password}
                 onChange={(e) => onFormChange("password", e.target.value)}
@@ -315,7 +332,10 @@ export function CredentialDrawer({
                 <KeyRound size={16} aria-hidden="true" />
                 <div>
                   <span>TOTP BEACON</span>
-                  <h4 id="totp-section-title">两步验证码</h4>
+                  <div className={styles.totpTitleRow}>
+                    <h4 id="totp-section-title">两步验证码</h4>
+                    <span className={styles.optionalBadge}>可选</span>
+                  </div>
                 </div>
               </div>
               <span className={styles.totpState}>
@@ -356,7 +376,8 @@ export function CredentialDrawer({
           <div className={styles.wideField}>
             <Input
               type="textarea"
-              label="笔记内容"
+              id="credential-note-body"
+              label={<FieldLabel>笔记内容</FieldLabel>}
               placeholder="输入加密笔记内容..."
               rows={8}
               value={itemForm.noteBody ?? ""}
@@ -370,7 +391,8 @@ export function CredentialDrawer({
           <div className={styles.fieldGrid}>
             <div className={styles.wideField}>
               <Input
-                label="持卡人姓名"
+                id="credential-cardholder"
+                label={<FieldLabel>持卡人姓名</FieldLabel>}
                 placeholder="姓名"
                 value={itemForm.cardholderName ?? ""}
                 onChange={(e) => onFormChange("cardholderName", e.target.value)}
@@ -378,32 +400,37 @@ export function CredentialDrawer({
             </div>
             <div className={styles.wideField}>
               <Input
-                label="卡号"
+                id="credential-card-number"
+                label={<FieldLabel>卡号</FieldLabel>}
                 placeholder="0000 0000 0000 0000"
                 value={itemForm.cardNumber ?? ""}
                 onChange={(e) => onFormChange("cardNumber", e.target.value)}
               />
             </div>
             <Input
-              label="到期月"
+              id="credential-expiration-month"
+              label={<FieldLabel>到期月</FieldLabel>}
               placeholder="MM"
               value={itemForm.expirationMonth ?? ""}
               onChange={(e) => onFormChange("expirationMonth", e.target.value)}
             />
             <Input
-              label="到期年"
+              id="credential-expiration-year"
+              label={<FieldLabel>到期年</FieldLabel>}
               placeholder="YYYY"
               value={itemForm.expirationYear ?? ""}
               onChange={(e) => onFormChange("expirationYear", e.target.value)}
             />
             <Input
-              label="CVV"
+              id="credential-cvv"
+              label={<FieldLabel>CVV</FieldLabel>}
               placeholder="***"
               value={itemForm.cvv ?? ""}
               onChange={(e) => onFormChange("cvv", e.target.value)}
             />
             <Input
-              label="卡品牌"
+              id="credential-card-brand"
+              label={<FieldLabel>卡品牌</FieldLabel>}
               placeholder="Visa / Mastercard"
               value={itemForm.brand ?? ""}
               onChange={(e) => onFormChange("brand", e.target.value)}
@@ -413,7 +440,8 @@ export function CredentialDrawer({
 
         <Input
           type="textarea"
-          label="备注"
+          id="credential-notes"
+          label={<FieldLabel>备注</FieldLabel>}
           placeholder="可选备注"
           rows={3}
           value={itemForm.notes}

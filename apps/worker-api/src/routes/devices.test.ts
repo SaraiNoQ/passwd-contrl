@@ -127,10 +127,13 @@ const MIGRATION_SQL = `
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    fingerprint TEXT,
     public_key TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_seen_ip TEXT,
+    last_seen_location TEXT
   );
 
   CREATE TABLE IF NOT EXISTS device_vault_keys (
@@ -350,6 +353,7 @@ describe("Device routes", () => {
           headers: authHeaders(token, csrfToken),
           body: JSON.stringify({
             name: "My Laptop",
+            fingerprint: "test-fingerprint",
             publicKey: "dGVzdC1way"
           })
         },
@@ -359,6 +363,7 @@ describe("Device routes", () => {
       expect(res.status).toBe(201);
       const body = (await res.json()) as Record<string, unknown>;
       expect(body.name).toBe("My Laptop");
+      expect(body.fingerprint).toBe("test-fingerprint");
       expect(body.publicKey).toBe("dGVzdC1way");
       expect(body.status).toBe("pending");
       expect(body.id).toBeTruthy();
@@ -374,6 +379,7 @@ describe("Device routes", () => {
           headers: authHeaders(token, csrfToken),
           body: JSON.stringify({
             name: "My Laptop",
+            fingerprint: "same-browser",
             publicKey: "dGVzdC1way"
           })
         },
@@ -388,6 +394,7 @@ describe("Device routes", () => {
           headers: authHeaders(token, csrfToken),
           body: JSON.stringify({
             name: "My Laptop Renamed",
+            fingerprint: "same-browser",
             publicKey: "dGVzdC1way"
           })
         },
@@ -406,6 +413,79 @@ describe("Device routes", () => {
       );
       const listBody = (await list.json()) as Record<string, unknown>;
       expect(listBody.devices).toHaveLength(1);
+    });
+
+    it("reuses one pending device for the same fingerprint when the key changes", async () => {
+      const { token, csrfToken } = await createAuthenticatedSession(db);
+
+      const first = await app.request(
+        "/devices",
+        {
+          method: "POST",
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify({
+            name: "Mac",
+            fingerprint: "same-mac-fingerprint",
+            publicKey: "Zmlyc3Q"
+          })
+        },
+        createEnv(db)
+      );
+      const firstBody = (await first.json()) as Record<string, unknown>;
+
+      const second = await app.request(
+        "/devices",
+        {
+          method: "POST",
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify({
+            name: "Mac",
+            fingerprint: "same-mac-fingerprint",
+            publicKey: "c2Vjb25k"
+          })
+        },
+        createEnv(db)
+      );
+
+      expect(second.status).toBe(200);
+      const secondBody = (await second.json()) as Record<string, unknown>;
+      expect(secondBody.id).toBe(firstBody.id);
+      expect(secondBody.publicKey).toBe("c2Vjb25k");
+
+      const list = await app.request(
+        "/devices",
+        { headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` } },
+        createEnv(db)
+      );
+      const listBody = (await list.json()) as Record<string, unknown>;
+      expect(listBody.devices).toHaveLength(1);
+    });
+
+    it("records request ip and coarse location metadata", async () => {
+      const { token, csrfToken } = await createAuthenticatedSession(db);
+
+      const res = await app.request(
+        "/devices",
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(token, csrfToken),
+            "cf-connecting-ip": "203.0.113.24",
+            "cf-ipcountry": "US"
+          },
+          body: JSON.stringify({
+            name: "Travel Laptop",
+            fingerprint: "travel-fingerprint",
+            publicKey: "dHJhdmVs"
+          })
+        },
+        createEnv(db)
+      );
+
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as Record<string, unknown>;
+      expect(body.lastSeenIp).toBe("203.0.113.24");
+      expect(body.lastSeenLocation).toBe("US");
     });
 
     it("returns 400 for invalid request body", async () => {

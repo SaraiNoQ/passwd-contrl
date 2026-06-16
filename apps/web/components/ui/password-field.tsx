@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import styles from "./password-field.module.css";
 
 export interface PasswordFieldProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, "className" | "type"> {
-  label?: string;
+  label?: ReactNode;
   error?: string;
   /** Called when user clicks the generate button. If omitted, the button is hidden. */
   onGenerate?: () => void;
@@ -28,7 +28,7 @@ export function PasswordField({
   ...rest
 }: PasswordFieldProps) {
   const [revealed, setRevealed] = useState(false);
-  const fieldId = id ?? (label ? label.replace(/\s+/g, "-").toLowerCase() : undefined);
+  const fieldId = id ?? (typeof label === "string" ? label.replace(/\s+/g, "-").toLowerCase() : undefined);
 
   const toggleReveal = useCallback(() => {
     setRevealed((prev) => !prev);

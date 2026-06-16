@@ -690,12 +690,14 @@ export class D1VaultStore implements VaultStore {
 
   async registerDevice(userId: string, device: TrustedDevice): Promise<TrustedDevice> {
     const ts = nowISO();
+    const fingerprint = device.fingerprint ?? null;
     const existing = await this.db
       .prepare(
-        `SELECT id, name, public_key, status, created_at, updated_at
+        `SELECT id, name, fingerprint, public_key, status, created_at, updated_at, last_seen_ip, last_seen_location
          FROM trusted_devices
-         WHERE user_id = ? AND public_key = ?
+         WHERE user_id = ? AND (public_key = ? OR (fingerprint IS NOT NULL AND fingerprint = ?))
          ORDER BY
+           CASE WHEN fingerprint IS NOT NULL AND fingerprint = ? THEN 0 ELSE 1 END,
            CASE status
              WHEN 'approved' THEN 0
              WHEN 'pending' THEN 1
@@ -706,41 +708,77 @@ export class D1VaultStore implements VaultStore {
            updated_at DESC
          LIMIT 1`
       )
-      .bind(userId, device.publicKey)
+      .bind(userId, device.publicKey, fingerprint, fingerprint)
       .first<Record<string, unknown>>();
 
     if (existing) {
+      const keyChanged = existing.public_key !== device.publicKey;
+      const nextStatus = keyChanged ? "pending" : (existing.status as TrustedDevice["status"]);
       await this.db
         .prepare(
-          `UPDATE trusted_devices SET name = ?, updated_at = ?
+          `DELETE FROM trusted_devices
+           WHERE user_id = ?
+             AND id != ?
+             AND (public_key = ? OR (fingerprint IS NOT NULL AND fingerprint = ?))`
+        )
+        .bind(userId, existing.id as string, device.publicKey, fingerprint)
+        .run();
+
+      await this.db
+        .prepare(
+          `UPDATE trusted_devices
+           SET name = ?,
+               fingerprint = COALESCE(?, fingerprint),
+               public_key = ?,
+               status = ?,
+               updated_at = ?,
+               last_seen_ip = ?,
+               last_seen_location = ?
            WHERE id = ? AND user_id = ?`
         )
-        .bind(device.name, ts, existing.id as string, userId)
+        .bind(
+          device.name,
+          fingerprint,
+          device.publicKey,
+          nextStatus,
+          ts,
+          device.lastSeenIp ?? null,
+          device.lastSeenLocation ?? null,
+          existing.id as string,
+          userId
+        )
         .run();
 
       return {
         id: existing.id as string,
         name: device.name,
-        publicKey: existing.public_key as string,
-        status: existing.status as TrustedDevice["status"],
+        fingerprint: (fingerprint ?? existing.fingerprint ?? undefined) as string | undefined,
+        publicKey: device.publicKey,
+        status: nextStatus,
         createdAt: existing.created_at as string,
-        updatedAt: ts
+        updatedAt: ts,
+        lastSeenIp: device.lastSeenIp ?? null,
+        lastSeenLocation: device.lastSeenLocation ?? null
       };
     }
 
     await this.db
       .prepare(
-        `INSERT INTO trusted_devices (id, user_id, name, public_key, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO trusted_devices
+           (id, user_id, name, fingerprint, public_key, status, created_at, updated_at, last_seen_ip, last_seen_location)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         device.id,
         userId,
         device.name,
+        fingerprint,
         device.publicKey,
         device.status,
         device.createdAt,
-        device.updatedAt
+        device.updatedAt,
+        device.lastSeenIp ?? null,
+        device.lastSeenLocation ?? null
       )
       .run();
 
@@ -750,7 +788,7 @@ export class D1VaultStore implements VaultStore {
   async listDevices(userId: string): Promise<TrustedDevice[]> {
     const rows = await this.db
       .prepare(
-        `SELECT id, name, public_key, status, created_at, updated_at
+        `SELECT id, name, fingerprint, public_key, status, created_at, updated_at, last_seen_ip, last_seen_location
          FROM trusted_devices WHERE user_id = ?`
       )
       .bind(userId)
@@ -760,10 +798,13 @@ export class D1VaultStore implements VaultStore {
       (r): TrustedDevice => ({
         id: r.id as string,
         name: r.name as string,
+        fingerprint: typeof r.fingerprint === "string" ? r.fingerprint : undefined,
         publicKey: r.public_key as string,
         status: r.status as TrustedDevice["status"],
         createdAt: r.created_at as string,
-        updatedAt: r.updated_at as string
+        updatedAt: r.updated_at as string,
+        lastSeenIp: (r.last_seen_ip as string | null) ?? null,
+        lastSeenLocation: (r.last_seen_location as string | null) ?? null
       })
     );
 
@@ -775,9 +816,12 @@ export class D1VaultStore implements VaultStore {
     };
     const byPublicKey = new Map<string, TrustedDevice>();
     for (const device of devices) {
-      const previous = byPublicKey.get(device.publicKey);
+      const dedupeKey = device.fingerprint
+        ? `fp:${device.fingerprint}`
+        : `legacy:${device.name}:${device.createdAt.slice(0, 16)}`;
+      const previous = byPublicKey.get(dedupeKey);
       if (!previous) {
-        byPublicKey.set(device.publicKey, device);
+        byPublicKey.set(dedupeKey, device);
         continue;
       }
       const previousRank = statusRank[previous.status];
@@ -786,7 +830,7 @@ export class D1VaultStore implements VaultStore {
         currentRank < previousRank ||
         (currentRank === previousRank && device.updatedAt > previous.updatedAt)
       ) {
-        byPublicKey.set(device.publicKey, device);
+        byPublicKey.set(dedupeKey, device);
       }
     }
 

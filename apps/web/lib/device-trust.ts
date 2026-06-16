@@ -7,6 +7,10 @@ import {
 } from "./device-key-store";
 
 const DEVICE_ID_KEY = "zero-vault.local.device-id.v1";
+const DEVICE_FINGERPRINT_KEY = "zero-vault.local.device-fingerprint.v1";
+
+let keypairPromise: Promise<string> | null = null;
+let registerDevicePromise: Promise<DeviceInfo | null> | null = null;
 
 const getDevicePublicKeyHex = (publicKeyBytes: Uint8Array): string =>
   Array.from(publicKeyBytes.slice(0, 16), (b) => b.toString(16).padStart(2, "0")).join("");
@@ -18,11 +22,19 @@ const getDevicePublicKeyHex = (publicKeyBytes: Uint8Array): string =>
  * (private_key[32] || public_key[32]).
  *
  * - Private key is stored in IndexedDB (never in localStorage).
- * - A device ID derived from the first 16 bytes of the public key (hex)
- *   is stored in localStorage for quick lookup.
+ * - A local placeholder ID derived from the public key is stored until
+ *   registration replaces it with the server-side trusted device ID.
  * - Returns the public key as a base64url string.
  */
 export const generateDeviceKeypair = async (): Promise<string> => {
+  if (keypairPromise) return keypairPromise;
+  keypairPromise = generateDeviceKeypairInternal().finally(() => {
+    keypairPromise = null;
+  });
+  return keypairPromise;
+};
+
+const generateDeviceKeypairInternal = async (): Promise<string> => {
   const existing = window.localStorage.getItem(DEVICE_ID_KEY);
   if (existing) {
     // Keypair already generated; return the stored public key.
@@ -48,6 +60,25 @@ export const generateDeviceKeypair = async (): Promise<string> => {
   return publicKeyB64;
 };
 
+const createDeviceFingerprint = (): string => {
+  const randomId = globalThis.crypto?.randomUUID?.();
+  if (randomId) return randomId;
+  if (globalThis.crypto?.getRandomValues) {
+    const random = new Uint8Array(16);
+    globalThis.crypto.getRandomValues(random);
+    return Array.from(random, (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+export const getDeviceFingerprint = (): string => {
+  const existing = window.localStorage.getItem(DEVICE_FINGERPRINT_KEY);
+  if (existing) return existing;
+  const fingerprint = createDeviceFingerprint();
+  window.localStorage.setItem(DEVICE_FINGERPRINT_KEY, fingerprint);
+  return fingerprint;
+};
+
 /**
  * Get the device ID from localStorage (derived from public key hex prefix).
  */
@@ -63,10 +94,13 @@ export const getDevicePublicKey = (): string | null =>
 export type DeviceInfo = {
   id: string;
   name: string;
+  fingerprint?: string;
   publicKey: string;
   status: "pending" | "approved" | "rejected" | "revoked";
   createdAt?: string;
   updatedAt?: string;
+  lastSeenIp?: string | null;
+  lastSeenLocation?: string | null;
 };
 
 export const getDeviceName = (): string => {
@@ -83,15 +117,24 @@ export const getDeviceName = (): string => {
 
 
  * Register this device with the server.
- * Sends `{ name, publicKey }` matching the shared schema.
+ * Sends `{ name, fingerprint, publicKey }` matching the shared schema.
  */
 export const registerDevice = async (csrfToken: string): Promise<DeviceInfo | null> => {
+  if (registerDevicePromise) return registerDevicePromise;
+  registerDevicePromise = registerDeviceInternal(csrfToken).finally(() => {
+    registerDevicePromise = null;
+  });
+  return registerDevicePromise;
+};
+
+const registerDeviceInternal = async (csrfToken: string): Promise<DeviceInfo | null> => {
   try {
+    const fingerprint = getDeviceFingerprint();
     const publicKey = await generateDeviceKeypair();
     const device = await requestJson<DeviceInfo>("/devices", {
       method: "POST",
       headers: { "x-zero-vault-csrf": csrfToken },
-      body: JSON.stringify({ name: getDeviceName(), publicKey })
+      body: JSON.stringify({ name: getDeviceName(), fingerprint, publicKey })
     });
     window.localStorage.setItem(DEVICE_ID_KEY, device.id);
     window.localStorage.setItem(`${DEVICE_ID_KEY}.public-key`, device.publicKey);

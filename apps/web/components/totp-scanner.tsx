@@ -111,13 +111,13 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
     <section className={styles.scanner} aria-labelledby="totp-scanner-title">
       <div className={styles.header}>
         <div>
-          <span className={styles.eyebrow}>SIGNAL CAPTURE / 信标捕获</span>
-          <h3 id="totp-scanner-title" className={styles.title}>接入动态验证码信标</h3>
-          <p className={styles.subtitle}>选择摄像头或剪贴板通道，将 TOTP 密钥写入当前凭据记录。</p>
+          <span className={styles.eyebrow}>TOTP / 验证码</span>
+          <h3 id="totp-scanner-title" className={styles.title}>绑定验证码</h3>
+          <p className={styles.subtitle}>扫码或粘贴密钥，保存到此记录。</p>
         </div>
         <span className={`${styles.status} ${scanning ? styles.statusActive : ""}`}>
           <span className={styles.statusDot} aria-hidden="true" />
-          {scanning ? "正在扫描" : "等待接入"}
+          {scanning ? "正在扫描" : "待接入"}
         </span>
       </div>
 
@@ -128,8 +128,8 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
             <Camera size={20} />
           </span>
           <div className={styles.channelCopy}>
-            <strong>二维码光学通道</strong>
-            <span>启用设备摄像头，识别验证器二维码</span>
+            <strong>扫码添加</strong>
+            <span>识别验证器二维码</span>
           </div>
           <button
             type="button"
@@ -139,7 +139,7 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
             className={`${styles.actionButton} ${styles.scanButton} ${scanning ? styles.actionButtonDanger : ""}`}
           >
             <Camera size={18} aria-hidden="true" />
-            {scanning ? "停止扫描" : "开启扫描"}
+            {scanning ? "停止扫描" : "开始扫描"}
           </button>
         </div>
 
@@ -149,8 +149,8 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
             <Clipboard size={20} />
           </span>
           <div className={styles.channelCopy}>
-            <strong>剪贴板文本通道</strong>
-            <span>读取 otpauth 链接或 Base32 密钥</span>
+            <strong>粘贴密钥</strong>
+            <span>读取 otpauth 或 Base32</span>
           </div>
           <button
             type="button"

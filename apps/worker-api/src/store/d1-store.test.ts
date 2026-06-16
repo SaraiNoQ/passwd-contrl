@@ -177,13 +177,16 @@ function runMigration(db: MockD1Database): void {
 
     CREATE TABLE IF NOT EXISTS trusted_devices (
       id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      public_key TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    fingerprint TEXT,
+    public_key TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_seen_ip TEXT,
+    last_seen_location TEXT
+  );
     CREATE INDEX IF NOT EXISTS idx_devices_user ON trusted_devices(user_id);
 
     CREATE TABLE IF NOT EXISTS device_vault_keys (
@@ -793,6 +796,7 @@ describe("D1VaultStore", () => {
     const makeDevice = (overrides: Partial<TrustedDevice> = {}): TrustedDevice => ({
       id: "c0000000-0000-0000-0000-000000000001",
       name: "My Laptop",
+      fingerprint: "same-device-fingerprint",
       publicKey: "dGVzdC1way",
       status: "pending",
       createdAt: "2025-01-01T00:00:00.000Z",
@@ -828,6 +832,59 @@ describe("D1VaultStore", () => {
       expect(devices).toHaveLength(1);
       expect(devices[0]!.id).toBe(first.id);
       expect(devices[0]!.name).toBe("Renamed Laptop");
+    });
+
+    it("reuses the existing pending device for the same fingerprint when public key changes", async () => {
+      const first = await store.registerDevice(userId, makeDevice());
+      const second = await store.registerDevice(
+        userId,
+        makeDevice({
+          id: "c0000000-0000-0000-0000-000000000002",
+          fingerprint: first.fingerprint,
+          publicKey: "bmV3LXB1YmxpYy1rZXk",
+          lastSeenIp: "203.0.113.10",
+          lastSeenLocation: "Shanghai · CN"
+        })
+      );
+
+      expect(second.id).toBe(first.id);
+      expect(second.publicKey).toBe("bmV3LXB1YmxpYy1rZXk");
+      expect(second.status).toBe("pending");
+      expect(second.lastSeenIp).toBe("203.0.113.10");
+
+      const devices = await store.listDevices(userId);
+      expect(devices).toHaveLength(1);
+      expect(devices[0]!.id).toBe(first.id);
+      expect(devices[0]!.publicKey).toBe("bmV3LXB1YmxpYy1rZXk");
+    });
+
+    it("collapses legacy pending duplicates created in the same minute", async () => {
+      await store.registerDevice(
+        userId,
+        makeDevice({
+          id: "c0000000-0000-0000-0000-000000000010",
+          fingerprint: undefined,
+          name: "Mac",
+          publicKey: "bWFjLTE",
+          createdAt: "2026-06-16T08:48:01.000Z",
+          updatedAt: "2026-06-16T08:48:01.000Z"
+        })
+      );
+      await store.registerDevice(
+        userId,
+        makeDevice({
+          id: "c0000000-0000-0000-0000-000000000011",
+          fingerprint: undefined,
+          name: "Mac",
+          publicKey: "bWFjLTI",
+          createdAt: "2026-06-16T08:48:40.000Z",
+          updatedAt: "2026-06-16T08:48:40.000Z"
+        })
+      );
+
+      const devices = await store.listDevices(userId);
+      expect(devices).toHaveLength(1);
+      expect(devices[0]!.publicKey).toBe("bWFjLTI");
     });
 
     it("approves a device", async () => {

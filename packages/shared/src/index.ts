@@ -191,16 +191,20 @@ export type VaultItemHistoryResponse = z.infer<typeof vaultItemHistoryResponseSc
 export const trustedDeviceSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(256),
+  fingerprint: z.string().min(8).max(128).optional(),
   publicKey: base64UrlSchema,
   status: z.enum(["pending", "approved", "rejected", "revoked"]),
   createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime()
+  updatedAt: z.string().datetime(),
+  lastSeenIp: z.string().max(128).nullable().optional(),
+  lastSeenLocation: z.string().max(256).nullable().optional()
 }).strict();
 
 export type TrustedDevice = z.infer<typeof trustedDeviceSchema>;
 
 export const registerDeviceRequestSchema = z.object({
   name: z.string().min(1).max(256),
+  fingerprint: z.string().min(8).max(128).optional(),
   publicKey: base64UrlSchema
 }).strict();
 

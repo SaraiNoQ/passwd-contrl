@@ -1,7 +1,42 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import type { Env } from "../env";
 import { D1VaultStore } from "../store";
 import { registerDeviceRequestSchema } from "@zero-vault/shared";
+
+type DeviceRouteContext = Context<{ Bindings: Env }>;
+type RequestWithCf = Request & {
+  cf?: Record<string, unknown>;
+};
+
+const normalizeText = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const getClientIp = (c: DeviceRouteContext): string | null => {
+  const forwardedFor = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+  return (
+    normalizeText(c.req.header("cf-connecting-ip")) ??
+    normalizeText(forwardedFor) ??
+    normalizeText(c.req.header("x-real-ip"))
+  );
+};
+
+const getClientLocation = (c: DeviceRouteContext): string | null => {
+  const cf = (c.req.raw as RequestWithCf).cf;
+  const parts = [
+    normalizeText(cf?.city),
+    normalizeText(cf?.region),
+    normalizeText(cf?.country) ?? normalizeText(c.req.header("cf-ipcountry"))
+  ].filter((part): part is string => Boolean(part));
+
+  if (parts.length > 0) return parts.join(" · ");
+
+  const colo = normalizeText(cf?.colo);
+  return colo ? `Cloudflare ${colo}` : null;
+};
 
 export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
@@ -31,10 +66,13 @@ export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
     const device = {
       id: crypto.randomUUID(),
       name: parsed.data.name,
+      fingerprint: parsed.data.fingerprint,
       publicKey: parsed.data.publicKey,
       status: "pending" as const,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      lastSeenIp: getClientIp(c),
+      lastSeenLocation: getClientLocation(c)
     };
 
     const store = new D1VaultStore(c.env.DB);

@@ -234,10 +234,13 @@ describe("shared schemas", () => {
     const device = {
       id: "77777777-7777-4777-8777-777777777777",
       name: "MacBook Pro",
+      fingerprint: "browser-install-1",
       publicKey: "cHVibGljS2V5",
       status: "pending" as const,
       createdAt: "2026-06-04T00:00:00.000Z",
-      updatedAt: "2026-06-04T00:00:00.000Z"
+      updatedAt: "2026-06-04T00:00:00.000Z",
+      lastSeenIp: "203.0.113.1",
+      lastSeenLocation: "Shanghai · CN"
     };
     expect(trustedDeviceSchema.parse(device)).toMatchObject({ name: "MacBook Pro", status: "pending" });
   });
@@ -272,6 +275,7 @@ describe("shared schemas", () => {
     expect(
       registerDeviceRequestSchema.parse({
         name: "iPhone",
+        fingerprint: "ios-install-1",
         publicKey: "cHVibGljS2V5"
       })
     ).toMatchObject({ name: "iPhone" });
@@ -283,10 +287,13 @@ describe("shared schemas", () => {
         {
           id: "77777777-7777-4777-8777-777777777777",
           name: "MacBook",
+          fingerprint: "browser-install-1",
           publicKey: "cHVibGljS2V5",
           status: "approved" as const,
           createdAt: "2026-06-04T00:00:00.000Z",
-          updatedAt: "2026-06-04T00:00:00.000Z"
+          updatedAt: "2026-06-04T00:00:00.000Z",
+          lastSeenIp: "203.0.113.1",
+          lastSeenLocation: "Shanghai · CN"
         }
       ]
     };

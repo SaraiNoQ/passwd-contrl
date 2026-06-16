@@ -435,10 +435,24 @@
 .deviceMeta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   margin-top: 5px;
   color: var(--color-text-muted);
   font-size: 12px;
+}
+
+.deviceNetworkMeta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deviceNetworkMeta::before {
+  margin: 0 4px;
+  color: var(--color-border-strong);
+  content: "/";
 }
 
 .deviceTitleLine {

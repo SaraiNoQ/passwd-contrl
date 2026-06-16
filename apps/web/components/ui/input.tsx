@@ -1,11 +1,11 @@
 "use client";
 
-import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import { cn } from "../../lib/utils";
 import styles from "./input.module.css";
 
 interface BaseInputProps {
-  label?: string;
+  label?: ReactNode;
   error?: string;
   className?: string;
 }
@@ -26,7 +26,7 @@ export type InputProps = TextInputProps | TextareaProps;
 
 export function Input(props: InputProps) {
   const { label, error, className, id, ...rest } = props;
-  const fieldId = id ?? (label ? label.replace(/\s+/g, "-").toLowerCase() : undefined);
+  const fieldId = id ?? (typeof label === "string" ? label.replace(/\s+/g, "-").toLowerCase() : undefined);
 
   return (
     <div className={cn(styles.wrapper, className)}>

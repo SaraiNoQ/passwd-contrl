@@ -278,7 +278,7 @@ describe("device-key-store IndexedDB operations", () => {
 });
 
 describe("registerDevice", () => {
-  it("sends { name, publicKey } to POST /devices", async () => {
+  it("sends { name, fingerprint, publicKey } to POST /devices", async () => {
     vi.stubGlobal("indexedDB", createMockIndexedDB());
 
     const publicKeyB64 = "test-public-key";
@@ -329,6 +329,7 @@ describe("registerDevice", () => {
 
     const body = JSON.parse(options.body as string);
     expect(body).toHaveProperty("publicKey");
+    expect(body).toHaveProperty("fingerprint");
     expect(body).toHaveProperty("name");
     expect(body).not.toHaveProperty("deviceId");
     expect(window.localStorage.setItem).toHaveBeenCalledWith(

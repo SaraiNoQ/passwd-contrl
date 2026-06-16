@@ -113,6 +113,21 @@ function deviceStatusLabel(status: DeviceInfo["status"]): { text: string; tone: 
   }
 }
 
+function formatDeviceSeenAt(device: DeviceInfo): string {
+  const timestamp = device.createdAt ?? device.updatedAt;
+  if (!timestamp) return "准入时间未知";
+  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(
+    new Date(timestamp)
+  );
+}
+
+function deviceNetworkMeta(device: DeviceInfo): string | null {
+  const parts = [device.lastSeenIp, device.lastSeenLocation].filter(
+    (part): part is string => Boolean(part && part.trim())
+  );
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -335,9 +350,10 @@ export default function SyncDevicePanel({
                       </div>
                       <div className={styles.deviceMeta}>
                         <Clock size={10} />
-                        {new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(
-                          new Date()
-                        )}
+                        <span>{formatDeviceSeenAt(device)}</span>
+                        {deviceNetworkMeta(device) ? (
+                          <span className={styles.deviceNetworkMeta}>{deviceNetworkMeta(device)}</span>
+                        ) : null}
                       </div>
                     </div>
                     <div className={styles.deviceActions}>
@@ -405,7 +421,10 @@ export default function SyncDevicePanel({
                         </div>
                         <div className={styles.deviceMeta}>
                           <Clock size={10} />
-                          已写入设备列表
+                          <span>已写入设备列表</span>
+                          {deviceNetworkMeta(device) ? (
+                            <span className={styles.deviceNetworkMeta}>{deviceNetworkMeta(device)}</span>
+                          ) : null}
                         </div>
                       </div>
                       {/* Revoke button for non-current approved devices */}

@@ -299,13 +299,14 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
       csrfToken
     };
 
+    const isDev = c.env.ENVIRONMENT === "development";
     const res = c.json(response);
     res.headers.set(
       "Set-Cookie",
       setCookie(SESSION_COOKIE_NAME, token, {
         httpOnly: true,
-        secure: c.env.ENVIRONMENT === "production",
-        sameSite: "Lax",
+        secure: !isDev,
+        sameSite: isDev ? "Lax" : "None",
         path: "/",
         maxAge: SESSION_MAX_AGE
       })
@@ -378,15 +379,16 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
       csrfToken,
     };
 
+    const isDev = c.env.ENVIRONMENT === "development";
     const res = c.json(response);
     res.headers.set(
       "Set-Cookie",
       setCookie(SESSION_COOKIE_NAME, token, {
         httpOnly: true,
-        secure: c.env.ENVIRONMENT === "production",
-        sameSite: "Lax",
+        secure: !isDev,
+        sameSite: isDev ? "Lax" : "None",
         path: "/",
-        maxAge: SESSION_MAX_AGE,
+        maxAge: SESSION_MAX_AGE
       })
     );
 
@@ -446,10 +448,11 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
     }
 
     const store = new D1VaultStore(c.env.DB);
+    const isDev = c.env.ENVIRONMENT === "development";
     await store.deleteSession(session.tokenHash);
 
     const res = c.json({ ok: true });
-    res.headers.set("Set-Cookie", clearCookie(SESSION_COOKIE_NAME));
+    res.headers.set("Set-Cookie", clearCookie(SESSION_COOKIE_NAME, "/", isDev ? "Lax" : "None"));
     return res;
   });
 
@@ -467,10 +470,11 @@ export function buildAuthRoutes(): Hono<{ Bindings: Env }> {
     }
 
     const store = new D1VaultStore(c.env.DB);
+    const isDev = c.env.ENVIRONMENT === "development";
     await store.deleteUser(session.userId);
 
     const res = c.json({ ok: true });
-    res.headers.set("Set-Cookie", clearCookie(SESSION_COOKIE_NAME));
+    res.headers.set("Set-Cookie", clearCookie(SESSION_COOKIE_NAME, "/", isDev ? "Lax" : "None"));
     return res;
   });
 

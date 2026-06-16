@@ -73,7 +73,9 @@ export function setCookie(name: string, value: string, options: CookieOptions = 
 
 /**
  * Generate a Set-Cookie header that clears a cookie.
+ * When sameSite is "None", the Secure flag is added (required by browsers).
  */
-export function clearCookie(name: string, path = "/"): string {
-  return `${name}=; Path=${path}; Max-Age=0; HttpOnly; SameSite=Lax`;
+export function clearCookie(name: string, path = "/", sameSite: "Lax" | "None" = "Lax"): string {
+  const secure = sameSite === "None" ? "; Secure" : "";
+  return `${name}=; Path=${path}; Max-Age=0; HttpOnly; SameSite=${sameSite}${secure}`;
 }

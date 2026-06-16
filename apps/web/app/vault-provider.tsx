@@ -316,8 +316,8 @@ export interface VaultContextValue {
 
   // -- Actions --
   loadExistingVault: () => void;
-  createVault: (e: FormEvent<HTMLFormElement>) => Promise<void>;
-  unlockVault: (e: FormEvent<HTMLFormElement>) => Promise<void>;
+  createVault: (e: FormEvent<HTMLFormElement>) => Promise<boolean>;
+  unlockVault: (e: FormEvent<HTMLFormElement>) => Promise<boolean>;
   lockVault: () => void;
   submitRegister: (e: FormEvent<HTMLFormElement>) => Promise<void>;
   submitLogin: () => Promise<void>;
@@ -1011,7 +1011,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // =========================================================================
 
   // -- Create vault (vault-auth) --
-  const createVault = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+  const createVault = useCallback(async (event: FormEvent<HTMLFormElement>): Promise<boolean> => {
     event.preventDefault();
     setError("");
     beginLoading("正在创建本地加密密码库...");
@@ -1023,18 +1023,20 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setMasterPassword("");
       setStatus("已解锁");
       setActiveNav(NAV_IDS.CREDENTIALS);
+      return true;
     } catch (e) {
       setError(formatError(e, "创建密码库失败。"));
+      return false;
     } finally {
       endLoading();
     }
   }, [beginLoading, endLoading, formatError, masterPassword, publishExtensionSession]);
 
   // -- Unlock vault (vault-auth) --
-  const unlockVault = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+  const unlockVault = useCallback(async (event: FormEvent<HTMLFormElement>): Promise<boolean> => {
     event.preventDefault();
     setError("");
-    if (!encryptedVault) return;
+    if (!encryptedVault) return false;
     beginLoading("正在解锁本地密码库...");
     try {
       const unlocked = await handleUnlockVault(masterPassword, encryptedVault);
@@ -1043,9 +1045,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setMasterPassword("");
       setStatus("已解锁");
       setActiveNav(NAV_IDS.CREDENTIALS);
+      return true;
     } catch {
       setStatus("已锁定");
       setError("主密码不正确，或本地密码库已损坏。");
+      return false;
     } finally {
       endLoading();
     }

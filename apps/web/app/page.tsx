@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { LockedState } from "../components/shell/locked-state";
+import { AppLoadingFallback } from "../components/loading-skeleton";
 import { useVaultContext } from "./vault-provider";
 
 export default function HomePage() {
@@ -17,11 +18,18 @@ export default function HomePage() {
   }, [ctx.isLocked, router]);
 
   const handleSubmit = useCallback(
-    (e: FormEvent<HTMLFormElement>) => {
-      void (ctx.hasLocalVault ? ctx.unlockVault : ctx.createVault)(e);
+    async (e: FormEvent<HTMLFormElement>) => {
+      const didOpenVault = await (ctx.hasLocalVault ? ctx.unlockVault : ctx.createVault)(e);
+      if (didOpenVault) {
+        router.replace("/vault");
+      }
     },
-    [ctx]
+    [ctx, router]
   );
+
+  if (!ctx.isLocked) {
+    return <AppLoadingFallback variant="vault" />;
+  }
 
   return (
     <LockedState

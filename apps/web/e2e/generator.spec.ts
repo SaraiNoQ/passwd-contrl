@@ -185,7 +185,7 @@ test.describe("Module G - Password Generator", () => {
     await generateBtn.click();
 
     // The password field should be filled with a 20+ char password
-    const passwordField = drawer.getByLabel("密码", { exact: true });
+    const passwordField = drawer.locator("#credential-password");
     const value = await passwordField.inputValue();
     expect(value.length).toBeGreaterThanOrEqual(20);
   });

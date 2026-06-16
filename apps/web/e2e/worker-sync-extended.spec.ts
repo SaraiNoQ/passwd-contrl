@@ -44,17 +44,21 @@ async function openAccountSection(page: Page) {
   await expect(sectionBody).toBeVisible({ timeout: 5_000 });
 }
 
+async function dismissRecoveryModal(page: Page) {
+  const dialog = page.getByRole("dialog", { name: "离线恢复记录" });
+  await expect(dialog).toBeVisible({ timeout: 15_000 });
+  await dialog.getByLabel("我已将这份备用恢复码保存在安全的离线位置").check();
+  await dialog.getByRole("button", { name: "完成" }).click();
+  await expect(dialog).toBeHidden({ timeout: 10_000 });
+}
+
 async function registerAccount(page: Page, email: string, password: string) {
   await openAccountSection(page);
   await page.getByPlaceholder("输入邮箱地址").fill(email);
   await page.getByPlaceholder("账户密码").fill(password);
   await page.getByRole("button", { name: "注册", exact: true }).click();
-  // After successful OPAQUE registration a recovery-code modal appears;
-  // dismiss it so subsequent interactions are not blocked.
-  const closeBtn = page.getByRole("button", { name: "关闭" });
-  await closeBtn.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
-  if (await closeBtn.isVisible().catch(() => false)) {
-    await closeBtn.click();
+  if (password.length >= 12) {
+    await dismissRecoveryModal(page);
   }
 }
 

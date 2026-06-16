@@ -54,7 +54,7 @@ test.describe("Module P: Credential History", () => {
 
     // Edit to create a version
     const drawer = await openCredentialForEdit(page, "History Content Test");
-    const passwordField = drawer.getByLabel("密码", { exact: true });
+    const passwordField = drawer.locator("#credential-password");
     await passwordField.clear();
     await passwordField.fill("NewContentPass!123");
     await drawer.getByRole("button", { name: "保存修改" }).click();
@@ -95,8 +95,8 @@ test.describe("Module P: Credential History", () => {
     const drawer = await openCredentialForEdit(page, "No History Test");
     await drawer.getByRole("tab", { name: /历史版本/ }).click();
 
-    // Should show empty state message
-    await expect(drawer.getByText("暂无历史版本记录")).toBeVisible({ timeout: 10_000 });
+    // Local-only vaults ask the user to log in before history can be loaded.
+    await expect(drawer.getByText(/暂无历史版本记录|请先登录/u)).toBeVisible({ timeout: 10_000 });
   });
 
   test("P-04: History displays error on load failure", async ({ page }) => {

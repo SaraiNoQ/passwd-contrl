@@ -247,7 +247,7 @@ test.describe("Module B — Credential CRUD", () => {
     const drawer = page.locator('[role="dialog"][aria-modal="true"]');
     await expect(drawer).toBeVisible();
 
-    const passwordField = drawer.getByLabel("密码", { exact: true });
+    const passwordField = drawer.locator("#credential-password");
 
     // Fill a password
     await passwordField.fill("MySecretPass123!");
@@ -761,7 +761,7 @@ test.describe("Module E — Folders", () => {
     await drawer.getByLabel("标题").fill("Folder Test Site");
     await drawer.getByLabel("网站地址").fill("https://folder-test.example.com");
     await drawer.getByLabel("用户名").fill("folderuser@example.com");
-    await drawer.getByLabel("密码", { exact: true }).fill("FolderTestStr0ng!1");
+    await drawer.locator("#credential-password").fill("FolderTestStr0ng!1");
 
     // Fill the folder input
     const folderInput = drawer.locator('input[placeholder="未分类"]');

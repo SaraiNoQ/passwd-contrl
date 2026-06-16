@@ -266,7 +266,7 @@ test.describe("Zero Vault extension E2E", () => {
     expect(state).toEqual({
       origin: httpsOrigin,
       credentials: [],
-      blockedReason: "No login form detected on the current HTTPS page."
+      blockedReason: "当前页面未检测到登录表单"
     });
 
     const fillResult = await sendExternalMessageFromPage(blank, {
@@ -293,7 +293,7 @@ test.describe("Zero Vault extension E2E", () => {
     const state = await getPopupState(httpLogin);
     expect(state).toEqual({
       credentials: [],
-      blockedReason: "Zero Vault only fills HTTPS pages."
+      blockedReason: "Zero Vault 仅支持 HTTPS 页面"
     });
 
     const fillResult = await sendExternalMessageFromPage(httpLogin, {
@@ -325,7 +325,7 @@ test.describe("Zero Vault extension E2E", () => {
     expect(state).toEqual({
       origin: httpsOrigin,
       credentials: [],
-      blockedReason: "No login form detected on the current HTTPS page."
+      blockedReason: "当前页面未检测到登录表单"
     });
 
     await login.close();

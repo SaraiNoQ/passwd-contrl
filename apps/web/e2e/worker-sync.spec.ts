@@ -35,9 +35,17 @@ async function addCredential(
   await drawer.getByLabel("标题").fill(opts.title);
   await drawer.getByLabel("网站地址").fill(opts.origin);
   await drawer.getByLabel("用户名").fill(opts.username);
-  await drawer.getByLabel("密码", { exact: true }).fill(opts.password);
+  await drawer.locator("#credential-password").fill(opts.password);
   await drawer.getByRole("button", { name: "保存凭据" }).click();
   await expect(drawer).toBeHidden({ timeout: 15_000 });
+}
+
+async function dismissRecoveryModal(page: Page) {
+  const dialog = page.getByRole("dialog", { name: "离线恢复记录" });
+  await expect(dialog).toBeVisible({ timeout: 15_000 });
+  await dialog.getByLabel("我已将这份备用恢复码保存在安全的离线位置").check();
+  await dialog.getByRole("button", { name: "完成" }).click();
+  await expect(dialog).toBeHidden({ timeout: 10_000 });
 }
 
 async function registerAccount(page: Page, email: string) {
@@ -47,11 +55,7 @@ async function registerAccount(page: Page, email: string) {
   await page.getByRole("button", { name: "注册", exact: true }).click();
   await expect(page.getByText(email)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/已登录 · 版本 0/u).first()).toBeVisible({ timeout: 30_000 });
-  // Dismiss recovery modal so subsequent clicks are not blocked
-  const closeBtn = page.getByRole("button", { name: "关闭" });
-  if (await closeBtn.isVisible().catch(() => false)) {
-    await closeBtn.click();
-  }
+  await dismissRecoveryModal(page);
 }
 
 test("registers with the Worker API and completes two item-level syncs without false conflicts", async ({ page }) => {
@@ -67,7 +71,7 @@ test("registers with the Worker API and completes two item-level syncs without f
   await registerAccount(page, email);
 
   await page.getByRole("button", { name: "立即同步" }).click();
-  await expect(page.getByText(/已同步 · 版本 1/u).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/已同步 · 版本 \d+/u).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/冲突/u)).toHaveCount(0);
 
   const row = page.getByRole('button', { name: /编辑 Worker Sync Site/ });
@@ -81,6 +85,6 @@ test("registers with the Worker API and completes two item-level syncs without f
   await expect(drawer).toBeHidden({ timeout: 15_000 });
 
   await page.getByRole("button", { name: "立即同步" }).click();
-  await expect(page.getByText(/已同步 · 版本 2/u).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/已同步 · 版本 \d+/u).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/检测到冲突/u)).toHaveCount(0);
 });

@@ -55,9 +55,9 @@ test.describe("Module L - Recovery", () => {
     const last8 = recoveryCode.slice(-8);
     await verifyInput.fill(last8);
 
-    // Verify the status changes to "回读已完成" (onConfirmSave is not provided
-    // in the vault page, so no "确认保存" button is rendered)
-    await expect(page.getByText("回读已完成")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("验证通过")).toBeVisible({ timeout: 5_000 });
+    await page.getByRole("button", { name: "确认保存" }).click();
+    await expect(page.getByText("离线恢复记录已封存").first()).toBeVisible({ timeout: 10_000 });
   });
 
   // L-03 skipped: The recovery modal (RecoveryModal) only appears after server
@@ -119,7 +119,7 @@ test.describe("Module L - Recovery", () => {
     await expect(
       page.getByText(/密码库已恢复.*条凭据/).first(),
     ).toBeVisible({ timeout: 30_000 });
-    const rotatedRecoveryDialog = page.getByRole("dialog");
+    const rotatedRecoveryDialog = page.getByRole("dialog", { name: "保存新的恢复码" });
     await expect(rotatedRecoveryDialog).toContainText("旧恢复码已失效");
     await rotatedRecoveryDialog
       .getByLabel("我已将这份备用恢复码保存在安全的离线位置")
@@ -161,7 +161,7 @@ test.describe("Module L - Recovery", () => {
     await expect(page.getByText(/密码库已恢复/).first()).toBeVisible({
       timeout: 30_000,
     });
-    const rotatedRecoveryDialog = page.getByRole("dialog");
+    const rotatedRecoveryDialog = page.getByRole("dialog", { name: "保存新的恢复码" });
     await expect(rotatedRecoveryDialog).toContainText("旧恢复码已失效");
     await rotatedRecoveryDialog
       .getByLabel("我已将这份备用恢复码保存在安全的离线位置")

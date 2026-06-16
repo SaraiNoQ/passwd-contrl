@@ -40,7 +40,7 @@ export async function addCredential(
   if (opts.type === "login" || !opts.type) {
     if (opts.origin) await drawer.getByLabel("网站地址").fill(opts.origin);
     if (opts.username) await drawer.getByLabel("用户名").fill(opts.username);
-    if (opts.password) await drawer.getByLabel("密码", { exact: true }).fill(opts.password);
+    if (opts.password) await drawer.locator("#credential-password").fill(opts.password);
   } else if (opts.type === "secure_note") {
     if (opts.noteBody) {
       await drawer.getByLabel("笔记内容").fill(opts.noteBody);

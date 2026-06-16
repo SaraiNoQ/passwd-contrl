@@ -46,7 +46,7 @@ async function addCredential(
   await drawer.getByLabel("标题").fill(opts.title);
   await drawer.getByLabel("网站地址").fill(opts.origin);
   await drawer.getByLabel("用户名").fill(opts.username);
-  await drawer.getByLabel("密码", { exact: true }).fill(opts.password);
+  await drawer.locator("#credential-password").fill(opts.password);
   await drawer.getByRole("button", { name: "保存凭据" }).click();
   await expect(drawer).toBeHidden({ timeout: 15_000 });
   await expect(
@@ -354,7 +354,7 @@ test.describe("Password generator", () => {
     await expect(drawer).toBeVisible();
 
     // The password field should be empty initially
-    const passwordField = drawer.getByLabel("密码", { exact: true });
+    const passwordField = drawer.locator("#credential-password");
     await expect(passwordField).toHaveValue("");
 
     // Click the generate button
@@ -442,8 +442,9 @@ test.describe("Recovery flow", () => {
     // Enter last 8 chars of recovery code for verification
     await page.locator("#recovery-verify").fill(recoveryCode!.slice(-8));
 
-    // Wait for verification to complete (no onConfirmSave prop, so shows status text)
-    await expect(page.getByText("回读已完成")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("验证通过")).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "确认保存" }).click();
+    await expect(page.getByText("离线恢复记录已封存").first()).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("button", { name: "锁定密码库" }).click();
     await expect(page.locator("#master-password")).toBeVisible({ timeout: 15_000 });
@@ -457,7 +458,7 @@ test.describe("Recovery flow", () => {
     await expect(page.getByText(/密码库已恢复/).first()).toBeVisible({
       timeout: 15_000,
     });
-    const rotatedRecoveryDialog = page.getByRole("dialog");
+    const rotatedRecoveryDialog = page.getByRole("dialog", { name: "保存新的恢复码" });
     await expect(rotatedRecoveryDialog).toContainText("旧恢复码已失效");
     await rotatedRecoveryDialog
       .getByLabel("我已将这份备用恢复码保存在安全的离线位置")

@@ -16,7 +16,7 @@ export interface TopBarProps {
   /** Auto-lock countdown in minutes (0 = disabled) */
   autoLockMinutes?: number;
   /** Optional ref for global shortcuts. */
-  searchInputRef?: RefObject<HTMLInputElement | null>;
+  searchInputRef?: RefObject<HTMLInputElement>;
   /** Whether the app is currently online */
   isOnline?: boolean;
   /** Number of pending offline mutations */

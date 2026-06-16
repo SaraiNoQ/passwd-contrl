@@ -95,23 +95,27 @@ describe("device-trust ECDH keypair", () => {
       }
     });
 
-    // Mock loadCryptoCore to avoid WASM initialization
-    const fakePrivateKey = new Uint8Array(32);
-    const fakePublicKey = new Uint8Array(32);
-    for (let i = 0; i < 32; i++) {
-      fakePrivateKey[i] = i;
-      fakePublicKey[i] = i + 32;
-    }
-    const combined = new Uint8Array(64);
-    combined.set(fakePrivateKey);
-    combined.set(fakePublicKey, 32);
+    // Mock loadCryptoCore to avoid WASM initialization.
+    // vi.hoisted keeps the factory variables accessible to vi.doMock.
+    const { mockCryptoCore, fakePrivateKey } = vi.hoisted(() => {
+      const fakePrivateKey = new Uint8Array(32);
+      const fakePublicKey = new Uint8Array(32);
+      for (let i = 0; i < 32; i++) {
+        fakePrivateKey[i] = i;
+        fakePublicKey[i] = i + 32;
+      }
+      const combined = new Uint8Array(64);
+      combined.set(fakePrivateKey);
+      combined.set(fakePublicKey, 32);
 
-    const mockCryptoCore = {
-      generateDeviceKeypair: vi.fn(() => combined),
-      encryptForDevice: vi.fn((_pk: Uint8Array, _vk: Uint8Array) => new Uint8Array([9, 9, 9])),
-      decryptOnDevice: vi.fn((_sk: Uint8Array, _blob: Uint8Array) => new Uint8Array([1, 2, 3])),
-      default: vi.fn()
-    };
+      const mockCryptoCore = {
+        generateDeviceKeypair: vi.fn(() => combined),
+        encryptForDevice: vi.fn((_pk: Uint8Array, _vk: Uint8Array) => new Uint8Array([9, 9, 9])),
+        decryptOnDevice: vi.fn((_sk: Uint8Array, _blob: Uint8Array) => new Uint8Array([1, 2, 3])),
+        default: vi.fn()
+      };
+      return { mockCryptoCore, fakePrivateKey };
+    });
 
     vi.doMock("./local-vault", async (importOriginal) => {
       const original = await importOriginal<typeof import("./local-vault")>();
@@ -188,7 +192,9 @@ describe("device-trust ECDH keypair", () => {
   });
 
   it("encryptVaultKeyForDevice calls WASM with correct arguments", async () => {
-    const mockEncrypted = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
+    const { mockEncrypted } = vi.hoisted(() => ({
+      mockEncrypted: new Uint8Array([0xde, 0xad, 0xbe, 0xef])
+    }));
 
     vi.doMock("./local-vault", async (importOriginal) => {
       const original = await importOriginal<typeof import("./local-vault")>();
@@ -213,7 +219,9 @@ describe("device-trust ECDH keypair", () => {
 
   it("decryptVaultKeyOnDevice reads private key from IndexedDB and calls WASM", async () => {
     const fakePrivateKey = new Uint8Array([10, 20, 30]);
-    const expectedPlaintext = new Uint8Array([1, 2, 3]);
+    const { expectedPlaintext } = vi.hoisted(() => ({
+      expectedPlaintext: new Uint8Array([1, 2, 3])
+    }));
 
     vi.stubGlobal("indexedDB", createMockIndexedDB());
     const keyStore = await import("./device-key-store");

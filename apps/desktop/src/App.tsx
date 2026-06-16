@@ -319,7 +319,7 @@ function LoginShell({
 export function App() {
   const auth = useAuthState();
   const vault = useVaultState();
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { addItem, updateItem, deleteItem, sync, pushOfflineQueue } = vault;
   const { csrfToken } = auth;

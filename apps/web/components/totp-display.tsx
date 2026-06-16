@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Copy, Check } from "lucide-react";
 import { generateTotp } from "../lib/totp";
 import styles from "./totp-display.module.css";
@@ -13,7 +13,7 @@ export function TotpDisplay({ secret }: TotpDisplayProps) {
   const [code, setCode] = useState("------");
   const [remaining, setRemaining] = useState(30);
   const [copied, setCopied] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval>>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null) as MutableRefObject<ReturnType<typeof setInterval> | null>;
 
   const updateCode = useCallback(async () => {
     try {

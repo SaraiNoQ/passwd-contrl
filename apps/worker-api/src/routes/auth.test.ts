@@ -752,8 +752,8 @@ describe("Auth routes", () => {
       // Use a unique IP to avoid interference from the shared rate limit store
       const testIp = `10.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
 
-      // register/start has rateLimit({ max: 8 })
-      const maxRequests = 8;
+      // register/start has rateLimit({ max: 60 })
+      const maxRequests = 60;
 
       // Send max + 1 requests sequentially (same IP) to trigger rate limit
       let rateLimited = false;

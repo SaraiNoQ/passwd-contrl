@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Camera, Clipboard, Radio, X } from "lucide-react";
 import { isValidTotpSecret } from "../lib/totp";
 import styles from "./totp-scanner.module.css";
@@ -13,9 +13,9 @@ export function TotpScanner({ onSecret }: TotpScannerProps) {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null) as MutableRefObject<MediaStream | null>;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const scanIntervalRef = useRef<ReturnType<typeof setInterval>>(null);
+  const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null) as MutableRefObject<ReturnType<typeof setInterval> | null>;
 
   const stopScanning = useCallback(() => {
     if (scanIntervalRef.current) {

@@ -6,7 +6,7 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:sync": "playwright test -c playwright.sync.config.ts",
@@ -24,11 +24,14 @@
     "zod": "^3.25.42"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@playwright/test": "^1.60.0",
     "@types/node": "^22.15.29",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
     "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^10.5.0",
+    "eslint-config-next": "^16.2.9",
     "vitest": "^2.1.9"
   }
 }

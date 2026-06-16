@@ -1,20 +1,53 @@
+# OS files
 .DS_Store
+Thumbs.db
+
+# Editor and local agent state
+.vscode/
+.idea/
+.claude/
+.codegraph/
+.omo/
+.playwright-mcp/
+
+# Environment and local secrets
 .env
 .env.*
 !.env.example
 .dev.vars
-.wrangler/
+.dev.vars.*
+
+# Dependencies and package-manager caches
 node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+
+# Build output
 dist/
+build/
 .next/
 out/
-coverage/
+.turbo/
+.vite/
+.vercel/
+.wrangler/
 target/
+
+# Test and coverage output
+coverage/
+.nyc_output/
 test-results/
+playwright-report/
+blob-report/
+
+# Logs and temporary files
 *.log
+*.tmp
+*.temp
 *.tsbuildinfo
+
+# Local data exports and databases
 *.csv
 *.sqlite
 *.sqlite3
-.omo/*
-.playwright-mcp/

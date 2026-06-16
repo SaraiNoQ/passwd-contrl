@@ -14,6 +14,8 @@ export interface ModalProps {
   status?: string;
   /** If true, ESC key is disabled and the close button is hidden. */
   destructive?: boolean;
+  /** If false, ESC, overlay click, and the header close button are disabled. */
+  dismissible?: boolean;
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
@@ -26,6 +28,7 @@ export function Modal({
   eyebrow,
   status,
   destructive = false,
+  dismissible = true,
   children,
   footer,
   className,
@@ -36,7 +39,7 @@ export function Modal({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !destructive) {
+      if (e.key === "Escape" && !destructive && dismissible) {
         onClose();
         return;
       }
@@ -63,7 +66,7 @@ export function Modal({
         }
       }
     },
-    [destructive, onClose],
+    [destructive, dismissible, onClose],
   );
 
   useEffect(() => {
@@ -92,11 +95,11 @@ export function Modal({
 
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget && !destructive) {
+      if (e.target === e.currentTarget && !destructive && dismissible) {
         onClose();
       }
     },
-    [destructive, onClose],
+    [destructive, dismissible, onClose],
   );
 
   if (!open) return null;
@@ -127,7 +130,7 @@ export function Modal({
             </h2>
             {status ? <span className={styles.status}>{status}</span> : null}
           </div>
-          {!destructive && (
+          {!destructive && dismissible && (
             <button
               type="button"
               className={styles.closeBtn}

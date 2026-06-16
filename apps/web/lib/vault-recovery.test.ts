@@ -60,12 +60,12 @@ describe("handleRecoverVault", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("returns no-code when recovery code is empty", async () => {
-    const result = await handleRecoverVault({ recoveryInputCode: "", recoveryPassword: "new-password-12", encryptedVault: null });
+    const result = await handleRecoverVault({ recoveryInputCode: "", recoveryPassword: "new-password-12", encryptedVault: null, csrfToken: "" });
     expect(result.status).toBe("no-code");
   });
 
   it("returns password-too-short when password < 12 chars", async () => {
-    const result = await handleRecoverVault({ recoveryInputCode: "valid-code", recoveryPassword: "short", encryptedVault: null });
+    const result = await handleRecoverVault({ recoveryInputCode: "valid-code", recoveryPassword: "short", encryptedVault: null, csrfToken: "" });
     expect(result.status).toBe("password-too-short");
   });
 
@@ -74,18 +74,36 @@ describe("handleRecoverVault", () => {
     const { fetchRecoveryPacket } = await import("./api-client");
     vi.mocked(loadRecoveryPacket).mockReturnValue(null);
     vi.mocked(fetchRecoveryPacket).mockResolvedValue(null);
-    const result = await handleRecoverVault({ recoveryInputCode: "valid-code", recoveryPassword: "new-password-12", encryptedVault: null });
+    const result = await handleRecoverVault({ recoveryInputCode: "valid-code", recoveryPassword: "new-password-12", encryptedVault: null, csrfToken: "" });
     expect(result.status).toBe("no-packet");
   });
 
   it("recovers vault successfully with local encrypted vault", async () => {
-    const { loadRecoveryPacket } = await import("./recovery");
+    const { loadRecoveryPacket, saveRecoveryPacket } = await import("./recovery");
+    const { saveRecoveryPacketToServer } = await import("./api-client");
     vi.mocked(loadRecoveryPacket).mockReturnValue({ alg: "AES_256_GCM", nonce: "AA", ciphertext: "BB", kdfIterations: 2 });
     const mockEncrypted = { schemaVersion: 1 } as Parameters<typeof handleRecoverVault>[0]["encryptedVault"];
-    const result = await handleRecoverVault({ recoveryInputCode: "valid-code", recoveryPassword: "new-password-12", encryptedVault: mockEncrypted });
+    const result = await handleRecoverVault({ recoveryInputCode: "valid-code", recoveryPassword: "new-password-12", encryptedVault: mockEncrypted, csrfToken: "token" });
     expect(result.status).toBe("ok");
     if (result.status === "ok") {
       expect(result.recoveredCount).toBeGreaterThan(0);
+      expect(result.recoveryCode).toBe("test-recovery-code-abc123");
+    }
+    expect(saveRecoveryPacket).toHaveBeenCalled();
+    expect(saveRecoveryPacketToServer).toHaveBeenCalled();
+  });
+
+  it("returns serverSaveFailed when server save fails during recovery", async () => {
+    const { loadRecoveryPacket } = await import("./recovery");
+    const { saveRecoveryPacketToServer } = await import("./api-client");
+    vi.mocked(loadRecoveryPacket).mockReturnValue({ alg: "AES_256_GCM", nonce: "AA", ciphertext: "BB", kdfIterations: 2 });
+    vi.mocked(saveRecoveryPacketToServer).mockRejectedValueOnce(new Error("network_error"));
+    const mockEncrypted = { schemaVersion: 1 } as Parameters<typeof handleRecoverVault>[0]["encryptedVault"];
+    const result = await handleRecoverVault({ recoveryInputCode: "valid-code", recoveryPassword: "new-password-12", encryptedVault: mockEncrypted, csrfToken: "token" });
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.serverSaveFailed).toBe(true);
+      expect(result.recoveryCode).toBe("test-recovery-code-abc123");
     }
   });
 });

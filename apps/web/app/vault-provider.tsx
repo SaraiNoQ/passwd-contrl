@@ -240,6 +240,7 @@ export interface VaultContextValue {
   setSearchQuery: (q: string) => void;
   searchLoading: boolean;
   loading: boolean;
+  loadingMessage: string | null;
   copiedField: string | null;
   deleteConfirmId: string | null;
   setDeleteConfirmId: (id: string | null) => void;
@@ -253,6 +254,7 @@ export interface VaultContextValue {
 
   // -- Recovery --
   showRecoveryModal: boolean;
+  recoveryModalMode: "initial" | "rotated";
   recoveryCode: string;
   recoveryConfirmed: boolean;
   setRecoveryConfirmed: (v: boolean) => void;
@@ -263,6 +265,7 @@ export interface VaultContextValue {
   recoveryPassword: string;
   setRecoveryPassword: (v: string) => void;
   regeneratingRecovery: boolean;
+  recoveryServerSaveFailed: boolean;
   handleRegenerateRecovery: () => Promise<string>;
 
   // -- Device trust --
@@ -339,6 +342,7 @@ export interface VaultContextValue {
 
   // -- Recovery --
   handleCreateRecoveryCode: () => Promise<void>;
+  confirmRecoveryCodeSaved: () => void;
   handleRecoverVault: () => Promise<void>;
   closeRecoveryModal: () => void;
 
@@ -420,6 +424,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [serverSearchIds, setServerSearchIds] = useState<Set<string> | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const autoLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -433,12 +438,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   // -- Recovery state --
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [recoveryModalMode, setRecoveryModalMode] = useState<"initial" | "rotated">("initial");
   const [recoveryCode, setRecoveryCode] = useState("");
   const [recoveryConfirmed, setRecoveryConfirmed] = useState(false);
   const [showRecoveryEntry, setShowRecoveryEntry] = useState(false);
   const [recoveryInputCode, setRecoveryInputCode] = useState("");
   const [recoveryPassword, setRecoveryPassword] = useState("");
   const [regeneratingRecovery, setRegeneratingRecovery] = useState(false);
+  const [recoveryServerSaveFailed, setRecoveryServerSaveFailed] = useState(false);
 
   // -- Device trust state --
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
@@ -480,6 +487,27 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [cloudExports, setCloudExports] = useState<Array<{ id: string; createdAt: string; algorithm: string }>>([]);
   const [cloudExportLoading, setCloudExportLoading] = useState(false);
   const [cloudExportError, setCloudExportError] = useState("");
+
+  const beginLoading = useCallback((message: string) => {
+    setLoading(true);
+    setLoadingMessage(message);
+  }, []);
+
+  const endLoading = useCallback(() => {
+    setLoading(false);
+    setLoadingMessage(null);
+  }, []);
+
+  const formatError = useCallback((value: unknown, fallback: string) => {
+    if (value instanceof Error) return getErrorMessage(value);
+    if (typeof value === "string") {
+      const mapped = getErrorMessage(new Error(value));
+      return mapped === "发生了未知错误" && value.length <= 160 && !value.includes("\n")
+        ? value
+        : mapped;
+    }
+    return fallback;
+  }, []);
 
   const addSyncEvent = useCallback((event: Omit<SyncEvent, "id" | "timestamp">) => {
     setSyncEvents((prev) => [
@@ -647,7 +675,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       addSyncEvent({ type: "push", description: `重放 ${pendingMutations.length} 条离线变更` });
     }
 
-    setLoading(true);
+    beginLoading("正在拉取云端记录并合并本地变更...");
+    setSyncStatus("同步中...");
     addSyncEvent({ type: "pull", description: "开始同步…" });
     try {
       const result = await performSync({ encryptedVault, unlockedVault, user, csrfToken });
@@ -675,6 +704,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           addSyncEvent({ type: "push", description: `同步完成，版本 ${result.serverRevision}`, itemCount: result.appliedCount });
           break;
         }
+        case "restored-from-cloud": {
+          setEncryptedVault(result.encrypted);
+          setUnlockedVault(null);
+          clearExtensionSession();
+          setUser({ ...user, serverRevision: result.serverRevision });
+          setCanRestoreFromCloud(false);
+          setSyncConflict(null);
+          setStatus("已锁定");
+          setSyncStatus(`已恢复云端密码库 · 版本 ${result.serverRevision}，请用原主密码解锁`);
+          addSyncEvent({ type: "pull", description: "已从云端恢复原密码库，请重新解锁" });
+          break;
+        }
         case "conflicts": {
           setSyncStatus("检测到冲突");
           setItemConflicts(result.conflicts);
@@ -690,6 +731,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             message: "远端加密密码库在此浏览器上次同步后已变更。"
           });
           addSyncEvent({ type: "conflict", description: `版本冲突 · 本地 ${result.localRevision}，远端 ${result.remoteRevision}` });
+          break;
+        }
+        case "remote-vault-mismatch": {
+          const localItemCount = unlockedVault?.snapshot.items.length ?? encryptedVault?.itemCount ?? 0;
+          const message = result.canRestoreFromCloud
+            ? localItemCount === 0
+              ? "当前本地密码库无法解密云端记录。请先使用“从云端恢复”恢复原密码库，再进行同步。"
+              : "当前本地密码库无法解密云端记录，且本地已有记录。为避免覆盖，请先在原设备完成同步或导出本地记录，再恢复云端密码库。"
+            : "当前本地密码库无法解密云端记录。请回到保存原密码库的设备重新同步一次，再在此设备恢复。";
+          setSyncStatus("需要从云端恢复");
+          setError(message);
+          setCanRestoreFromCloud(result.canRestoreFromCloud);
+          addSyncEvent({ type: "error", description: `无法解密 ${result.failedItemCount} 条云端记录` });
           break;
         }
         case "sync-conflict": {
@@ -708,21 +762,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             addSyncEvent({ type: "conflict", description: "服务器拒绝推送，远端版本已更新" });
           } else {
             setSyncStatus(isOffline ? "离线" : "同步失败");
-            setError(isOffline ? "当前离线，连接后将自动同步。" : `同步失败：${result.message}`);
-            addSyncEvent({ type: "error", description: isOffline ? "离线" : `同步失败：${result.message}` });
+            const message = formatError(result.message, "同步失败。");
+            setError(isOffline ? "当前离线，连接后将自动同步。" : `同步失败：${message}`);
+            addSyncEvent({ type: "error", description: isOffline ? "离线" : `同步失败：${message}` });
           }
           break;
         }
       }
     } catch (syncError) {
-      const message = syncError instanceof Error ? syncError.message : "sync_failed";
+      const message = formatError(syncError, "同步失败。");
       setSyncStatus(isOffline ? "离线" : "同步失败");
       setError(isOffline ? "当前离线，连接后将自动同步。" : `同步失败：${message}`);
       addSyncEvent({ type: "error", description: isOffline ? "离线" : `同步失败：${message}` });
     } finally {
-      setLoading(false);
+      endLoading();
     }
-  }, [encryptedVault, unlockedVault, user, csrfToken, isOffline, addSyncEvent, publishExtensionSession]);
+  }, [beginLoading, clearExtensionSession, encryptedVault, endLoading, formatError, unlockedVault, user, csrfToken, isOffline, addSyncEvent, publishExtensionSession]);
 
   useEffect(() => {
     if (!autoSyncEnabled || !unlockedVault || !user || !csrfToken) return;
@@ -784,11 +839,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // -- Device auto-registration --
   useEffect(() => {
     if (user && csrfToken) {
-      void registerDevice(csrfToken);
       void (async () => {
         try {
+          const registeredDevice = await registerDevice(csrfToken);
           const deviceList = await listDevices(csrfToken);
-          const currentDeviceId = getDeviceId();
+          const currentDeviceId = registeredDevice?.id ?? getDeviceId();
           if (currentDeviceId) setCurrentDeviceId(currentDeviceId);
           setDevices(deviceList);
         } catch { /* ignore */ }
@@ -959,7 +1014,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const createVault = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    setLoading(true);
+    beginLoading("正在创建本地加密密码库...");
     try {
       const created = await handleCreateVault(masterPassword);
       setEncryptedVault(created.encrypted);
@@ -969,18 +1024,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setStatus("已解锁");
       setActiveNav(NAV_IDS.CREDENTIALS);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "创建密码库失败。");
+      setError(formatError(e, "创建密码库失败。"));
     } finally {
-      setLoading(false);
+      endLoading();
     }
-  }, [masterPassword, publishExtensionSession]);
+  }, [beginLoading, endLoading, formatError, masterPassword, publishExtensionSession]);
 
   // -- Unlock vault (vault-auth) --
   const unlockVault = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     if (!encryptedVault) return;
-    setLoading(true);
+    beginLoading("正在解锁本地密码库...");
     try {
       const unlocked = await handleUnlockVault(masterPassword, encryptedVault);
       setUnlockedVault(unlocked);
@@ -992,9 +1047,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setStatus("已锁定");
       setError("主密码不正确，或本地密码库已损坏。");
     } finally {
-      setLoading(false);
+      endLoading();
     }
-  }, [masterPassword, encryptedVault, publishExtensionSession]);
+  }, [beginLoading, encryptedVault, endLoading, masterPassword, publishExtensionSession]);
 
   // -- Lock vault --
   const lockVault = useCallback(() => {
@@ -1030,11 +1085,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setError("账户密码至少需要 12 个字符。");
       return;
     }
-    setLoading(true);
+    beginLoading("正在注册账户并建立同步会话...");
     try {
       const { recoveryCode } = await registerAccount(email, accountPassword);
       setRecoveryCode(recoveryCode);
       setRecoveryConfirmed(false);
+      setRecoveryModalMode("initial");
       setShowRecoveryModal(true);
 
       const session = await loginAccount(email, accountPassword);
@@ -1044,13 +1100,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setAccountPassword("");
       setSyncStatus(`已登录 · 版本 ${session.user.serverRevision}`);
       const remote = await pullVault().catch(() => null);
-      setCanRestoreFromCloud(!loadEncryptedLocalVault() && !!remote && getSyncedLocalVaultItem(remote.items) !== null);
+      setCanRestoreFromCloud(!!remote && getSyncedLocalVaultItem(remote.items) !== null);
     } catch (e) {
-      setError(getErrorMessage(e));
+      setError(formatError(e, "注册失败。"));
     } finally {
-      setLoading(false);
+      endLoading();
     }
-  }, [accountEmail, accountPassword]);
+  }, [accountEmail, accountPassword, beginLoading, endLoading, formatError]);
 
   // -- Login --
   const submitLogin = useCallback(async () => {
@@ -1064,7 +1120,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setError("账户密码至少需要 12 个字符。");
       return;
     }
-    setLoading(true);
+    beginLoading("正在验证账户并连接云端同步...");
     try {
       const session = await loginAccount(email, accountPassword);
       setUser(session.user);
@@ -1074,13 +1130,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setSyncStatus(`已登录 · 版本 ${session.user.serverRevision}`);
       setError("");
       const remote = await pullVault().catch(() => null);
-      setCanRestoreFromCloud(!loadEncryptedLocalVault() && !!remote && getSyncedLocalVaultItem(remote.items) !== null);
+      setCanRestoreFromCloud(!!remote && getSyncedLocalVaultItem(remote.items) !== null);
     } catch (e) {
-      setError(getErrorMessage(e));
+      setError(formatError(e, "登录失败。"));
     } finally {
-      setLoading(false);
+      endLoading();
     }
-  }, [accountEmail, accountPassword]);
+  }, [accountEmail, accountPassword, beginLoading, endLoading, formatError]);
 
   // -- Logout --
   const submitLogout = useCallback(async () => {
@@ -1398,7 +1454,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // -- Restore from cloud (vault-sync) --
   const restoreFromCloud = useCallback(async () => {
     setError("");
-    setLoading(true);
+    beginLoading("正在从云端恢复加密密码库...");
     try {
       const result = await handleRestoreFromCloud({ user });
       if (result.status === "no-user") {
@@ -1406,24 +1462,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       } else if (result.status === "no-remote-vault") {
         setError("服务器上没有可恢复的加密密码库。");
       } else if (result.status === "error") {
-        setError(result.message);
+        setError(formatError(result.message, "恢复失败。"));
       } else {
         setEncryptedVault(result.encrypted);
+        setUnlockedVault(null);
+        clearExtensionSession();
         setCanRestoreFromCloud(false);
-        setSyncStatus(`已恢复加密密码库 · 版本 ${result.serverRevision}`);
+        setStatus("已锁定");
+        setSyncStatus(`已恢复加密密码库 · 版本 ${result.serverRevision}，请用主密码解锁`);
         setSyncConflict(null);
+        setActiveNav(NAV_IDS.DASHBOARD);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "恢复失败。");
+      setError(formatError(e, "恢复失败。"));
     } finally {
-      setLoading(false);
+      endLoading();
     }
-  }, [user]);
+  }, [beginLoading, clearExtensionSession, endLoading, formatError, user]);
 
   // -- Conflict resolution (vault-sync) --
   const resolveKeepLocal = useCallback(async (itemId: string) => {
     if (!unlockedVault || !user || !csrfToken) return;
-    setLoading(true);
+    beginLoading("正在使用本地版本覆盖云端...");
     try {
       const result = await handleResolveKeepLocal({ unlockedVault, user, csrfToken, itemId });
       if (result.status === "ok") {
@@ -1431,21 +1491,29 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setItemSyncInfos((prev) =>
           prev.map((info) => (info.itemId === itemId ? { ...info, status: "synced" as const } : info))
         );
+        setSyncStatus("冲突已解决");
+        addSyncEvent({ type: "push", description: "已保留本地版本并覆盖云端" });
       } else if (result.status === "still-conflicting") {
-        setError(result.message);
+        const message = formatError(result.message, "冲突仍未解决。");
+        setError(message);
+        addSyncEvent({ type: "error", description: message });
       } else {
-        setError(result.message);
+        const message = formatError(result.message, "重新推送失败。");
+        setError(message);
+        addSyncEvent({ type: "error", description: message });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "重新推送失败。");
+      const message = formatError(e, "重新推送失败。");
+      setError(message);
+      addSyncEvent({ type: "error", description: message });
     } finally {
-      setLoading(false);
+      endLoading();
     }
-  }, [unlockedVault, user, csrfToken]);
+  }, [addSyncEvent, beginLoading, csrfToken, endLoading, formatError, unlockedVault, user]);
 
   const resolveAcceptRemote = useCallback(async (itemId: string) => {
     if (!unlockedVault || !csrfToken) return;
-    setLoading(true);
+    beginLoading("正在采用云端版本...");
     try {
       const result = await handleResolveAcceptRemote({ unlockedVault, csrfToken, itemId });
       if (result.status === "ok") {
@@ -1459,18 +1527,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       } else if (result.status === "not-found") {
         setError("远端条目未找到。");
       } else {
-        setError(result.message);
+        setError(formatError(result.message, "接受远端版本失败。"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "接受远端版本失败。");
+      setError(formatError(e, "接受远端版本失败。"));
     } finally {
-      setLoading(false);
+      endLoading();
     }
-  }, [unlockedVault, csrfToken, publishExtensionSession]);
+  }, [beginLoading, csrfToken, endLoading, formatError, publishExtensionSession, unlockedVault]);
 
   const resolveCreateCopy = useCallback(async (itemId: string) => {
     if (!unlockedVault) return;
-    setLoading(true);
+    beginLoading("正在创建冲突副本...");
     try {
       const result = await handleResolveCreateCopy({ unlockedVault, itemId });
       if (result.status === "ok") {
@@ -1479,14 +1547,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         publishExtensionSession(result.copiedVault.unlocked.snapshot.items);
         setItemConflicts((prev) => prev.filter((c) => c.itemId !== itemId));
       } else {
-        setError(result.message);
+        setError(formatError(result.message, "创建副本失败。"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "创建副本失败。");
+      setError(formatError(e, "创建副本失败。"));
     } finally {
-      setLoading(false);
+      endLoading();
     }
-  }, [unlockedVault, publishExtensionSession]);
+  }, [beginLoading, endLoading, formatError, publishExtensionSession, unlockedVault]);
 
   const resolveSkip = useCallback((itemId: string) => {
     setItemConflicts((prev) => prev.filter((c) => c.itemId !== itemId));
@@ -1505,14 +1573,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [unlockedVault, csrfToken]);
 
+  const confirmRecoveryCodeSaved = useCallback(() => {
+    setRecoveryConfirmed(true);
+    setRecoveryCode("");
+    setActiveNav(NAV_IDS.DASHBOARD);
+    setSyncStatus("离线恢复记录已封存");
+  }, []);
+
   const handleRecoverVaultCb = useCallback(async () => {
     setError("");
-    setLoading(true);
+    beginLoading("正在验证恢复码并重建密码库...");
     try {
       const result = await handleRecoverVault({
         recoveryInputCode,
         recoveryPassword,
-        encryptedVault
+        encryptedVault,
+        csrfToken
       });
       if (result.status === "no-code") {
         setError("请输入恢复码。");
@@ -1522,7 +1598,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       } else if (result.status === "no-packet") {
         setError("未找到恢复包。恢复包可能尚未上传到服务器，或此设备上没有本地副本。");
       } else if (result.status === "error") {
-        setError(result.message);
+        setError(formatError(result.message, "恢复失败。请检查恢复码。"));
       } else {
         setEncryptedVault(result.encrypted);
         setUnlockedVault(result.unlocked);
@@ -1530,20 +1606,27 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setShowRecoveryEntry(false);
         setRecoveryInputCode("");
         setRecoveryPassword("");
+        setRecoveryCode(result.recoveryCode);
+        setRecoveryConfirmed(false);
+        setRecoveryModalMode("rotated");
+        setRecoveryServerSaveFailed(result.serverSaveFailed);
+        setShowRecoveryModal(true);
         setStatus("已解锁");
-        setSyncStatus(`密码库已恢复，包含 ${result.recoveredCount} 条凭据。`);
+        setSyncStatus(`密码库已恢复，包含 ${result.recoveredCount} 条凭据。旧恢复码已失效，请保存新的恢复码。`);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "恢复失败。请检查恢复码。");
+      setError(formatError(e, "恢复失败。请检查恢复码。"));
     } finally {
-      setLoading(false);
+      endLoading();
     }
-  }, [recoveryInputCode, recoveryPassword, encryptedVault, publishExtensionSession]);
+  }, [beginLoading, csrfToken, encryptedVault, endLoading, formatError, publishExtensionSession, recoveryInputCode, recoveryPassword]);
 
   const closeRecoveryModal = useCallback(() => {
     setShowRecoveryModal(false);
     setRecoveryCode("");
     setRecoveryConfirmed(false);
+    setRecoveryModalMode("initial");
+    setRecoveryServerSaveFailed(false);
   }, []);
 
   // -- Regenerate recovery code --
@@ -1682,6 +1765,20 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [user, csrfToken]);
 
   // -- Device trust (vault-device) --
+  const refreshDevicesInternal = useCallback(async () => {
+    if (!csrfToken) return;
+    const result = await handleRefreshDevices({ csrfToken });
+    if (result.status === "ok") {
+      if (result.currentDeviceId) setCurrentDeviceId(result.currentDeviceId);
+      setDevices(result.devices);
+    } else if (result.status === "error") {
+      const message = formatError(result.message, "设备列表刷新失败。");
+      setError(`设备列表刷新失败：${message}`);
+      setSyncStatus("设备列表刷新失败");
+      addSyncEvent({ type: "error", description: `设备列表刷新失败：${message}` });
+    }
+  }, [addSyncEvent, csrfToken, formatError]);
+
   const refreshDevicesCb = useCallback(async () => {
     if (!csrfToken) {
       const message = "请先登录后再刷新设备列表。";
@@ -1690,23 +1787,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       addSyncEvent({ type: "error", description: message });
       return;
     }
+    beginLoading("正在刷新设备列表...");
     try {
-      const result = await handleRefreshDevices({ csrfToken });
-      if (result.status === "ok") {
-        if (result.currentDeviceId) setCurrentDeviceId(result.currentDeviceId);
-        setDevices(result.devices);
-      } else if (result.status === "error") {
-        setError(`设备列表刷新失败：${result.message}`);
-        setSyncStatus("设备列表刷新失败");
-        addSyncEvent({ type: "error", description: `设备列表刷新失败：${result.message}` });
-      }
+      await refreshDevicesInternal();
     } catch (e) {
-      const message = e instanceof Error ? e.message : "设备列表刷新失败。";
+      const message = formatError(e, "设备列表刷新失败。");
       setError(`设备列表刷新失败：${message}`);
       setSyncStatus("设备列表刷新失败");
       addSyncEvent({ type: "error", description: `设备列表刷新失败：${message}` });
+    } finally {
+      endLoading();
     }
-  }, [addSyncEvent, csrfToken]);
+  }, [addSyncEvent, beginLoading, csrfToken, endLoading, formatError, refreshDevicesInternal]);
 
   const handleApproveDeviceCb = useCallback(async (deviceId: string) => {
     if (!csrfToken) {
@@ -1716,6 +1808,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       return;
     }
     setError("");
+    beginLoading("正在批准设备并共享密钥...");
     try {
       const result = await approveDeviceAction({ csrfToken, deviceId, unlockedVault, devices });
       if (result.status === "ok") {
@@ -1724,19 +1817,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       } else if (result.status === "key-share-failed") {
         addSyncEvent({ type: "error", description: result.message });
       } else {
-        const message = result.status === "not-logged-in" ? "设备操作需要登录" : result.message;
+        const message = result.status === "not-logged-in" ? "设备操作需要登录" : formatError(result.message, "批准设备失败。");
         setError(`批准设备失败：${message}`);
         setSyncStatus("批准设备失败");
         addSyncEvent({ type: "error", description: `批准设备失败：${message}` });
       }
-      await refreshDevicesCb();
+      await refreshDevicesInternal();
     } catch (e) {
-      const message = e instanceof Error ? e.message : "approve_failed";
+      const message = formatError(e, "批准设备失败。");
       setError(`批准设备失败：${message}`);
       setSyncStatus("批准设备失败");
       addSyncEvent({ type: "error", description: `批准设备失败：${message}` });
+    } finally {
+      endLoading();
     }
-  }, [csrfToken, unlockedVault, devices, refreshDevicesCb, addSyncEvent]);
+  }, [csrfToken, unlockedVault, devices, refreshDevicesInternal, addSyncEvent, beginLoading, endLoading, formatError]);
 
   const handleRejectDeviceCb = useCallback(async (deviceId: string) => {
     if (!csrfToken) {
@@ -1746,25 +1841,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       return;
     }
     setError("");
+    beginLoading("正在拒绝设备请求...");
     try {
       const result = await rejectDeviceAction({ csrfToken, deviceId });
       if (result.status === "ok") {
         setSyncStatus("设备已拒绝");
         addSyncEvent({ type: "device-rejected", description: "设备已拒绝" });
       } else {
-        const message = result.status === "not-logged-in" ? "设备操作需要登录" : result.message;
+        const message = result.status === "not-logged-in" ? "设备操作需要登录" : formatError(result.message, "拒绝设备失败。");
         setError(`拒绝设备失败：${message}`);
         setSyncStatus("拒绝设备失败");
         addSyncEvent({ type: "error", description: `拒绝设备失败：${message}` });
       }
-      await refreshDevicesCb();
+      await refreshDevicesInternal();
     } catch (e) {
-      const message = e instanceof Error ? e.message : "reject_failed";
+      const message = formatError(e, "拒绝设备失败。");
       setError(`拒绝设备失败：${message}`);
       setSyncStatus("拒绝设备失败");
       addSyncEvent({ type: "error", description: `拒绝设备失败：${message}` });
+    } finally {
+      endLoading();
     }
-  }, [csrfToken, refreshDevicesCb, addSyncEvent]);
+  }, [csrfToken, refreshDevicesInternal, addSyncEvent, beginLoading, endLoading, formatError]);
 
   const handleRevokeDeviceCb = useCallback(async (deviceId: string) => {
     if (!csrfToken) {
@@ -1774,25 +1872,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       return;
     }
     setError("");
+    beginLoading("正在撤销设备授权...");
     try {
       const result = await revokeDeviceAction({ csrfToken, deviceId });
       if (result.status === "ok") {
         setSyncStatus("设备已撤销");
         addSyncEvent({ type: "device-revoked", description: "设备已撤销" });
       } else {
-        const message = result.status === "not-logged-in" ? "设备操作需要登录" : result.message;
+        const message = result.status === "not-logged-in" ? "设备操作需要登录" : formatError(result.message, "撤销设备失败。");
         setError(`撤销设备失败：${message}`);
         setSyncStatus("撤销设备失败");
         addSyncEvent({ type: "error", description: `撤销设备失败：${message}` });
       }
-      await refreshDevicesCb();
+      await refreshDevicesInternal();
     } catch (e) {
-      const message = e instanceof Error ? e.message : "revoke_failed";
+      const message = formatError(e, "撤销设备失败。");
       setError(`撤销设备失败：${message}`);
       setSyncStatus("撤销设备失败");
       addSyncEvent({ type: "error", description: `撤销设备失败：${message}` });
+    } finally {
+      endLoading();
     }
-  }, [csrfToken, refreshDevicesCb, addSyncEvent]);
+  }, [csrfToken, refreshDevicesInternal, addSyncEvent, beginLoading, endLoading, formatError]);
 
   // -- Settings handlers (vault-settings) --
   const handleChangeMasterPassword = useCallback(async (current: string, newPass: string) => {
@@ -1889,11 +1990,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     error, setError, status, syncStatus, syncConflict,
     extensionBridge, canRestoreFromCloud, showSecrets,
     importStatus, searchQuery, setSearchQuery, searchLoading,
-    loading, copiedField, deleteConfirmId, setDeleteConfirmId, isOffline, offlineQueueCount,
+    loading, loadingMessage, copiedField, deleteConfirmId, setDeleteConfirmId, isOffline, offlineQueueCount,
     itemSyncInfos, itemConflicts, lastSyncedAt,
-    showRecoveryModal, recoveryCode, recoveryConfirmed, setRecoveryConfirmed,
+    showRecoveryModal, recoveryModalMode, recoveryCode, recoveryConfirmed, setRecoveryConfirmed,
     showRecoveryEntry, setShowRecoveryEntry, recoveryInputCode, setRecoveryInputCode,
     recoveryPassword, setRecoveryPassword, regeneratingRecovery,
+    recoveryServerSaveFailed,
     handleRegenerateRecovery,
     devices, currentDeviceId, showDeviceSection, setShowDeviceSection,
     activeNav, setActiveNav, drawerOpen,
@@ -1912,6 +2014,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     handleGeneratePassword, importPasswords, syncNow, restoreFromCloud,
     resolveKeepLocal, resolveAcceptRemote, resolveCreateCopy, resolveSkip,
     handleCreateRecoveryCode: handleCreateRecoveryCodeCb,
+    confirmRecoveryCodeSaved,
     handleRecoverVault: handleRecoverVaultCb,
     closeRecoveryModal,
     refreshDevices: refreshDevicesCb,

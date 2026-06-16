@@ -25,6 +25,8 @@ export interface RecoveryModalProps {
   onCopy: () => void | Promise<void>;
   confirmed: boolean;
   onConfirmChange: (confirmed: boolean) => void;
+  mode?: "initial" | "rotated";
+  serverSaveFailed?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,8 +40,11 @@ export function RecoveryModal({
   onCopy,
   confirmed,
   onConfirmChange,
+  mode = "initial",
+  serverSaveFailed = false,
 }: RecoveryModalProps) {
   const [copied, setCopied] = useState(false);
+  const isRotated = mode === "rotated";
 
   const handleCopy = useCallback(async () => {
     await onCopy();
@@ -55,9 +60,10 @@ export function RecoveryModal({
     <Modal
       open={isOpen}
       onClose={onClose}
-      title="离线恢复记录"
+      title={isRotated ? "保存新的恢复码" : "离线恢复记录"}
       eyebrow="RECOVERY SHARD / 离线恢复码"
-      status="仅显示一次，请完成离线保存"
+      status={isRotated ? "旧恢复码已失效" : "仅显示一次，请完成离线保存"}
+      dismissible={confirmed}
       footer={
         <Button
           variant="primary"
@@ -73,12 +79,25 @@ export function RecoveryModal({
       <div className={styles.warningBox}>
         <AlertTriangle size={16} />
         <span>
-          请将备用恢复码恢复码保存在安全的离线位置。它可用于忘记主密码时解封密码库，且不会再次显示。
+          {isRotated
+            ? "密码库已用新主密码恢复。旧恢复码已经失效，请立即保存下面的新恢复码。它不会再次显示。"
+            : "请将备用恢复码保存在安全的离线位置。它可用于忘记主密码时解封密码库，且不会再次显示。"}
         </span>
       </div>
 
+      {serverSaveFailed && (
+        <div className={styles.warningBox} role="alert" style={{ borderColor: "var(--color-error, #ef4444)", background: "var(--color-error-bg, #fef2f2)" }}>
+          <ShieldAlert size={16} />
+          <span>
+            恢复包未能同步到服务器。如果丢失此设备，服务器上的旧恢复包将无法解密新密码库。请尽快在稳定网络下重新生成恢复码。
+          </span>
+        </div>
+      )}
+
       {/* Recovery code display */}
-      <h4 className={styles.sectionTitle}>备用恢复码恢复码</h4>
+      <h4 className={styles.sectionTitle}>
+        {isRotated ? "新的备用恢复码" : "备用恢复码"}
+      </h4>
       <div className={styles.codeDisplay}>
         <span className={styles.codeRail} aria-hidden="true" />
         <code className={styles.code}>{recoveryCode}</code>
@@ -143,7 +162,7 @@ export function RecoveryModal({
           checked={confirmed}
           onChange={(e) => onConfirmChange(e.target.checked)}
         />
-        我已将备用恢复码恢复码保存在安全的离线位置
+        我已将这份备用恢复码保存在安全的离线位置
       </label>
     </Modal>
   );

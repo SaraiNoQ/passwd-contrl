@@ -15,6 +15,11 @@
   width: 100%;
 }
 
+.page,
+.page * {
+  box-sizing: border-box;
+}
+
 .page::before {
   background-image:
     linear-gradient(rgba(35, 38, 41, 0.045) 1px, transparent 1px),
@@ -131,9 +136,10 @@
 }
 
 .controlGrid {
+  align-items: start;
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
   position: relative;
   z-index: 1;
 }
@@ -148,6 +154,28 @@
   pointer-events: none;
   position: absolute;
   z-index: 0;
+}
+
+.mainStack,
+.sideStack {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.mainStack {
+  grid-column: 1;
+}
+
+.sideStack {
+  grid-column: 2;
+}
+
+.mainStack > *,
+.sideStack > * {
+  grid-column: auto;
 }
 
 .card {
@@ -194,15 +222,11 @@
     linear-gradient(90deg, rgba(255, 94, 36, 0.08), transparent 34%),
     linear-gradient(90deg, rgba(227, 241, 254, 0.72), transparent 28%),
     var(--settings-paper);
-  grid-column: span 8;
-  grid-row: span 2;
   min-height: 430px;
 }
 
 .bridgeCard,
-.syncCard,
-.dangerCard {
-  grid-column: span 4;
+.syncCard {
   grid-template-columns: 1fr;
 }
 
@@ -219,10 +243,10 @@
 
 .bridgeCard .cardTitle,
 .syncCard .cardTitle {
-  font-size: 36px;
+  font-size: clamp(30px, 3vw, 36px);
   line-height: 1.04;
   max-width: 100%;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .bridgeCard .cardDescription,
@@ -258,7 +282,6 @@
   background:
     linear-gradient(135deg, rgba(227, 241, 254, 0.9), rgba(255, 255, 255, 0.72) 42%),
     var(--settings-paper);
-  grid-column: span 8;
 }
 
 .syncCard {
@@ -268,7 +291,7 @@
 }
 
 .dangerCard {
-  grid-column: span 12;
+  grid-column: 1 / -1;
   grid-template-columns: minmax(260px, 0.36fr) minmax(0, 1fr);
   gap: var(--space-4);
   min-height: 0;
@@ -302,6 +325,12 @@
 
 .card > :not(.cardHeader) {
   grid-column: 2;
+}
+
+.controlStack {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 .cardHeader {
@@ -401,6 +430,7 @@
   font-size: 14px;
   font-weight: 900;
   line-height: 1.45;
+  min-width: 0;
 }
 
 .rowHint,
@@ -495,6 +525,7 @@
 .extensionRow {
   display: flex;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .extensionInput {
@@ -519,6 +550,7 @@
   justify-content: space-between;
   letter-spacing: 0.04em;
   min-height: 44px;
+  min-width: 0;
   padding: var(--space-3) var(--space-4);
 }
 
@@ -542,6 +574,7 @@
   gap: var(--space-4);
   justify-content: space-between;
   min-height: 76px;
+  min-width: 0;
   padding: var(--space-4);
 }
 
@@ -623,7 +656,7 @@
   font-weight: 900;
   line-height: 1.5;
   margin: 0;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .dangerDescription {
@@ -698,6 +731,22 @@
   }
 }
 
+@media (max-width: 1180px) {
+  .controlGrid {
+    grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+  }
+
+  .controlGrid::before {
+    background:
+      linear-gradient(90deg, transparent 0 calc(50% - 1px), var(--settings-cloud) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+      linear-gradient(0deg, transparent 0 calc(50% - 1px), var(--settings-cloud) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px));
+  }
+
+  .dangerCard {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 920px) {
   .controlGrid {
     grid-template-columns: 1fr;
@@ -717,12 +766,25 @@
     min-height: 0;
   }
 
+  .mainStack,
+  .sideStack {
+    grid-column: auto;
+  }
+
   .hero,
   .card {
     grid-template-columns: 1fr;
   }
 
+  .dangerCard {
+    grid-template-columns: 1fr;
+  }
+
   .card > :not(.cardHeader) {
+    grid-column: auto;
+  }
+
+  .dangerCard > :not(.cardHeader) {
     grid-column: auto;
   }
 

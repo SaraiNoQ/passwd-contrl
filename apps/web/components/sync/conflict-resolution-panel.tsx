@@ -28,8 +28,8 @@ export type ConflictAction = "keep-local" | "accept-remote" | "create-copy" | "s
 
 export type ConflictResolutionPanelProps = {
   conflicts: ConflictItem[];
-  onResolve: (itemId: string, action: ConflictAction) => void;
-  onResolveAll: (action: ConflictAction) => void;
+  onResolve: (itemId: string, action: ConflictAction) => void | Promise<void>;
+  onResolveAll: (action: ConflictAction) => void | Promise<void>;
   /** Optional: whether currently loading */
   loading?: boolean;
 };
@@ -82,10 +82,13 @@ export default function ConflictResolutionPanel({
   const isEmpty = conflicts.length === 0;
 
   const handleAction = useCallback(
-    (itemId: string, action: ConflictAction) => {
+    async (itemId: string, action: ConflictAction) => {
       setPendingAction(`${itemId}:${action}`);
-      onResolve(itemId, action);
-      setTimeout(() => setPendingAction(null), 500);
+      try {
+        await onResolve(itemId, action);
+      } finally {
+        setPendingAction(null);
+      }
     },
     [onResolve]
   );
@@ -97,10 +100,15 @@ export default function ConflictResolutionPanel({
     []
   );
 
-  const confirmBulkAction = useCallback(() => {
+  const confirmBulkAction = useCallback(async () => {
     if (showBulkConfirm) {
-      onResolveAll(showBulkConfirm);
-      setShowBulkConfirm(null);
+      setPendingAction(`bulk:${showBulkConfirm}`);
+      try {
+        await onResolveAll(showBulkConfirm);
+        setShowBulkConfirm(null);
+      } finally {
+        setPendingAction(null);
+      }
     }
   }, [showBulkConfirm, onResolveAll]);
 
@@ -196,7 +204,7 @@ export default function ConflictResolutionPanel({
             <Button variant="secondary" onClick={cancelBulkAction} disabled={loading}>
               取消
             </Button>
-            <Button onClick={confirmBulkAction} loading={loading}>
+            <Button onClick={() => { void confirmBulkAction(); }} loading={loading || !!pendingAction?.startsWith("bulk:")}>
               确认仲裁
             </Button>
           </>
@@ -330,50 +338,60 @@ export default function ConflictResolutionPanel({
 
               {/* Action buttons */}
               <div className={styles.actions}>
+                {(() => {
+                  const keepLocalPending = pendingAction === `${conflict.itemId}:keep-local`;
+                  const acceptRemotePending = pendingAction === `${conflict.itemId}:accept-remote`;
+                  const createCopyPending = pendingAction === `${conflict.itemId}:create-copy`;
+                  const skipPending = pendingAction === `${conflict.itemId}:skip`;
+                  return (
+                    <>
                 <button
                   type="button"
                   className={`${styles.actionBtn} ${styles.keepLocalBtn}`}
-                  onClick={() => handleAction(conflict.itemId, "keep-local")}
-                  disabled={loading || pendingAction === `${conflict.itemId}:keep-local`}
+                  onClick={() => { void handleAction(conflict.itemId, "keep-local"); }}
+                  disabled={loading || keepLocalPending}
                   title="使用本地版本覆盖云端"
                   aria-label={`保留本地版本：${conflict.title}`}
                 >
-                  <Download size={13} />
-                  保留本地版本
+                  {keepLocalPending ? <RefreshCw size={13} className={styles.actionSpinner} /> : <Download size={13} />}
+                  {keepLocalPending ? "处理中..." : "保留本地版本"}
                 </button>
                 <button
                   type="button"
                   className={`${styles.actionBtn} ${styles.acceptRemoteBtn}`}
-                  onClick={() => handleAction(conflict.itemId, "accept-remote")}
-                  disabled={loading || pendingAction === `${conflict.itemId}:accept-remote`}
+                  onClick={() => { void handleAction(conflict.itemId, "accept-remote"); }}
+                  disabled={loading || acceptRemotePending}
                   title="使用云端版本覆盖本地"
                   aria-label={`采用云端版本：${conflict.title}`}
                 >
-                  <RefreshCw size={13} />
-                  采用云端版本
+                  <RefreshCw size={13} className={acceptRemotePending ? styles.actionSpinner : undefined} />
+                  {acceptRemotePending ? "处理中..." : "采用云端版本"}
                 </button>
                 <button
                   type="button"
                   className={`${styles.actionBtn} ${styles.createCopyBtn}`}
-                  onClick={() => handleAction(conflict.itemId, "create-copy")}
-                  disabled={loading || pendingAction === `${conflict.itemId}:create-copy`}
+                  onClick={() => { void handleAction(conflict.itemId, "create-copy"); }}
+                  disabled={loading || createCopyPending}
                   title="保留两个版本作为独立条目"
                   aria-label={`创建副本：${conflict.title}`}
                 >
-                  <Copy size={13} />
-                  创建副本
+                  {createCopyPending ? <RefreshCw size={13} className={styles.actionSpinner} /> : <Copy size={13} />}
+                  {createCopyPending ? "处理中..." : "创建副本"}
                 </button>
                 <button
                   type="button"
                   className={`${styles.actionBtn} ${styles.skipBtn}`}
-                  onClick={() => handleAction(conflict.itemId, "skip")}
-                  disabled={loading || pendingAction === `${conflict.itemId}:skip`}
+                  onClick={() => { void handleAction(conflict.itemId, "skip"); }}
+                  disabled={loading || skipPending}
                   title="暂不处理此冲突"
                   aria-label={`跳过此项：${conflict.title}`}
                 >
-                  <SkipForward size={13} />
-                  跳过此项
+                  {skipPending ? <RefreshCw size={13} className={styles.actionSpinner} /> : <SkipForward size={13} />}
+                  {skipPending ? "处理中..." : "跳过此项"}
                 </button>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           );

@@ -119,6 +119,13 @@ test.describe("Module L - Recovery", () => {
     await expect(
       page.getByText(/密码库已恢复.*条凭据/).first(),
     ).toBeVisible({ timeout: 30_000 });
+    const rotatedRecoveryDialog = page.getByRole("dialog");
+    await expect(rotatedRecoveryDialog).toContainText("旧恢复码已失效");
+    await rotatedRecoveryDialog
+      .getByLabel("我已将这份备用恢复码保存在安全的离线位置")
+      .check();
+    await rotatedRecoveryDialog.getByRole("button", { name: "完成" }).click();
+    await expect(rotatedRecoveryDialog).toBeHidden({ timeout: 5_000 });
 
     // Verify credentials are intact — after recovery the vault lands on the
     // dashboard, so navigate to the credential list to find the title.
@@ -154,6 +161,13 @@ test.describe("Module L - Recovery", () => {
     await expect(page.getByText(/密码库已恢复/).first()).toBeVisible({
       timeout: 30_000,
     });
+    const rotatedRecoveryDialog = page.getByRole("dialog");
+    await expect(rotatedRecoveryDialog).toContainText("旧恢复码已失效");
+    await rotatedRecoveryDialog
+      .getByLabel("我已将这份备用恢复码保存在安全的离线位置")
+      .check();
+    await rotatedRecoveryDialog.getByRole("button", { name: "完成" }).click();
+    await expect(rotatedRecoveryDialog).toBeHidden({ timeout: 5_000 });
 
     // Lock the vault again
     await lockVault(page);

@@ -34,6 +34,13 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
 
   // Sync
   sync_conflict: "同步冲突，请手动解决",
+  item_owner_mismatch: "同步记录所有者不匹配，请重新登录后再试",
+  invalid_item_sync_request: "同步请求格式无效，请刷新后重试",
+  invalid_sync_request: "同步请求格式无效，请刷新后重试",
+  approve_failed: "批准设备失败，请刷新设备列表后重试",
+  reject_failed: "拒绝设备失败，请刷新设备列表后重试",
+  revoke_failed: "撤销设备失败，请刷新设备列表后重试",
+  not_authenticated: "请先登录",
 
   // Generic server error prefix (e.g. `request_failed_500`)
   request_failed_401: "请先登录",
@@ -178,14 +185,26 @@ export const pushVault = (csrfToken: string, request: SyncPushRequest) =>
     body: JSON.stringify(request)
   });
 
-export const pushItemLevelSync = (csrfToken: string, plan: ItemLevelSyncPlan) =>
-  requestJson<ItemLevelSyncResponse>("/vault/item-sync", {
+export const pushItemLevelSync = async (csrfToken: string, plan: ItemLevelSyncPlan): Promise<ItemLevelSyncResponse> => {
+  const response = await requestJson<ItemLevelSyncResponse & { error?: string }>("/vault/item-sync", {
     method: "POST",
     headers: {
       "x-zero-vault-csrf": csrfToken
     },
     body: JSON.stringify(plan)
   }, { acceptStatuses: [409] });
+
+  if (response.error === "sync_conflict") {
+    return {
+      protocol: "item_level_v1",
+      serverRevision: response.serverRevision,
+      applied: response.applied ?? { upsertedItemIds: [], deletedItemIds: [] },
+      conflicts: response.conflicts ?? []
+    };
+  }
+
+  return response;
+};
 
 export const encodeJsonForEnvelope = (value: unknown) => toBase64Url(encodeText(JSON.stringify(value)));
 

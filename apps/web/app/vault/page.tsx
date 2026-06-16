@@ -234,6 +234,7 @@ export default function VaultPage() {
           autoLockRemaining={ctx.autoLockRemaining}
           onSyncNow={ctx.syncNow}
           loading={ctx.loading}
+          {...(ctx.loadingMessage ? { statusMessage: ctx.loadingMessage } : {})}
           vaultStatus={{
             itemCount: ctx.itemCount,
             updatedAt: ctx.updatedAt,
@@ -292,18 +293,18 @@ export default function VaultPage() {
               })}
               onResolve={(itemId, action) => {
                 switch (action) {
-                  case "keep-local": void ctx.resolveKeepLocal(itemId); break;
-                  case "accept-remote": void ctx.resolveAcceptRemote(itemId); break;
-                  case "create-copy": void ctx.resolveCreateCopy(itemId); break;
-                  case "skip": ctx.resolveSkip(itemId); break;
+                  case "keep-local": return ctx.resolveKeepLocal(itemId);
+                  case "accept-remote": return ctx.resolveAcceptRemote(itemId);
+                  case "create-copy": return ctx.resolveCreateCopy(itemId);
+                  case "skip": ctx.resolveSkip(itemId); return undefined;
                 }
               }}
-              onResolveAll={(action) => {
+              onResolveAll={async (action) => {
                 for (const c of ctx.itemConflicts) {
                   switch (action) {
-                    case "keep-local": void ctx.resolveKeepLocal(c.itemId); break;
-                    case "accept-remote": void ctx.resolveAcceptRemote(c.itemId); break;
-                    case "create-copy": void ctx.resolveCreateCopy(c.itemId); break;
+                    case "keep-local": await ctx.resolveKeepLocal(c.itemId); break;
+                    case "accept-remote": await ctx.resolveAcceptRemote(c.itemId); break;
+                    case "create-copy": await ctx.resolveCreateCopy(c.itemId); break;
                     case "skip": ctx.resolveSkip(c.itemId); break;
                   }
                 }
@@ -314,7 +315,12 @@ export default function VaultPage() {
 
           {/* Recovery section */}
           {ctx.activeNav === ctx.NAV_IDS.RECOVERY ? (
-            <RecoverySetup loading={ctx.loading} onGenerateRecoveryCode={ctx.handleCreateRecoveryCode} recoveryCode={ctx.recoveryCode} />
+            <RecoverySetup
+              loading={ctx.loading}
+              onGenerateRecoveryCode={ctx.handleCreateRecoveryCode}
+              recoveryCode={ctx.recoveryCode}
+              onConfirmSave={ctx.confirmRecoveryCodeSaved}
+            />
           ) : null}
 
           {ctx.activeNav === ctx.NAV_IDS.SYNC ? (
@@ -567,7 +573,9 @@ export default function VaultPage() {
       <RecoveryModal
         isOpen={ctx.showRecoveryModal}
         onClose={ctx.closeRecoveryModal}
+        mode={ctx.recoveryModalMode}
         recoveryCode={ctx.recoveryCode}
+        serverSaveFailed={ctx.recoveryServerSaveFailed}
         onCopy={() => {
           void navigator.clipboard.writeText(ctx.recoveryCode);
           setLastCopiedAt(Date.now());

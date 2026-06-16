@@ -688,8 +688,46 @@ export class D1VaultStore implements VaultStore {
 
   // ── Trusted Devices ────────────────────────────────────────────────────────
 
-  async registerDevice(userId: string, device: TrustedDevice): Promise<void> {
+  async registerDevice(userId: string, device: TrustedDevice): Promise<TrustedDevice> {
     const ts = nowISO();
+    const existing = await this.db
+      .prepare(
+        `SELECT id, name, public_key, status, created_at, updated_at
+         FROM trusted_devices
+         WHERE user_id = ? AND public_key = ?
+         ORDER BY
+           CASE status
+             WHEN 'approved' THEN 0
+             WHEN 'pending' THEN 1
+             WHEN 'revoked' THEN 2
+             WHEN 'rejected' THEN 3
+             ELSE 4
+           END,
+           updated_at DESC
+         LIMIT 1`
+      )
+      .bind(userId, device.publicKey)
+      .first<Record<string, unknown>>();
+
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE trusted_devices SET name = ?, updated_at = ?
+           WHERE id = ? AND user_id = ?`
+        )
+        .bind(device.name, ts, existing.id as string, userId)
+        .run();
+
+      return {
+        id: existing.id as string,
+        name: device.name,
+        publicKey: existing.public_key as string,
+        status: existing.status as TrustedDevice["status"],
+        createdAt: existing.created_at as string,
+        updatedAt: ts
+      };
+    }
+
     await this.db
       .prepare(
         `INSERT INTO trusted_devices (id, user_id, name, public_key, status, created_at, updated_at)
@@ -705,6 +743,8 @@ export class D1VaultStore implements VaultStore {
         device.updatedAt
       )
       .run();
+
+    return device;
   }
 
   async listDevices(userId: string): Promise<TrustedDevice[]> {
@@ -716,7 +756,7 @@ export class D1VaultStore implements VaultStore {
       .bind(userId)
       .all<Record<string, unknown>>();
 
-    return rows.results.map(
+    const devices = rows.results.map(
       (r): TrustedDevice => ({
         id: r.id as string,
         name: r.name as string,
@@ -726,6 +766,31 @@ export class D1VaultStore implements VaultStore {
         updatedAt: r.updated_at as string
       })
     );
+
+    const statusRank: Record<TrustedDevice["status"], number> = {
+      approved: 0,
+      pending: 1,
+      revoked: 2,
+      rejected: 3
+    };
+    const byPublicKey = new Map<string, TrustedDevice>();
+    for (const device of devices) {
+      const previous = byPublicKey.get(device.publicKey);
+      if (!previous) {
+        byPublicKey.set(device.publicKey, device);
+        continue;
+      }
+      const previousRank = statusRank[previous.status];
+      const currentRank = statusRank[device.status];
+      if (
+        currentRank < previousRank ||
+        (currentRank === previousRank && device.updatedAt > previous.updatedAt)
+      ) {
+        byPublicKey.set(device.publicKey, device);
+      }
+    }
+
+    return [...byPublicKey.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
   async approveDevice(userId: string, deviceId: string): Promise<void> {

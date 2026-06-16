@@ -297,7 +297,13 @@ describe("registerDevice", () => {
 
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ ok: true, status: "pending" })
+      json: () =>
+        Promise.resolve({
+          id: "server-device-id",
+          name: "Mac",
+          publicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          status: "pending"
+        })
     });
     vi.stubGlobal("fetch", fetchSpy);
 
@@ -325,5 +331,9 @@ describe("registerDevice", () => {
     expect(body).toHaveProperty("publicKey");
     expect(body).toHaveProperty("name");
     expect(body).not.toHaveProperty("deviceId");
+    expect(window.localStorage.setItem).toHaveBeenCalledWith(
+      "zero-vault.local.device-id.v1",
+      "server-device-id"
+    );
   });
 });

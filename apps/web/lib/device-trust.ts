@@ -65,6 +65,8 @@ export type DeviceInfo = {
   name: string;
   publicKey: string;
   status: "pending" | "approved" | "rejected" | "revoked";
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export const getDeviceName = (): string => {
@@ -83,16 +85,19 @@ export const getDeviceName = (): string => {
  * Register this device with the server.
  * Sends `{ name, publicKey }` matching the shared schema.
  */
-export const registerDevice = async (csrfToken: string): Promise<{ ok: boolean; status: string }> => {
+export const registerDevice = async (csrfToken: string): Promise<DeviceInfo | null> => {
   try {
     const publicKey = await generateDeviceKeypair();
-    return await requestJson<{ ok: boolean; status: string }>("/devices", {
+    const device = await requestJson<DeviceInfo>("/devices", {
       method: "POST",
       headers: { "x-zero-vault-csrf": csrfToken },
       body: JSON.stringify({ name: getDeviceName(), publicKey })
     });
+    window.localStorage.setItem(DEVICE_ID_KEY, device.id);
+    window.localStorage.setItem(`${DEVICE_ID_KEY}.public-key`, device.publicKey);
+    return device;
   } catch {
-    return { ok: false, status: "API unavailable" };
+    return null;
   }
 };
 

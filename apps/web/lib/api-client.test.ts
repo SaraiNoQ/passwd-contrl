@@ -84,6 +84,43 @@ describe("api client", () => {
     );
   });
 
+  it("normalizes 409 item sync error responses", async () => {
+    const conflictResponse = {
+      error: "sync_conflict",
+      serverRevision: 5,
+      conflicts: [
+        {
+          itemId: "00000000-0000-4000-8000-000000000001",
+          operation: "upsert",
+          reason: "server_revision_advanced",
+          clientBaseRevision: 4,
+          serverRevision: 5
+        }
+      ]
+    };
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify(conflictResponse), {
+        status: 409,
+        headers: { "content-type": "application/json" }
+      })
+    ));
+
+    const plan: ItemLevelSyncPlan = {
+      protocol: "item_level_v1",
+      baseRevision: 4,
+      upserts: [],
+      deletes: []
+    };
+    const { pushItemLevelSync } = await importClient("http://localhost:8787");
+
+    await expect(pushItemLevelSync("csrf-1", plan)).resolves.toEqual({
+      protocol: "item_level_v1",
+      serverRevision: 5,
+      applied: { upsertedItemIds: [], deletedItemIds: [] },
+      conflicts: conflictResponse.conflicts,
+    });
+  });
+
   it("turns failed browser fetches into a stable network_error", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => {
       throw new TypeError("Failed to fetch");

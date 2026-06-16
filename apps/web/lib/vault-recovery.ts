@@ -42,6 +42,8 @@ export type RecoverVaultResult =
       encrypted: EncryptedLocalVault;
       unlocked: UnlockedVault;
       recoveredCount: number;
+      recoveryCode: string;
+      serverSaveFailed: boolean;
     }
   | { status: "no-code" }
   | { status: "no-packet" }
@@ -91,8 +93,9 @@ export async function handleRecoverVault(deps: {
   recoveryInputCode: string;
   recoveryPassword: string;
   encryptedVault: EncryptedLocalVault | null;
+  csrfToken: string;
 }): Promise<RecoverVaultResult> {
-  const { recoveryInputCode, recoveryPassword, encryptedVault } = deps;
+  const { recoveryInputCode, recoveryPassword, encryptedVault, csrfToken } = deps;
 
   if (!recoveryInputCode) {
     return { status: "no-code" };
@@ -165,11 +168,28 @@ export async function handleRecoverVault(deps: {
     const persisted = await persistUnlockedVault(restoredVault);
     saveEncryptedLocalVault(persisted.encrypted);
 
+    const newVaultKeyBytes =
+      persisted.unlocked.runtime === "webcrypto-mvp"
+        ? new Uint8Array(await crypto.subtle.exportKey("raw", persisted.unlocked.key))
+        : persisted.unlocked.key;
+    const newRecoveryCode = generateRecoveryCode();
+    const newRecoveryPacket = await createRecoveryPacket(newRecoveryCode, newVaultKeyBytes);
+    saveRecoveryPacket(newRecoveryPacket);
+
+    let serverSaveFailed = false;
+    if (csrfToken) {
+      await saveRecoveryPacketToServer(csrfToken, newRecoveryPacket).catch(
+        () => { serverSaveFailed = true; }
+      );
+    }
+
     return {
       status: "ok",
       encrypted: persisted.encrypted,
       unlocked: persisted.unlocked,
-      recoveredCount: recoveredItems.length
+      recoveredCount: recoveredItems.length,
+      recoveryCode: newRecoveryCode,
+      serverSaveFailed
     };
   } catch (e) {
     return {

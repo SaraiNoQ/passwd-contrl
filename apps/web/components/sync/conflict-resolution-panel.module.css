@@ -524,6 +524,16 @@
   color: var(--color-text-muted);
 }
 
+.actionSpinner {
+  animation: conflictActionSpin 0.7s linear infinite;
+}
+
+@keyframes conflictActionSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes forkStep {
   0%,
   100% {
@@ -543,6 +553,10 @@
 
   .forkNodeActive {
     animation: none;
+  }
+
+  .actionSpinner {
+    animation-duration: 1.4s;
   }
 }
 

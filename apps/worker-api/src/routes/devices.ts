@@ -38,8 +38,8 @@ export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
     };
 
     const store = new D1VaultStore(c.env.DB);
-    await store.registerDevice(session.userId, device);
-    return c.json(device, 201);
+    const registeredDevice = await store.registerDevice(session.userId, device);
+    return c.json(registeredDevice, registeredDevice.id === device.id ? 201 : 200);
   });
 
   // ── POST /devices/:id/approve ────────────────────────────────────────────

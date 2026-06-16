@@ -364,6 +364,50 @@ describe("Device routes", () => {
       expect(body.id).toBeTruthy();
     });
 
+    it("returns the existing device when the same public key registers again", async () => {
+      const { token, csrfToken } = await createAuthenticatedSession(db);
+
+      const first = await app.request(
+        "/devices",
+        {
+          method: "POST",
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify({
+            name: "My Laptop",
+            publicKey: "dGVzdC1way"
+          })
+        },
+        createEnv(db)
+      );
+      const firstBody = (await first.json()) as Record<string, unknown>;
+
+      const second = await app.request(
+        "/devices",
+        {
+          method: "POST",
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify({
+            name: "My Laptop Renamed",
+            publicKey: "dGVzdC1way"
+          })
+        },
+        createEnv(db)
+      );
+
+      expect(second.status).toBe(200);
+      const secondBody = (await second.json()) as Record<string, unknown>;
+      expect(secondBody.id).toBe(firstBody.id);
+      expect(secondBody.name).toBe("My Laptop Renamed");
+
+      const list = await app.request(
+        "/devices",
+        { headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` } },
+        createEnv(db)
+      );
+      const listBody = (await list.json()) as Record<string, unknown>;
+      expect(listBody.devices).toHaveLength(1);
+    });
+
     it("returns 400 for invalid request body", async () => {
       const { token, csrfToken } = await createAuthenticatedSession(db);
 

@@ -76,7 +76,7 @@ export interface VaultStore {
   saveRecoveryPacket(userId: string, packet: CiphertextEnvelope): Promise<void>;
   getRecoveryPacket(userId: string): Promise<CiphertextEnvelope | null>;
   rotateRecoveryPacket(userId: string, packet: CiphertextEnvelope): Promise<void>;
-  registerDevice(userId: string, device: TrustedDevice): Promise<void>;
+  registerDevice(userId: string, device: TrustedDevice): Promise<TrustedDevice>;
   listDevices(userId: string): Promise<TrustedDevice[]>;
   approveDevice(userId: string, deviceId: string): Promise<void>;
   rejectDevice(userId: string, deviceId: string): Promise<void>;

@@ -63,6 +63,11 @@ export type SyncResult =
       appliedCount: number;
     }
   | {
+      status: "restored-from-cloud";
+      encrypted: EncryptedLocalVault;
+      serverRevision: number;
+    }
+  | {
       status: "conflicts";
       conflicts: ItemConflict[];
       itemInfos: ItemSyncInfo[];
@@ -71,6 +76,11 @@ export type SyncResult =
       status: "version-conflict";
       localRevision: number;
       remoteRevision: number;
+    }
+  | {
+      status: "remote-vault-mismatch";
+      failedItemCount: number;
+      canRestoreFromCloud: boolean;
     }
   | { status: "sync-conflict"; localRevision: number }
   | { status: "error"; message: string };
@@ -129,6 +139,7 @@ export async function performSync(deps: {
 
   try {
     const remote = await pullVault();
+    const syncedLocalVaultItem = getSyncedLocalVaultItem(remote.items);
     const baseRevision = loadLocalServerRevision();
 
     // Merge remote items into unlocked vault if available
@@ -136,10 +147,28 @@ export async function performSync(deps: {
       | { encrypted: EncryptedLocalVault; unlocked: UnlockedVault }
       | undefined;
     if (unlockedVault && remote.items.length > 0) {
-      const { vault: merged } = await mergeRemoteItems(
+      const { vault: merged, failedItemIds } = await mergeRemoteItems(
         unlockedVault,
         remote.items
       );
+      if (failedItemIds.length > 0) {
+        const localItemCount = unlockedVault.snapshot.items.length;
+        if (localItemCount === 0 && syncedLocalVaultItem !== null) {
+          const restored = syncItemToEncryptedVault(syncedLocalVaultItem);
+          saveEncryptedLocalVault(restored);
+          saveLocalServerRevision(remote.serverRevision);
+          return {
+            status: "restored-from-cloud",
+            encrypted: restored,
+            serverRevision: remote.serverRevision
+          };
+        }
+        return {
+          status: "remote-vault-mismatch",
+          failedItemCount: failedItemIds.length,
+          canRestoreFromCloud: syncedLocalVaultItem !== null
+        };
+      }
       const persisted = await persistUnlockedVault(merged);
       mergedVault = { encrypted: persisted.encrypted, unlocked: persisted.unlocked };
     }
@@ -172,9 +201,25 @@ export async function performSync(deps: {
           const appliedCount =
             result.response.applied.upsertedItemIds.length +
             result.response.applied.deletedItemIds.length;
+          let serverRevision = result.response.serverRevision;
+          const activeEncryptedVault = mergedVault?.encrypted ?? encryptedVault;
+          if (appliedCount > 0 || syncedLocalVaultItem === null) {
+            try {
+              const legacyResult = await pushVault(
+                csrfToken,
+                encryptedVaultToSyncRequest(activeEncryptedVault, user.id, serverRevision)
+              );
+              serverRevision = legacyResult.serverRevision;
+            } catch {
+              // Legacy envelope push failed — item-level changes are already
+              // committed on the server.  Keep the item-sync revision so the
+              // next sync starts from a consistent baseline.
+            }
+          }
+          saveLocalServerRevision(serverRevision);
           return {
             status: "item-synced",
-            serverRevision: result.response.serverRevision,
+            serverRevision,
             itemInfos: result.itemInfos,
             appliedCount
           };
@@ -278,28 +323,45 @@ export async function handleResolveKeepLocal(deps: {
   if (!item) return { status: "error", message: "条目未找到。" };
 
   try {
+    let remoteItemRevision: number | undefined;
+    let baseServerRevision: number;
+    try {
+      const remote = await pullVault();
+      const remoteItem = remote.items.find((i) => i.id === itemId);
+      remoteItemRevision = remoteItem?.revision;
+      baseServerRevision = remote.serverRevision;
+    } catch {
+      remoteItemRevision = undefined;
+      baseServerRevision = loadLocalServerRevision();
+    }
     const revisionMap = loadItemRevisionMap();
-    const baseRevision = revisionMap[itemId] ?? 0;
+    const baseItemRevision = remoteItemRevision ?? revisionMap[itemId] ?? 0;
     const { plan } = await buildItemLevelSyncPlan(
       {
         ...unlockedVault,
         snapshot: { ...unlockedVault.snapshot, items: [item] }
       },
       user.id,
-      { [itemId]: baseRevision },
+      { [itemId]: baseItemRevision },
       new Set(),
-      loadLocalServerRevision()
+      baseServerRevision
     );
     const response = await pushItemLevelSync(csrfToken, plan);
     const conflicts = response.conflicts ?? [];
     if (conflicts.length === 0) {
       const updatedMap = { ...revisionMap, [itemId]: response.serverRevision };
       saveItemRevisionMap(updatedMap);
+      saveLocalServerRevision(response.serverRevision);
+      const conflictIds = loadConflictIds();
+      conflictIds.delete(itemId);
+      saveConflictIds(conflictIds);
       return { status: "ok" };
     }
+    const conflict = conflicts[0];
+    const serverRevisionText = conflict?.serverItemRevision ?? conflict?.serverRevision ?? "?";
     return {
       status: "still-conflicting",
-      message: `服务器仍然报告 "${item.title}" 存在冲突。`
+      message: `服务器仍然报告 "${item.title}" 存在冲突，云端版本为 v${serverRevisionText}。请刷新后重试。`
     };
   } catch (e) {
     return {
@@ -325,9 +387,15 @@ export async function handleResolveAcceptRemote(deps: {
     if (!remoteItem) {
       return { status: "not-found" };
     }
-    const { vault: merged } = await mergeRemoteItems(unlockedVault, [
+    const { vault: merged, failedItemIds } = await mergeRemoteItems(unlockedVault, [
       remoteItem
     ]);
+    if (failedItemIds.length > 0) {
+      return {
+        status: "error",
+        message: "当前本地密码库无法解密云端版本。请先从云端恢复原密码库。"
+      };
+    }
     const persisted = await persistUnlockedVault(merged);
 
     const conflictIds = loadConflictIds();

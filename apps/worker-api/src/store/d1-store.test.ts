@@ -808,6 +808,28 @@ describe("D1VaultStore", () => {
       expect(devices[0]!.status).toBe("pending");
     });
 
+    it("reuses the existing device for the same browser public key", async () => {
+      const first = await store.registerDevice(userId, makeDevice());
+      const second = await store.registerDevice(
+        userId,
+        makeDevice({
+          id: "c0000000-0000-0000-0000-000000000002",
+          name: "Renamed Laptop",
+          publicKey: first.publicKey,
+          createdAt: "2025-01-02T00:00:00.000Z",
+          updatedAt: "2025-01-02T00:00:00.000Z"
+        })
+      );
+
+      expect(second.id).toBe(first.id);
+      expect(second.name).toBe("Renamed Laptop");
+
+      const devices = await store.listDevices(userId);
+      expect(devices).toHaveLength(1);
+      expect(devices[0]!.id).toBe(first.id);
+      expect(devices[0]!.name).toBe("Renamed Laptop");
+    });
+
     it("approves a device", async () => {
       const device = makeDevice();
       await store.registerDevice(userId, device);

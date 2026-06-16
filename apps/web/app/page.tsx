@@ -30,6 +30,7 @@ export default function HomePage() {
       onMasterPasswordChange={ctx.setMasterPassword}
       onSubmit={handleSubmit}
       loading={ctx.loading}
+      {...(ctx.loadingMessage ? { statusMessage: ctx.loadingMessage } : {})}
       extensionBridge={ctx.extensionBridge}
       showRecoveryEntry={ctx.showRecoveryEntry}
       onToggleRecoveryEntry={() => ctx.setShowRecoveryEntry((v) => !v)}

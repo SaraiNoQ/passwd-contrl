@@ -121,12 +121,21 @@ export const saveLastSyncedAt = (timestamp: string) => {
 // Merging remote items into local vault
 // ---------------------------------------------------------------------------
 
+export type MergeRemoteItemsResult = {
+  vault: UnlockedVault;
+  revisionMap: Record<string, number>;
+  mergedItemIds: string[];
+  failedItemIds: string[];
+};
+
 export const mergeRemoteItems = async (
   vault: UnlockedVault,
   remoteItems: VaultItemCiphertext[]
-): Promise<{ vault: UnlockedVault; revisionMap: Record<string, number> }> => {
+): Promise<MergeRemoteItemsResult> => {
   const revisionMap = loadItemRevisionMap();
   let merged = vault;
+  const mergedItemIds: string[] = [];
+  const failedItemIds: string[] = [];
 
   for (const item of remoteItems) {
     if (item.id === LOCAL_VAULT_SYNC_ITEM_ID) continue;
@@ -141,13 +150,14 @@ export const mergeRemoteItems = async (
       }
       merged = { ...merged, snapshot: { ...merged.snapshot, items: updatedItems, updatedAt: new Date().toISOString() } };
       revisionMap[credential.id] = item.revision;
+      mergedItemIds.push(credential.id);
     } catch {
-      // skip items that cannot be decrypted
+      failedItemIds.push(item.id);
     }
   }
 
   saveItemRevisionMap(revisionMap);
-  return { vault: merged, revisionMap };
+  return { vault: merged, revisionMap, mergedItemIds, failedItemIds };
 };
 
 // ---------------------------------------------------------------------------

@@ -457,6 +457,14 @@ test.describe("Recovery flow", () => {
     await expect(page.getByText(/密码库已恢复/).first()).toBeVisible({
       timeout: 15_000,
     });
+    const rotatedRecoveryDialog = page.getByRole("dialog");
+    await expect(rotatedRecoveryDialog).toContainText("旧恢复码已失效");
+    await rotatedRecoveryDialog
+      .getByLabel("我已将这份备用恢复码保存在安全的离线位置")
+      .check();
+    await rotatedRecoveryDialog.getByRole("button", { name: "完成" }).click();
+    await expect(rotatedRecoveryDialog).toBeHidden({ timeout: 5_000 });
+
     // Navigate to credentials list to verify the restored item
     await page.getByRole("button", { name: "密码列表", exact: true }).click();
     await expect(

@@ -310,7 +310,7 @@ export function Sidebar({
           <div className={styles.accountBody}>
             {user ? (
               <>
-                {canRestoreFromCloud && !encryptedVault ? (
+                {canRestoreFromCloud && (!encryptedVault || encryptedVault.itemCount === 0) ? (
                   <Button
                     variant="secondary"
                     size="sm"
@@ -330,7 +330,7 @@ export function Sidebar({
                   <RefreshCw size={14} />
                   {loading ? "同步中..." : "立即同步"}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={onLogout}>
+                <Button variant="ghost" size="sm" onClick={onLogout} disabled={loading}>
                   <Lock size={14} />
                   退出登录
                 </Button>
@@ -344,6 +344,7 @@ export function Sidebar({
                   value={accountEmail}
                   onChange={(e) => onAccountEmailChange(e.target.value)}
                   placeholder="输入邮箱地址"
+                  disabled={loading}
                 />
                 <input
                   className={styles.accountInput}
@@ -353,6 +354,7 @@ export function Sidebar({
                   value={accountPassword}
                   onChange={(e) => onAccountPasswordChange(e.target.value)}
                   placeholder="账户密码"
+                  disabled={loading}
                 />
                 <Button
                   type="submit"

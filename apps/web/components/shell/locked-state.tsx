@@ -192,6 +192,7 @@ export function LockedState({
             onChange={(e) => onMasterPasswordChange(e.target.value)}
             placeholder="输入至少 12 个字符"
             aria-describedby="master-password-security-note"
+            disabled={loading}
           />
           <Button type="submit" loading={loading} className={styles.primarySubmit ?? ""}>
             {hasLocalVault ? <UnlockKeyhole size={18} /> : <Sparkles size={18} />}
@@ -291,6 +292,7 @@ export function LockedState({
                   onChange={(e) => onRecoveryInputCodeChange(e.target.value)}
                   placeholder="粘贴离线保存的恢复码"
                   autoComplete="off"
+                  disabled={loading}
                 />
                 <Input
                   id="vault-recovery-password"
@@ -301,6 +303,7 @@ export function LockedState({
                   placeholder="输入至少 12 个字符"
                   minLength={12}
                   autoComplete="new-password"
+                  disabled={loading}
                 />
                 <Button
                   type="submit"

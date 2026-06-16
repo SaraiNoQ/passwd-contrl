@@ -31,10 +31,15 @@ export function CloudExportPanel({
   disabled,
 }: CloudExportPanelProps) {
   const formatDate = useCallback((iso: string) => {
+    const date = new Date(iso);
+    if (!Number.isFinite(date.getTime())) {
+      return "时间未知";
+    }
+
     return new Intl.DateTimeFormat("zh-CN", {
       dateStyle: "medium",
       timeStyle: "short",
-    }).format(new Date(iso));
+    }).format(date);
   }, []);
 
   return (

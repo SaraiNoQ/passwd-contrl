@@ -131,11 +131,27 @@ const registerDeviceInternal = async (csrfToken: string): Promise<DeviceInfo | n
   try {
     const fingerprint = getDeviceFingerprint();
     const publicKey = await generateDeviceKeypair();
-    const device = await requestJson<DeviceInfo>("/devices", {
+    const requestInit = {
       method: "POST",
       headers: { "x-zero-vault-csrf": csrfToken },
       body: JSON.stringify({ name: getDeviceName(), fingerprint, publicKey })
-    });
+    };
+    let device: DeviceInfo;
+    try {
+      device = await requestJson<DeviceInfo>("/devices", requestInit);
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== "invalid_register_device_request") {
+        throw error;
+      }
+
+      // Older deployed Workers reject the newer fingerprint field because the
+      // request schema is strict. Retry with the legacy payload so device
+      // registration keeps working during staged frontend/backend rollouts.
+      device = await requestJson<DeviceInfo>("/devices", {
+        ...requestInit,
+        body: JSON.stringify({ name: getDeviceName(), publicKey })
+      });
+    }
     window.localStorage.setItem(DEVICE_ID_KEY, device.id);
     window.localStorage.setItem(`${DEVICE_ID_KEY}.public-key`, device.publicKey);
     return device;

@@ -37,6 +37,15 @@ function getStorage(c: { env: { R2: R2Bucket } }): R2Storage {
   return new R2Storage(c.env.R2);
 }
 
+function getExportCreatedAt(obj: R2Object): string {
+  const metadataTimestamp = obj.customMetadata?.ts;
+  if (metadataTimestamp && Number.isFinite(new Date(metadataTimestamp).getTime())) {
+    return metadataTimestamp;
+  }
+
+  return obj.uploaded.toISOString();
+}
+
 // ── POST /exports/create ─────────────────────────────────────────────────────
 
 /**
@@ -140,8 +149,8 @@ exportRoutes.get("/exports", async (c) => {
     return {
       id: segments[2],
       size: obj.size,
-      algorithm: obj.customMetadata?.alg,
-      createdAt: obj.customMetadata?.ts
+      algorithm: obj.customMetadata?.alg ?? "unknown",
+      createdAt: getExportCreatedAt(obj)
     };
   });
 

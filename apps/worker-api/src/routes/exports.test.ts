@@ -131,6 +131,7 @@ function runMigration(db: MockD1Database): void {
 interface MockR2Object {
   key: string;
   size: number;
+  uploaded: Date;
   customMetadata?: Record<string, string>;
   body: ArrayBuffer;
   arrayBuffer(): Promise<ArrayBuffer>;
@@ -151,6 +152,7 @@ class MockR2Bucket {
     this.objects.set(key, {
       key,
       size: value.byteLength,
+      uploaded: new Date("2026-06-16T08:00:00.000Z"),
       customMetadata: options?.customMetadata,
       body,
       arrayBuffer: async () => body
@@ -356,6 +358,32 @@ describe("Export routes", () => {
       expect(exports[0]!.id).toBe(exportId);
       expect(exports[0]!.size).toBe(32);
       expect(exports[0]!.algorithm).toBe("XCHACHA20_POLY1305");
+      expect(Number.isFinite(new Date(exports[0]!.createdAt as string).getTime())).toBe(true);
+    });
+
+    it("falls back to the R2 upload timestamp for legacy exports without metadata timestamp", async () => {
+      const { token, userId } = await createAuthenticatedSession(db);
+      const exportId = crypto.randomUUID();
+      const uploaded = new Date("2026-06-16T10:30:00.000Z");
+      r2.objects.set(`exports/${userId}/${exportId}`, {
+        key: `exports/${userId}/${exportId}`,
+        size: 16,
+        uploaded,
+        customMetadata: { alg: "XCHACHA20_POLY1305" },
+        body: new ArrayBuffer(16),
+        arrayBuffer: async () => new ArrayBuffer(16)
+      });
+
+      const res = await app.request(
+        "/exports",
+        { headers: authHeaders(token) },
+        createEnv(db, r2)
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Record<string, unknown>;
+      const exports = body.exports as Record<string, unknown>[];
+      expect(exports[0]!.createdAt).toBe(uploaded.toISOString());
     });
   });
 

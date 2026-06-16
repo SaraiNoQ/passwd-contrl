@@ -337,4 +337,64 @@ describe("registerDevice", () => {
       "server-device-id"
     );
   });
+
+  it("retries with the legacy payload when the deployed API rejects fingerprint", async () => {
+    vi.stubGlobal("indexedDB", createMockIndexedDB());
+
+    const publicKeyB64 = "test-public-key";
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: vi.fn((key: string) => {
+          if (key.includes("public-key")) return publicKeyB64;
+          if (key.includes("device-id")) return "test-device-id";
+          return null;
+        }),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+        clear: vi.fn()
+      }
+    });
+
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ error: "invalid_register_device_request" })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: "server-device-id",
+            name: "Mac",
+            publicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            status: "pending"
+          })
+      });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    vi.doMock("./local-vault", async (importOriginal) => {
+      const original = await importOriginal<typeof import("./local-vault")>();
+      return {
+        ...original,
+        loadCryptoCore: vi.fn(() => Promise.resolve({
+          generateDeviceKeypair: vi.fn(() => new Uint8Array(64)),
+          default: vi.fn()
+        }))
+      };
+    });
+
+    const { registerDevice } = await import("./device-trust");
+
+    const result = await registerDevice("test-csrf");
+
+    expect(result?.id).toBe("server-device-id");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const firstBody = JSON.parse((fetchSpy.mock.calls[0]![1] as RequestInit).body as string);
+    const secondBody = JSON.parse((fetchSpy.mock.calls[1]![1] as RequestInit).body as string);
+    expect(firstBody).toHaveProperty("fingerprint");
+    expect(secondBody).not.toHaveProperty("fingerprint");
+    expect(secondBody).toEqual({ name: "Unknown Device", publicKey: publicKeyB64 });
+  });
 });

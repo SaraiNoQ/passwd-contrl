@@ -20,17 +20,16 @@ function encodeText(input: string): Uint8Array {
   return new TextEncoder().encode(input);
 }
 
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
+function toCryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
 }
 
 async function hmacSha256Hex(key: Uint8Array, data: string): Promise<string> {
   const hmacKey = await globalThis.crypto.subtle.importKey(
     "raw",
-    toArrayBuffer(key),
+    toCryptoBytes(key),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
@@ -38,7 +37,7 @@ async function hmacSha256Hex(key: Uint8Array, data: string): Promise<string> {
   const sig = await globalThis.crypto.subtle.sign(
     "HMAC",
     hmacKey,
-    toArrayBuffer(encodeText(data)),
+    toCryptoBytes(encodeText(data)),
   );
   const bytes = new Uint8Array(sig);
   return Array.from(bytes)

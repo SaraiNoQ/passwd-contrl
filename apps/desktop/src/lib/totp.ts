@@ -6,11 +6,10 @@ function encodeText(input: string): Uint8Array {
   return new TextEncoder().encode(input);
 }
 
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
+function toCryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
 }
 
 export function decodeBase32(input: string): Uint8Array {
@@ -133,13 +132,13 @@ export async function generateTotp(
 
   const hmacKey = await globalThis.crypto.subtle.importKey(
     "raw",
-    toArrayBuffer(keyBytes),
+    toCryptoBytes(keyBytes),
     { name: "HMAC", hash: "SHA-1" },
     false,
     ["sign"],
   );
   const sig = new Uint8Array(
-    await globalThis.crypto.subtle.sign("HMAC", hmacKey, toArrayBuffer(counterBytes)),
+    await globalThis.crypto.subtle.sign("HMAC", hmacKey, toCryptoBytes(counterBytes)),
   );
 
   const offset = sig[sig.length - 1]! & 0x0f;

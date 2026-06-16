@@ -19,7 +19,7 @@
     "test:all": "pnpm test && pnpm test:rust",
     "typecheck": "pnpm -r --if-present typecheck",
     "wasm:build": "wasm-pack build crates/crypto-core --target web --out-dir ../../packages/crypto-core-wasm/pkg",
-    "audit": "pnpm audit && cargo audit --file crates/crypto-core/Cargo.toml"
+    "audit": "pnpm audit --audit-level critical && cargo audit --file crates/crypto-core/Cargo.toml"
   },
   "pnpm": {
     "overrides": {

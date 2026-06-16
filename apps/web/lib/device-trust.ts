@@ -104,7 +104,10 @@ export type DeviceInfo = {
 };
 
 export const getDeviceName = (): string => {
-  const ua = navigator.userAgent;
+  const ua =
+    typeof globalThis.navigator === "undefined"
+      ? ""
+      : globalThis.navigator.userAgent;
   if (/iPhone|iPad| iPod/u.test(ua)) return "iOS Device";
   if (/Android/u.test(ua)) return "Android Device";
   if (/Mac/u.test(ua)) return "Mac";

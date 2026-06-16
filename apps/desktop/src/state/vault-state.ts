@@ -120,12 +120,11 @@ function base64urlToBytes(value: string): Uint8Array {
   return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
 }
 
-/** Extract a properly sized ArrayBuffer from a Uint8Array for Web Crypto API usage. */
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
+/** Copy bytes into the current realm for Web Crypto API usage under jsdom/Node. */
+function toCryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
 }
 
 interface WrappedVaultKey {
@@ -140,7 +139,7 @@ async function wrapVaultKey(
 ): Promise<WrappedVaultKey> {
   const importedKey = await globalThis.crypto.subtle.importKey(
     "raw",
-    toArrayBuffer(keyEncryptionKey),
+    toCryptoBytes(keyEncryptionKey),
     "AES-GCM",
     false,
     ["encrypt"],
@@ -153,7 +152,7 @@ async function wrapVaultKey(
       additionalData: new TextEncoder().encode("zero-vault.local-key-wrap.v1"),
     },
     importedKey,
-    toArrayBuffer(vaultKey),
+    toCryptoBytes(vaultKey),
   );
   return {
     version: 1,
@@ -168,7 +167,7 @@ async function unwrapVaultKey(
 ): Promise<Uint8Array> {
   const importedKey = await globalThis.crypto.subtle.importKey(
     "raw",
-    toArrayBuffer(keyEncryptionKey),
+    toCryptoBytes(keyEncryptionKey),
     "AES-GCM",
     false,
     ["decrypt"],
@@ -176,12 +175,12 @@ async function unwrapVaultKey(
   const plaintext = await globalThis.crypto.subtle.decrypt(
     {
       name: "AES-GCM",
-      iv: toArrayBuffer(base64urlToBytes(envelope.nonce)),
-      additionalData: toArrayBuffer(new TextEncoder()
+      iv: toCryptoBytes(base64urlToBytes(envelope.nonce)),
+      additionalData: toCryptoBytes(new TextEncoder()
         .encode("zero-vault.local-key-wrap.v1")),
     },
     importedKey,
-    toArrayBuffer(base64urlToBytes(envelope.ciphertext)),
+    toCryptoBytes(base64urlToBytes(envelope.ciphertext)),
   );
   const vaultKey = new Uint8Array(plaintext);
   if (vaultKey.length !== 32) throw new Error("本地密钥包损坏");

@@ -9,8 +9,13 @@ import type {
   SyncPushRequest,
   VaultItemHistoryResponse
 } from "@zero-vault/shared";
+import {
+  itemLevelSyncResponseSchema,
+  syncConflictResponseSchema
+} from "@zero-vault/shared";
 import { createRecoveryPacket, generateRecoveryCode } from "./recovery";
-import { toBase64Url, fromBase64Url, encodeText, requestJson } from "./crypto-utils";
+import { toBase64Url, fromBase64Url, encodeText, requestBlob, requestJson } from "./crypto-utils";
+import { prepareWebDevice } from "./device-trust";
 
 // ── Error Code Mapping ────────────────────────────────────────────────────────
 
@@ -23,6 +28,12 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   user_exists: "该邮箱已注册",
   user_not_found: "该邮箱未注册",
   invalid_credentials: "邮箱或密码不正确",
+  device_approval_required: "请在已有可信设备上批准此浏览器后重试",
+  invalid_device_credential: "浏览器设备身份已失效，请使用新的浏览器并重新批准",
+  device_not_trusted: "此设备已被撤销，请重新接入",
+  sync_receipt_invalid: "服务器同步确认无效，本地变更已保留，请稍后重试",
+  sync_receipt_missing: "服务器未完整确认同步，本地变更已保留，请稍后重试",
+  sync_cursor_invalid: "云端同步状态异常，本地数据已保留，请稍后重试",
   invalid_registration_session: "注册会话已过期，请重新开始",
   invalid_login_session: "登录会话已过期，请重新开始",
   csrf_token_required: "安全验证失败，请刷新页面",
@@ -41,6 +52,8 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   reject_failed: "拒绝设备失败，请刷新设备列表后重试",
   revoke_failed: "撤销设备失败，请刷新设备列表后重试",
   not_authenticated: "请先登录",
+  recent_authentication_required: "身份验证已过期，请使用主密码重新登录后再试",
+  invalid_delete_account_response: "服务器未确认账户删除，请稍后重试",
 
   // Generic server error prefix (e.g. `request_failed_500`)
   request_failed_401: "请先登录",
@@ -131,7 +144,9 @@ export const registerAccount = async (email: string, password: string) => {
   return { ...result, recoveryCode };
 };
 
-export const loginAccount = async (email: string, password: string): Promise<SessionUserResponse> => {
+type WebSessionResponse = SessionUserResponse & { device?: { id: string; status: "pending" | "approved" } };
+
+export const loginAccount = async (email: string, password: string, deviceBound = typeof window !== "undefined" && !!window.localStorage.getItem("zero-vault.local.bound-session.v1")): Promise<WebSessionResponse> => {
   await ready;
   const started = client.startLogin({ password });
   const startResponse = await requestJson<LoginStartResponse>("/auth/login/start", {
@@ -154,16 +169,27 @@ export const loginAccount = async (email: string, password: string): Promise<Ses
     throw new Error("invalid_credentials");
   }
 
-  return requestJson<SessionUserResponse>("/auth/login/finish", {
+  const device = deviceBound ? await prepareWebDevice(email) : undefined;
+  const session = await requestJson<WebSessionResponse>(deviceBound ? "/auth/web/login/finish" : "/auth/login/finish", {
     method: "POST",
     body: JSON.stringify({
       loginSessionId: startResponse.loginSessionId,
-      finishLoginRequest: finished.finishLoginRequest
+      finishLoginRequest: finished.finishLoginRequest,
+      ...(device ? { device } : {})
     })
   });
+  if (session.device) {
+    window.localStorage.setItem("zero-vault.local.device-id.v1", session.device.id);
+    window.localStorage.setItem("zero-vault.local.bound-session.v1", session.device.id);
+  } else if (typeof window !== "undefined") {
+    window.localStorage.removeItem("zero-vault.local.bound-session.v1");
+  }
+  return session;
 };
 
-export const fetchCurrentUser = () => requestJson<SessionUserResponse>("/auth/me");
+export const fetchCurrentUser = () => requestJson<WebSessionResponse>("/auth/me");
+
+export const downloadCloudExport = (exportId: string) => requestBlob(`/exports/${exportId}`);
 
 export const logoutAccount = (csrfToken: string) =>
   requestJson<{ ok: true }>("/auth/logout", {
@@ -176,6 +202,11 @@ export const logoutAccount = (csrfToken: string) =>
 
 export const pullVault = () => requestJson<SyncPullResponse>("/vault/sync");
 
+export const pullItemLevelSync = async (cursor: number) => {
+  const { itemLevelSyncPullResponseSchema } = await import("@zero-vault/shared");
+  return itemLevelSyncPullResponseSchema.parse(await requestJson<unknown>(`/vault/item-sync?cursor=${cursor}`));
+};
+
 export const pushVault = (csrfToken: string, request: SyncPushRequest) =>
   requestJson<{ serverRevision: number }>("/vault/sync", {
     method: "POST",
@@ -186,7 +217,7 @@ export const pushVault = (csrfToken: string, request: SyncPushRequest) =>
   });
 
 export const pushItemLevelSync = async (csrfToken: string, plan: ItemLevelSyncPlan): Promise<ItemLevelSyncResponse> => {
-  const response = await requestJson<ItemLevelSyncResponse & { error?: string }>("/vault/item-sync", {
+  const response = await requestJson<unknown>("/vault/item-sync", {
     method: "POST",
     headers: {
       "x-zero-vault-csrf": csrfToken
@@ -194,16 +225,17 @@ export const pushItemLevelSync = async (csrfToken: string, plan: ItemLevelSyncPl
     body: JSON.stringify(plan)
   }, { acceptStatuses: [409] });
 
-  if (response.error === "sync_conflict") {
+  if (typeof response === "object" && response !== null && "error" in response) {
+    const conflict = syncConflictResponseSchema.parse(response);
     return {
       protocol: "item_level_v1",
-      serverRevision: response.serverRevision,
-      applied: response.applied ?? { upsertedItemIds: [], deletedItemIds: [] },
-      conflicts: response.conflicts ?? []
+      serverRevision: conflict.serverRevision,
+      applied: conflict.applied,
+      conflicts: conflict.conflicts
     };
   }
 
-  return response;
+  return itemLevelSyncResponseSchema.parse(response);
 };
 
 export const encodeJsonForEnvelope = (value: unknown) => toBase64Url(encodeText(JSON.stringify(value)));
@@ -215,36 +247,43 @@ export const decodeJsonFromEnvelope = <T>(value: string): T => {
 
 export const fetchRecoveryPacket = async (): Promise<import("./recovery").RecoveryPacket | null> => {
   try {
-    const response = await requestJson<{ encryptedRecoveryPacket: import("./recovery").RecoveryPacket | null }>(
-      "/vault/recovery-packet",
-      undefined,
-      { acceptStatuses: [404] }
-    );
-    return response.encryptedRecoveryPacket ?? null;
-  } catch {
-    return null;
+    const response = await requestJson<unknown>("/vault/recovery-packet");
+    if (
+      typeof response !== "object" ||
+      response === null ||
+      !("encryptedRecoveryPacket" in response)
+    ) {
+      throw new Error("recovery_packet_response_invalid");
+    }
+    const packet = response.encryptedRecoveryPacket;
+    if (packet === null) return null;
+    if (typeof packet !== "object") {
+      throw new Error("recovery_packet_response_invalid");
+    }
+    return packet as import("./recovery").RecoveryPacket;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message === "recovery_packet_not_found" || error.message === "request_failed_404")
+    ) {
+      return null;
+    }
+    throw error;
   }
-};
-
-export const saveRecoveryPacketToServer = async (csrfToken: string, packet: import("./recovery").RecoveryPacket): Promise<void> => {
-  await requestJson<{ ok: true }>("/vault/recovery-packet", {
-    method: "POST",
-    headers: {
-      "x-zero-vault-csrf": csrfToken
-    },
-    body: JSON.stringify({ encryptedRecoveryPacket: packet })
-  });
 };
 
 export const fetchItemHistory = async (itemId: string): Promise<VaultItemHistoryResponse> =>
   requestJson<VaultItemHistoryResponse>(`/vault/items/${itemId}/history`);
 
 export const deleteAccount = async (csrfToken: string): Promise<void> => {
-  await requestJson<{ ok: true }>("/auth/account", {
+  const result = await requestJson<{ ok?: unknown }>("/auth/account", {
     method: "DELETE",
     headers: {
       "x-zero-vault-csrf": csrfToken
     },
     body: JSON.stringify({})
   });
+  if (result.ok !== true) {
+    throw new Error("invalid_delete_account_response");
+  }
 };

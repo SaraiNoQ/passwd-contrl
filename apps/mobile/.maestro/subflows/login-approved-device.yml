@@ -1,0 +1,44 @@
+appId: com.zerovault.mobile
+name: Login and unlock an already-approved local device
+tags:
+  - business
+  - login
+  - destructive
+---
+# Preconditions for standalone execution:
+# - the app is on its login screen;
+# - this installation still owns the approved device identity for E2E_EMAIL;
+# - E2E_EMAIL and E2E_PASSWORD target the isolated E2E Worker.
+#
+# Do not add clearState here: clearing app data creates a new device identity,
+# which must correctly enter the separate two-device approval journey.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "login-email"
+    timeout: 30000
+- tapOn:
+    id: "login-email"
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: "login-password"
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
+- extendedWaitUntil:
+    visible:
+      id: "unlock-password"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible:
+      id: "vault-add-item"
+    timeout: 30000
+- assertVisible: "打开条目 Maestro Login"

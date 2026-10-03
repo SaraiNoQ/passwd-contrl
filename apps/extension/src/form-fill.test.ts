@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fillFirstDetectedForm, isSafeToFill } from "./form-fill";
+import { fillFirstDetectedForm, isSafeToFill, setNativeValue } from "./form-fill";
 
 const visibleRect = {
   x: 0,
@@ -28,6 +28,29 @@ beforeEach(() => {
 });
 
 describe("confirmed form fill", () => {
+  it("rejects focus-triggered DOM changes immediately before assigning a password", () => {
+    document.body.innerHTML = '<form><input type="password"></form>';
+    const input = document.querySelector<HTMLInputElement>('input')!;
+    input.addEventListener('focus', () => { input.type = 'hidden'; });
+    expect(fillFirstDetectedForm({ type: 'FILL_CREDENTIAL', password: 'synthetic-secret' })).toBe(false);
+    expect(input.value).toBe('');
+  });
+  it("does not accept a page-supplied field selector", () => {
+    document.body.innerHTML = '<input id="unrelated"><form><input type="password" data-zero-vault-field-id="malicious-selector"></form>';
+    expect(fillFirstDetectedForm({ type: 'FILL_CREDENTIAL', password: 'synthetic-secret' })).toBe(true);
+    expect(document.querySelector<HTMLInputElement>('#unrelated')!.value).toBe('');
+    expect(document.querySelector<HTMLInputElement>('input[type=password]')!.value).toBe('synthetic-secret');
+  });
+  it("uses the native setter so controlled form frameworks receive the change", () => {
+    document.body.innerHTML = '<input type="password">';
+    const input = document.querySelector<HTMLInputElement>('input')!;
+    const native = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!;
+    const trackedSetter = vi.fn();
+    Object.defineProperty(input, 'value', { get() { return native.get!.call(input); }, set: trackedSetter });
+    const changed = vi.fn(); input.addEventListener('input', changed);
+    setNativeValue(input, 'synthetic-value');
+    expect(input.value).toBe('synthetic-value'); expect(trackedSetter).not.toHaveBeenCalled(); expect(changed).toHaveBeenCalledOnce();
+  });
   it("fills visible username and password fields without submitting", () => {
     let submitted = false;
     document.body.innerHTML = `

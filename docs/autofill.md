@@ -1,59 +1,35 @@
 # Autofill
 
-Last updated: 2026-06-04
+Last updated: 2026-10-03
 
-## Default Policy
+## Browser extension 0.2.0
 
-Autofill is user-confirmed. The extension may detect forms automatically, but it must not insert credentials without explicit user action.
+The extension is an independent approved device. It connects an existing account, receives an X25519-encrypted shared vault key, protects its local vault and identity with Argon2id/XChaCha20-Poly1305, and uses device-bound bearer sessions for item-level cloud sync. It no longer accepts plaintext vault sessions or fill commands from websites. Chrome/Edge and Firefox have separate manifests/background builds with shared business logic.
 
-## Matching Rules
+## User-confirmed generation, capture and fill
 
-- Fill only on `https://` origins.
-- Match credentials by exact normalized origin.
-- Similar-origin domains (e.g., `examp1e.com` vs `example.com`) are classified as suspicious and shown with a warning.
-- Domains classified as suspicious are blocked from auto-fill and require explicit user acknowledgment.
-- Require re-confirmation for changed origins, iframe contexts, and new devices.
+Password generation works while locked, uses WebCrypto random bytes with rejection sampling, and supports length 8–128 and selected character classes. Copy and fill are separate user actions. Filling never submits a form. The native input setter and input/change events support controlled form frameworks.
 
-## Multi-Credential Popup Picker
+Capture reads a recognized, visible top-level HTTPS login form only when the user submits it or clicks its submit button. Forms with multiple password fields, new-password or one-time-code fields are excluded from login capture. Vault/API sites are excluded. A same-origin navigation or disappeared login form makes the submission eligible for a save prompt; this is not proof of successful authentication. A still-visible failed form produces no page save prompt. Cross-origin redirects retain only a masked candidate in the plugin UI. Unrecognized forms and cross-origin iframe logins are not captured; users can use the generator's copy action and manage those entries in the Web Vault.
 
-When multiple credentials match a given origin, the extension popup displays all matches in a list:
+Save prompts run in a web-accessible extension-origin iframe. Website JS cannot read its contents or access the extension's keys. The background checks extension sender ID, exact prompt/popup URL, candidate ID, original tab and HTTPS origin. Prompts show origin, username and fixed password masking, never plaintext passwords. The master password is entered only in a top-level extension page. Save/update requires a user action; duplicate passwords are not offered again. Multiple same-origin/same-username records require selection. Declining clears the candidate; site exclusions persist only origin metadata.
 
-- Each entry shows the credential title, username, and masked password.
-- The user selects one credential to fill.
-- Filling requires an explicit click on the "Fill" action for the selected credential.
-- If no credentials match, the popup shows a "No matching credentials" message.
+Candidates live only in restricted storage.session for up to five minutes, and clear on tab close, lock or browser restart. Persistent storage contains encrypted vault/identity and encrypted sync operations, with non-secret sync metadata and excluded origins. The default unlock idle deadline is five minutes, checked before protected operations and by an alarm.
 
-## Phishing Protection
+## Matching and field boundaries
 
-The extension classifies origins into three categories:
+Only an exact normalized HTTPS origin (scheme, host and port) may receive saved credentials. Similar origins and suspicious domains are displayed as blocked; there is no acknowledgment override. Before sending, the background rechecks navigation; the content script checks the expected origin and field visibility immediately before filling.
 
-- **Exact match:** The page origin exactly matches a saved credential origin. Fill is allowed after user confirmation.
-- **Similar match:** The page origin resembles a saved credential origin (e.g., homoglyph substitutions, typos). Fill is blocked with a warning.
-- **Suspicious match:** The page origin is HTTP, uses a non-standard port, or is otherwise untrusted. Fill is blocked.
+Never fill HTTP pages, hidden/invisible/zero-size inputs, disabled or readonly inputs, unrelated text fields, or cross-origin iframes. Content injection targets only the top-level document. Explicit new-password filling may fill declared new-password confirmation fields in the same form. Saved TOTP seeds remain inside the vault; only an explicitly requested current code is returned to the trusted popup.
 
-The user sees the origin classification in the popup before any fill action.
+## Permissions and packaging review
 
-## Field Rules
+Permissions are activeTab, scripting, storage, alarms; host_permissions cover HTTPS sites. alarms is added for idle cleanup and minute-based sync. scripting injects only the top-level content script for an explicit fill if the page predates installation, then rechecks the origin. Neither cookies, webRequest, clipboardRead nor clipboardWrite is requested. Clipboard writes use a foreground user action and fall back to manual selection on denial. New external website messaging is disabled. Only save-prompt.html, its script and stylesheet are web-accessible; WASM and vault/background assets are not.
 
-Never fill:
+The CSP permits bundled WebAssembly with wasm-unsafe-eval and disallows objects; no remote script execution or unsafe-eval is added. Production packages contain only manifest, extension pages, stylesheet, bundles and WASM. A localhost API override is confined to test builds and is excluded from release packaging. Firefox's declared data categories reflect authentication and website data sent through the encrypted vault sync flow.
 
-- Hidden inputs.
-- Invisible or zero-size inputs.
-- Disabled or readonly fields.
-- Cross-origin iframes.
-- Non-HTTPS pages.
-- Fields outside the detected login form.
+Installation and current verification: [extension installation](../apps/extension/INSTALL.md), [verification](../apps/extension/VERIFICATION.md).
 
-## Field Visibility Re-Check
+## Android
 
-Before performing a fill, the content script re-checks that target fields are still visible. This guards against DOM mutations that hide or disable fields after initial detection but before fill execution. If a field is no longer visible, the fill is aborted for that field.
-
-## Cross-Origin Iframe Blocking
-
-Credentials are never filled into cross-origin iframes. The content script compares the iframe's `src` origin against the top-level page origin. If they differ, fill is blocked for all fields within that iframe. This prevents a malicious iframe from harvesting credentials intended for the parent page.
-
-## Extension Boundary
-
-The content script only detects candidate fields and performs a fill request. It must not hold long-term vault keys. The background worker coordinates site matching, unlock state, and communication with the Web Vault or native host.
-
-The extension declares `permissions: ["activeTab", "scripting", "storage"]` and `host_permissions: ["https://*/*"]` in `manifest.json`. The broad `host_permissions` grant is required for the content script to run on all HTTPS login pages. The `activeTab` permission limits API access until the user interacts with the extension action. Permission changes must be reviewed against this document.
+The Android code for API 26–33 uses `AutofillService`; API 34+ also provides a password-only Credential Provider. Native App matching requires package name plus signing-certificate SHA-256 from the encrypted login item's optional `androidAssociations`. Web origin resolution additionally requires a personal-release browser package/certificate allowlist; an empty or invalid allowlist fails closed. API 26–27 Web forms fail closed because the platform cannot provide a trusted `webScheme`, while native package+certificate matching remains available. System services call Kotlin `VaultRepository` directly and do not depend on React Native. No passkey, Accessibility Service, overlay, automatic fill or automatic submit is permitted in v1. Detailed status and flows are in `docs/android-dev/autofill-credential-provider.md`.

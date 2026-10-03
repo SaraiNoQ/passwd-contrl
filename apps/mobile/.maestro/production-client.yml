@@ -1,0 +1,651 @@
+appId: com.zerovault.mobile
+name: Production client golden path
+tags:
+  - business
+  - destructive
+  - sensitive-recovery
+---
+- runScript: scripts/new-account.js
+- launchApp:
+    clearState: true
+- tapOn: "http://"
+- inputText: "127.0.0.1:8081"
+- hideKeyboard
+- tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+- tapOn: "Continue"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "创建新账户"
+    timeout: 30000
+
+# A unique synthetic account gives this flow its own approved first device.
+- tapOn: "创建新账户"
+- tapOn:
+    id: "register-email"
+- inputText: ${output.email}
+- tapOn:
+    id: "register-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "register-password-confirm"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "register-submit"
+- extendedWaitUntil:
+    visible:
+      id: "recovery-code-value"
+    timeout: 30000
+- tapOn:
+    id: "recovery-code-copy"
+- extendedWaitUntil:
+    visible: "(已复制到剪贴板|Copied to clipboard)"
+    timeout: 5000
+- copyTextFrom:
+    id: "recovery-code-value"
+- evalScript: ${output.recoveryCode = maestro.copiedText}
+- assertTrue: ${output.recoveryCode.length == 43}
+- tapOn:
+    id: "recovery-code-acknowledge-start"
+- tapOn:
+    id: "recovery-code-acknowledge-confirm"
+- extendedWaitUntil:
+    visible: "解锁密码库"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible: "凭据"
+    timeout: 30000
+
+# Login: generate a password, add TOTP, create and sync revision 1.
+- tapOn:
+    id: "vault-add-item"
+- assertVisible:
+    id: "editor-origin-protocol"
+- tapOn:
+    id: "editor-origin-protocol"
+- assertVisible:
+    id: "editor-origin-protocol-menu"
+- tapOn:
+    id: "editor-origin-protocol-http"
+- assertVisible: "http://"
+- tapOn:
+    id: "editor-origin-protocol"
+- tapOn:
+    id: "editor-origin-protocol-https"
+- assertVisible: "https://"
+- tapOn:
+    id: "editor-title"
+- inputText: "Maestro Login"
+- tapOn:
+    id: "editor-origin"
+- inputText: "example.com"
+- tapOn:
+    id: "editor-username"
+- inputText: "before@example.invalid"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-generate-password"
+    direction: DOWN
+- tapOn:
+    id: "editor-generate-password"
+- scrollUntilVisible:
+    element:
+      id: "editor-totp"
+    direction: DOWN
+- tapOn:
+    id: "editor-totp"
+- inputText: "JBSWY3DPEHPK3PXP"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible: "Maestro Login"
+    timeout: 15000
+- assertVisible: "before@example.invalid"
+- extendedWaitUntil:
+    visible:
+      id: "credential-totp-code"
+    timeout: 15000
+- pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 15000
+- tapOn:
+    id: "vault-sync"
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync-feedback"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "(网络连接失败，离线变更仍安全保存在本机|待同步 0 项)"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "网络连接失败，离线变更仍安全保存在本机"
+    commands:
+      - assertVisible: "待同步 1 项"
+      - tapOn:
+          id: "vault-sync"
+- extendedWaitUntil:
+    visible: "待同步 0 项"
+    timeout: 30000
+- tapOn: "打开条目 Maestro Login"
+
+# Update and sync revision 2, then restore the server-backed revision 1.
+- tapOn:
+    id: "credential-edit"
+- tapOn:
+    id: "editor-username"
+- eraseText: 100
+- inputText: "after@example.invalid"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- assertVisible: "after@example.invalid"
+- pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 15000
+- tapOn:
+    id: "vault-sync"
+- extendedWaitUntil:
+    visible: "待同步 0 项"
+    timeout: 30000
+- tapOn: "打开条目 Maestro Login"
+- scrollUntilVisible:
+    element:
+      id: "credential-history"
+    direction: DOWN
+- tapOn:
+    id: "credential-history"
+- scrollUntilVisible:
+    element:
+      id: "history-restore-1"
+    direction: DOWN
+- tapOn:
+    id: "history-restore-1"
+- tapOn:
+    id: "android:id/button1"
+- extendedWaitUntil:
+    visible: "历史版本已写入本机并进入同步队列"
+    timeout: 15000
+- tapOn: "确定"
+- scrollUntilVisible:
+    element: "before@example.invalid"
+    direction: UP
+- assertVisible: "before@example.invalid"
+- pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 15000
+- tapOn:
+    id: "vault-sync"
+- extendedWaitUntil:
+    visible: "待同步 0 项"
+    timeout: 30000
+
+# Local search filters in unlocked memory and does not require a server query.
+- extendedWaitUntil:
+    visible:
+      id: "vault-search"
+    timeout: 15000
+- tapOn:
+    id: "vault-search"
+- inputText: "before@example.invalid"
+- assertVisible: "打开条目 Maestro Login"
+- tapOn:
+    id: "vault-search"
+- eraseText: 100
+- inputText: "synthetic-no-match"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "未找到匹配的凭据"
+    timeout: 15000
+- tapOn:
+    id: "vault-search"
+- eraseText: 100
+- hideKeyboard
+
+# Password health proves the generated login password is present and strong.
+- tapOn: "设置"
+- tapOn:
+    id: "settings-theme-dark"
+- assertVisible:
+    id: "settings-theme-dark"
+    checked: true
+- tapOn:
+    id: "settings-theme-light"
+- assertVisible:
+    id: "settings-theme-light"
+    checked: true
+- tapOn:
+    id: "settings-theme-system"
+- assertVisible:
+    id: "settings-theme-system"
+    checked: true
+- tapOn:
+    id: "settings-theme-dark"
+- assertVisible:
+    id: "settings-theme-dark"
+    checked: true
+- tapOn:
+    id: "settings-language-en"
+- assertVisible:
+    id: "settings-language-en"
+    checked: true
+- assertVisible: "Appearance"
+- assertVisible: "Security"
+
+# Theme and language are durable preferences, not process-only UI state.
+- killApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "unlock-password"
+    timeout: 30000
+- assertVisible: "Unlock vault"
+- tapOn:
+    id: "unlock-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible:
+      id: "vault-add-item"
+    timeout: 30000
+- tapOn: "Settings"
+- assertVisible:
+    id: "settings-theme-dark"
+    checked: true
+- assertVisible:
+    id: "settings-language-en"
+    checked: true
+- tapOn:
+    id: "settings-language-zh"
+- assertVisible:
+    id: "settings-language-zh"
+    checked: true
+- tapOn:
+    id: "settings-theme-light"
+- assertVisible:
+    id: "settings-theme-light"
+    checked: true
+# Keep the gesture inside the settings ScrollView. On API 36 Maestro can start
+# an automatic scroll on the persistent tab bar and leave the content at offset
+# zero.
+- swipe:
+    start: "50%,80%"
+    end: "50%,25%"
+    duration: 700
+- scrollUntilVisible:
+    element:
+      id: "settings-password-health"
+    direction: DOWN
+- tapOn:
+    id: "settings-password-health"
+- assertVisible: "分析仅在本机解锁内存中执行，不会上传或保存密码及其哈希。"
+- assertVisible: "未发现缺失、弱密码或重复使用风险"
+- pressKey: Back
+
+# Local file backup stops at the native system picker boundary.
+- swipe:
+    start: "50%,80%"
+    end: "50%,25%"
+    duration: 700
+- scrollUntilVisible:
+    element:
+      id: "settings-local-backup"
+    direction: DOWN
+- tapOn:
+    id: "settings-local-backup"
+- assertVisible: "本地加密备份"
+- assertVisible:
+    id: "local-backup-export"
+- scrollUntilVisible:
+    element:
+      id: "local-backup-restore"
+    direction: DOWN
+- assertVisible:
+    id: "local-backup-restore"
+- scrollUntilVisible:
+    element:
+      id: "crypto-core-backup-import"
+    direction: DOWN
+- assertVisible:
+    id: "crypto-core-backup-import"
+- pressKey: Back
+
+# Cloud backup: snapshot the synced baseline, replace a local mutation, lock,
+# reload the restored Room state after password unlock, then delete the snapshot.
+- swipe:
+    start: "50%,80%"
+    end: "50%,25%"
+    duration: 700
+- scrollUntilVisible:
+    element:
+      id: "settings-cloud-backup"
+    direction: DOWN
+- tapOn:
+    id: "settings-cloud-backup"
+- assertVisible: "加密云备份"
+- assertVisible:
+    id: "cloud-backup-create"
+- tapOn:
+    id: "cloud-backup-create"
+- extendedWaitUntil:
+    visible:
+      id: "cloud-backup-restore"
+    timeout: 30000
+- pressKey: Back
+- tapOn: "密码库"
+- extendedWaitUntil:
+    visible: "打开条目 Maestro Login"
+    timeout: 15000
+- tapOn: "打开条目 Maestro Login"
+- tapOn:
+    id: "credential-edit"
+- tapOn:
+    id: "editor-username"
+- eraseText: 100
+- tapOn:
+    id: "editor-username"
+- eraseText: 100
+- inputText: "backup-mutated@example.invalid"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible: "backup-mutated@example.invalid"
+    timeout: 15000
+- pressKey: Back
+- tapOn: "设置"
+- swipe:
+    start: "50%,80%"
+    end: "50%,25%"
+    duration: 700
+- scrollUntilVisible:
+    element:
+      id: "settings-cloud-backup"
+    direction: DOWN
+- tapOn:
+    id: "settings-cloud-backup"
+- extendedWaitUntil:
+    visible:
+      id: "cloud-backup-restore"
+    timeout: 30000
+- tapOn:
+    id: "cloud-backup-restore"
+- tapOn:
+    id: "android:id/button1"
+- extendedWaitUntil:
+    visible: "解锁密码库"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible: "打开条目 Maestro Login"
+    timeout: 30000
+- tapOn: "打开条目 Maestro Login"
+# A no-op restore must not pass: the Room snapshot contains the baseline value.
+- assertVisible: "before@example.invalid"
+- pressKey: Back
+- tapOn: "设置"
+- swipe:
+    start: "50%,80%"
+    end: "50%,25%"
+    duration: 700
+- scrollUntilVisible:
+    element:
+      id: "settings-cloud-backup"
+    direction: DOWN
+- tapOn:
+    id: "settings-cloud-backup"
+- extendedWaitUntil:
+    visible:
+      id: "cloud-backup-delete"
+    timeout: 30000
+- tapOn:
+    id: "cloud-backup-delete"
+- tapOn:
+    id: "android:id/button1"
+- extendedWaitUntil:
+    visible:
+      id: "cloud-backup-empty"
+    timeout: 30000
+- pressKey: Back
+- tapOn: "密码库"
+
+# Secure note: create, read, update and delete.
+- tapOn:
+    id: "vault-add-item"
+- tapOn:
+    id: "editor-type-secure_note"
+- tapOn:
+    id: "editor-title"
+- inputText: "Maestro Note"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-note-body"
+    direction: DOWN
+- tapOn:
+    id: "editor-note-body"
+- inputText: "Synthetic recovery fixture note"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible:
+      id: "credential-edit"
+    timeout: 15000
+- assertVisible: "Synthetic recovery fixture note"
+- tapOn:
+    id: "credential-edit"
+- tapOn:
+    id: "editor-title"
+- eraseText: 100
+- inputText: "Maestro Note Updated"
+- tapOn:
+    id: "editor-note-body"
+- eraseText: 100
+- inputText: "Synthetic recovery fixture note updated"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible:
+      id: "credential-delete"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: "Maestro Note Updated"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "credential-note-body"
+    direction: DOWN
+- assertVisible:
+    id: "credential-note-body"
+- scrollUntilVisible:
+    element:
+      id: "credential-delete"
+    direction: UP
+- tapOn:
+    id: "credential-delete"
+- tapOn:
+    id: "android:id/button1"
+- extendedWaitUntil:
+    notVisible: "Maestro Note Updated"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "vault-add-item"
+    timeout: 15000
+
+# Credit card: create, read, update and delete.
+- tapOn:
+    id: "vault-add-item"
+- tapOn:
+    id: "editor-type-credit_card"
+- tapOn:
+    id: "editor-title"
+- inputText: "Maestro Card"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-cardholder"
+    direction: DOWN
+- tapOn:
+    id: "editor-cardholder"
+- inputText: "Synthetic User"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-card-number"
+    direction: DOWN
+- tapOn:
+    id: "editor-card-number"
+- inputText: "4242424242424242"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-card-month"
+    direction: DOWN
+- tapOn:
+    id: "editor-card-month"
+- inputText: "12"
+- tapOn:
+    id: "editor-card-year"
+- inputText: "2030"
+- tapOn:
+    id: "editor-card-cvv"
+- inputText: "123"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible:
+      id: "credential-edit"
+    timeout: 15000
+- assertVisible: "Maestro Card"
+- scrollUntilVisible:
+    element:
+      id: "credential-card-reveal"
+    direction: DOWN
+- tapOn:
+    id: "credential-card-reveal"
+- assertVisible: "4242424242424242"
+- scrollUntilVisible:
+    element:
+      id: "credential-edit"
+    direction: UP
+- tapOn:
+    id: "credential-edit"
+- tapOn:
+    id: "editor-cardholder"
+- eraseText: 100
+- inputText: "Synthetic User Updated"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible:
+      id: "credential-delete"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: "Synthetic User Updated"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "credential-delete"
+    direction: UP
+- tapOn:
+    id: "credential-delete"
+- tapOn:
+    id: "android:id/button1"
+- extendedWaitUntil:
+    notVisible: "Maestro Card"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 15000
+
+# Persist the restored login remotely before the normal OPAQUE re-login.
+- tapOn:
+    id: "vault-sync"
+- extendedWaitUntil:
+    visible: "待同步 0 项"
+    timeout: 30000
+- assertNotVisible: "Maestro Note Updated"
+- assertNotVisible: "Maestro Card"
+
+# Exercise a normal OPAQUE login on the same approved device. Logout revokes
+# only the bearer session and deliberately keeps this device's protected local
+# identity, so this does not bypass device approval.
+- tapOn: "设置"
+- scrollUntilVisible:
+    element: "(退出登录|Sign out)"
+    direction: DOWN
+- tapOn: "(退出登录|Sign out)"
+- extendedWaitUntil:
+    visible:
+      id: "android:id/button1"
+    timeout: 5000
+- tapOn:
+    id: "android:id/button1"
+- extendedWaitUntil:
+    visible: "you@example.com"
+    timeout: 30000
+- runFlow:
+    file: subflows/login-approved-device.yml
+    env:
+      E2E_EMAIL: ${output.email}
+      E2E_PASSWORD: ${output.password}

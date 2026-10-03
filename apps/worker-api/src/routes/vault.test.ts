@@ -16,7 +16,7 @@ import { csrf } from "../middleware/csrf";
 import { sessionMiddleware } from "../middleware/session";
 import { hashToken } from "../utils/crypto";
 import { SESSION_COOKIE_NAME } from "../utils/cookies";
-import type { CiphertextEnvelope, VaultItemCiphertext } from "@zero-vault/shared";
+import type { VaultItemCiphertext } from "@zero-vault/shared";
 
 // ── D1 Mock (better-sqlite3) ───────────────────────────────────────────────
 
@@ -113,6 +113,7 @@ const MIGRATION_SQL = `
     public_key_bundle TEXT NOT NULL,
     encrypted_recovery_packet TEXT NOT NULL,
     server_revision INTEGER NOT NULL DEFAULT 0,
+    auth_epoch INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -122,8 +123,24 @@ const MIGRATION_SQL = `
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash TEXT UNIQUE NOT NULL,
     csrf_token TEXT NOT NULL,
+    device_id TEXT,
+    auth_epoch INTEGER NOT NULL DEFAULT 0,
     expires_at TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS trusted_devices (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    fingerprint TEXT,
+    public_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    credential_hash TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_seen_ip TEXT,
+    last_seen_location TEXT
   );
 
   CREATE TABLE IF NOT EXISTS vault_items (
@@ -146,6 +163,32 @@ const MIGRATION_SQL = `
     snapshot TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS item_sync_changes (
+    cursor INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    item_revision INTEGER NOT NULL,
+    change_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS item_sync_mutations (
+    user_id TEXT NOT NULL,
+    client_mutation_id TEXT NOT NULL,
+    request_fingerprint TEXT NOT NULL,
+    result_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, client_mutation_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS item_sync_revision_claims (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, revision)
+  );
 `;
 
 function runMigration(db: MockD1Database): void {
@@ -154,10 +197,10 @@ function runMigration(db: MockD1Database): void {
 
 // ── Test Helpers ───────────────────────────────────────────────────────────
 
-const mockEnvelope: CiphertextEnvelope = {
+const mockEnvelope: VaultItemCiphertext["encryptedItemKey"] = {
   alg: "XCHACHA20_POLY1305",
-  nonce: "dGVzdA",
-  ciphertext: "dGVzdA"
+  nonce: "N".repeat(32),
+  ciphertext: "A".repeat(22)
 };
 
 function makeItem(overrides: Partial<VaultItemCiphertext> = {}): VaultItemCiphertext {
@@ -486,6 +529,7 @@ describe("Vault routes", () => {
     it("pushes items and returns applied ids", async () => {
       const { token, csrfToken, userId } = await createAuthenticatedSession(db);
       const item = makeItem({ ownerUserId: userId });
+      const clientMutationId = crypto.randomUUID();
 
       const res = await app.request(
         "/vault/item-sync",
@@ -495,7 +539,7 @@ describe("Vault routes", () => {
           body: JSON.stringify({
             protocol: "item_level_v1",
             baseRevision: 0,
-            upserts: [item],
+            upserts: [{ ...item, baseItemRevision: 0, clientMutationId }],
             deletes: []
           })
         },
@@ -508,10 +552,16 @@ describe("Vault routes", () => {
       expect(body.serverRevision).toBe(1);
       expect((body.applied as Record<string, unknown>).upsertedItemIds).toContain(item.id);
       expect((body.applied as Record<string, unknown>).deletedItemIds).toEqual([]);
+      expect((body.applied as Record<string, unknown>).mutationReceipts).toEqual([{
+        clientMutationId,
+        itemId: item.id,
+        operation: "upsert",
+        appliedItemRevision: 1
+      }]);
       expect(body.conflicts).toEqual([]);
     });
 
-    it("returns 409 with conflicts on server revision mismatch", async () => {
+    it("returns 409 with encrypted server state on stale item revision", async () => {
       const { token, csrfToken, userId } = await createAuthenticatedSession(db);
       const item = makeItem({ ownerUserId: userId });
 
@@ -524,7 +574,7 @@ describe("Vault routes", () => {
           body: JSON.stringify({
             protocol: "item_level_v1",
             baseRevision: 0,
-            upserts: [item],
+            upserts: [{ ...item, baseItemRevision: 0, clientMutationId: crypto.randomUUID() }],
             deletes: []
           })
         },
@@ -540,7 +590,7 @@ describe("Vault routes", () => {
           body: JSON.stringify({
             protocol: "item_level_v1",
             baseRevision: 0,
-            upserts: [item],
+            upserts: [{ ...item, baseItemRevision: 0, clientMutationId: crypto.randomUUID() }],
             deletes: []
           })
         },
@@ -551,7 +601,10 @@ describe("Vault routes", () => {
       const body = (await res.json()) as Record<string, unknown>;
       expect(body.error).toBe("sync_conflict");
       expect(body.conflicts).toHaveLength(1);
-      expect((body.conflicts as Record<string, unknown>[])[0]!.reason).toBe("server_revision_advanced");
+      expect((body.conflicts as Record<string, unknown>[])[0]!.reason).toBe("item_revision_advanced");
+      expect((body.conflicts as Record<string, unknown>[])[0]!.serverState).toMatchObject({
+        kind: "item"
+      });
     });
 
     it("returns 400 for invalid request body", async () => {
@@ -585,7 +638,7 @@ describe("Vault routes", () => {
           body: JSON.stringify({
             protocol: "item_level_v1",
             baseRevision: 0,
-            upserts: [item],
+            upserts: [{ ...item, baseItemRevision: 0, clientMutationId: crypto.randomUUID() }],
             deletes: []
           })
         },
@@ -606,7 +659,9 @@ describe("Vault routes", () => {
               {
                 id: item.id,
                 ownerUserId: userId,
-                deletedAt: "2025-06-01T00:00:00.000Z"
+                baseItemRevision: 1,
+                deletedAt: "2025-06-01T00:00:00.000Z",
+                clientMutationId: crypto.randomUUID()
               }
             ]
           })

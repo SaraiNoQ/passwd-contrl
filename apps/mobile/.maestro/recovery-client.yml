@@ -1,0 +1,240 @@
+appId: com.zerovault.mobile
+name: Native recovery golden path
+tags:
+  - business
+  - destructive
+  - sensitive-recovery
+---
+- runScript: scripts/new-account.js
+- launchApp:
+    clearState: true
+- tapOn: "http://"
+- inputText: "127.0.0.1:8081"
+- hideKeyboard
+- tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+- tapOn: "Continue"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "创建新账户"
+    timeout: 30000
+- tapOn: "创建新账户"
+- tapOn:
+    id: "register-email"
+- inputText: ${output.email}
+- tapOn:
+    id: "register-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "register-password-confirm"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "register-submit"
+- extendedWaitUntil:
+    visible:
+      id: "recovery-code-value"
+    timeout: 30000
+- copyTextFrom:
+    id: "recovery-code-value"
+- evalScript: ${output.recoveryCode = maestro.copiedText}
+- assertTrue: ${output.recoveryCode.length == 43}
+- tapOn:
+    id: "recovery-code-acknowledge-start"
+- tapOn:
+    id: "recovery-code-acknowledge-confirm"
+- extendedWaitUntil:
+    visible: "解锁密码库"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible: "凭据"
+    timeout: 30000
+
+# Persist one encrypted sentinel so recovery proves the original vault key was
+# restored, not merely that the account password and session were replaced.
+- tapOn:
+    id: "vault-add-item"
+- tapOn:
+    id: "editor-title"
+- inputText: "Recovery Sentinel"
+- tapOn:
+    id: "editor-username"
+- inputText: "sentinel@example.invalid"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-password"
+    direction: DOWN
+- tapOn:
+    id: "editor-password"
+- inputText: "Sentinel-Only-29Aa"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible: "Recovery Sentinel"
+    timeout: 15000
+- pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 15000
+- tapOn:
+    id: "vault-sync"
+- extendedWaitUntil:
+    visible: "待同步 0 项"
+    timeout: 30000
+
+# Simulate total device loss. Recovery must rebuild a replacement device from
+# server state; retaining the original Room database would only prove local
+# key reuse, not disaster recovery.
+- launchApp:
+    clearState: true
+- tapOn: "http://"
+- inputText: "127.0.0.1:8081"
+- hideKeyboard
+- tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+- tapOn: "Continue"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "使用恢复码恢复账户"
+    timeout: 30000
+- tapOn: "使用恢复码恢复账户"
+- tapOn:
+    id: "recovery-email"
+- inputText: ${output.email}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "recovery-new-password"
+    direction: DOWN
+- tapOn:
+    id: "recovery-new-password"
+- inputText: ${output.newPassword}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "recovery-new-password-confirm"
+    direction: DOWN
+- tapOn:
+    id: "recovery-new-password-confirm"
+- inputText: ${output.newPassword}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "recovery-code"
+    direction: DOWN
+- tapOn:
+    id: "recovery-code"
+- evalScript: ${maestro.copiedText = output.recoveryCode}
+- pasteText
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "recovery-continue"
+    direction: DOWN
+- tapOn:
+    id: "recovery-continue"
+- scrollUntilVisible:
+    element:
+      id: "recovery-confirm"
+    direction: DOWN
+- tapOn:
+    id: "recovery-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "recovery-code-value"
+    timeout: 30000
+- copyTextFrom:
+    id: "recovery-code-value"
+- evalScript: ${output.rotatedRecoveryCode = maestro.copiedText}
+- assertTrue: ${output.rotatedRecoveryCode.length == 43}
+- assertTrue: ${output.rotatedRecoveryCode != output.recoveryCode}
+- tapOn:
+    id: "recovery-code-acknowledge-start"
+- tapOn:
+    id: "recovery-code-acknowledge-confirm"
+- extendedWaitUntil:
+    visible: "解锁密码库"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${output.newPassword}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 30000
+- tapOn:
+    id: "vault-sync"
+- extendedWaitUntil:
+    visible: "同步成功"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "打开条目 Recovery Sentinel"
+    timeout: 30000
+- tapOn: "打开条目 Recovery Sentinel"
+- assertVisible: "sentinel@example.invalid"
+- tapOn: "显示"
+- assertVisible: "Sentinel-Only-29Aa"
+- pressKey: Back
+- tapOn: "设置"
+- scrollUntilVisible:
+    element: "(退出登录|Sign out)"
+    direction: DOWN
+- tapOn: "(退出登录|Sign out)"
+- tapOn:
+    id: "android:id/button1"
+- extendedWaitUntil:
+    visible:
+      id: "login-email"
+    timeout: 30000
+- tapOn:
+    id: "login-email"
+- inputText: ${output.email}
+- tapOn:
+    id: "login-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
+- extendedWaitUntil:
+    visible: "邮箱、密码或设备认证信息无效"
+    timeout: 30000
+- tapOn:
+    id: "login-password"
+- inputText: ${output.newPassword}
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
+- extendedWaitUntil:
+    visible:
+      id: "unlock-password"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${output.newPassword}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible: "打开条目 Recovery Sentinel"
+    timeout: 30000

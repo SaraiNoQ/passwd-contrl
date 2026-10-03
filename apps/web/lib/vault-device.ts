@@ -10,10 +10,35 @@ import {
   listDevices,
   getDeviceId,
   encryptVaultKeyForDevice,
-  shareVaultKeyWithDevice,
+  createDeviceVaultKeyPacket,
+  fetchDeviceVaultKey,
+  decryptVaultKeyOnDevice,
   type DeviceInfo
 } from "./device-trust";
-import type { UnlockedVault } from "./local-vault";
+import { createLocalVaultWithSharedKey, saveEncryptedLocalVault, type EncryptedLocalVault, type UnlockedVault } from "./local-vault";
+import { saveSyncCursor, saveLocalServerRevision, saveItemRevisionMap, savePendingItemMutations, saveSyncedTimestamps, saveConflictIds } from "./sync-vault";
+
+export async function connectApprovedVault(csrfToken: string, password: string, existing: EncryptedLocalVault | null) {
+  if (existing && existing.itemCount > 0) throw new Error("此浏览器已有密码数据，请先导出加密备份，使用另一个浏览器接入云端密码库。");
+  const deviceId = getDeviceId();
+  if (!deviceId) throw new Error("请先登录已有账户。");
+  const blob = await fetchDeviceVaultKey(csrfToken, deviceId);
+  if (!blob) throw new Error("请在手机的设备管理中批准此浏览器，然后再次点击连接。");
+  const key = await decryptVaultKeyOnDevice(blob);
+  try {
+    const connected = await createLocalVaultWithSharedKey(password, key);
+    saveEncryptedLocalVault(connected.encrypted);
+    saveSyncCursor(0);
+    saveLocalServerRevision(0);
+    saveItemRevisionMap({});
+    savePendingItemMutations({});
+    saveSyncedTimestamps({});
+    saveConflictIds(new Set());
+    return connected;
+  } finally {
+    key.fill(0);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -83,32 +108,26 @@ export async function handleApproveDevice(deps: {
   }
 
   try {
-    const result = await approveDevice(csrfToken, deviceId);
-    if (!result.ok) throw new Error("approve_failed");
-
-    if (unlockedVault) {
-      try {
-        const approvedDevice = devices.find((d) => d.id === deviceId);
-        if (approvedDevice) {
-          const vaultKeyBytes =
-            unlockedVault.runtime === "webcrypto-mvp"
-              ? new Uint8Array(
-                  await crypto.subtle.exportKey("raw", unlockedVault.key)
-                )
-              : unlockedVault.key;
-          const encryptedBlob = await encryptVaultKeyForDevice(
-            approvedDevice.publicKey,
-            vaultKeyBytes
-          );
-          await shareVaultKeyWithDevice(csrfToken, deviceId, encryptedBlob);
-        }
-      } catch {
-        return {
-          status: "key-share-failed",
-          message: "设备已批准，但密钥共享失败。请稍后重试设备同步。"
-        };
-      }
+    const targetDevice = devices.find((device) => device.id === deviceId);
+    if (!unlockedVault || !targetDevice) {
+      return {
+        status: "key-share-failed",
+        message: "请先解锁密码库，再批准并共享设备密钥。"
+      };
     }
+
+    const vaultKeyBytes =
+      unlockedVault.runtime === "webcrypto-mvp"
+        ? new Uint8Array(await crypto.subtle.exportKey("raw", unlockedVault.key))
+        : unlockedVault.key;
+    const encryptedBlob = await encryptVaultKeyForDevice(targetDevice.publicKey, vaultKeyBytes);
+    const encryptedVaultKeyPacket = createDeviceVaultKeyPacket(
+      targetDevice.id,
+      targetDevice.publicKey,
+      encryptedBlob
+    );
+    const result = await approveDevice(csrfToken, deviceId, encryptedVaultKeyPacket);
+    if (!result.ok) throw new Error("approve_failed");
 
     return { status: "ok" };
   } catch (e) {

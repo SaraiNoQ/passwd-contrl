@@ -1,0 +1,43 @@
+name: zero-vault-android
+
+services:
+  android-dev:
+    build:
+      context: ../..
+      dockerfile: infra/android/Dockerfile
+    image: zero-vault/android-dev:sdk57
+    container_name: zero-vault-android-dev
+    working_dir: /workspace
+    command: ["sleep", "infinity"]
+    init: true
+    cpus: 16
+    mem_limit: 32g
+    shm_size: 4g
+    devices:
+      - /dev/kvm:/dev/kvm
+    volumes:
+      - /root/dev/zero-vault:/workspace
+      - /root/dev/zero-vault-artifacts:/artifacts
+      - zero-vault-gradle:/root/.gradle
+      - zero-vault-pnpm:/opt/pnpm-store
+      - zero-vault-cargo:/opt/cargo/registry
+      - zero-vault-rust-target:/workspace/crates/crypto-core/target
+      - zero-vault-avd:/root/.android
+    environment:
+      PNPM_STORE_DIR: /opt/pnpm-store
+      CARGO_TARGET_DIR: /workspace/crates/crypto-core/target
+      NODE_OPTIONS: --dns-result-order=ipv4first
+      MAESTRO_CLI_NO_ANALYTICS: "1"
+      MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED: "true"
+      FASTLANE_SKIP_UPDATE_CHECK: "1"
+      FASTLANE_OPT_OUT_USAGE: "1"
+      GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx8g -Dorg.gradle.daemon=false
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  zero-vault-gradle:
+  zero-vault-pnpm:
+  zero-vault-cargo:
+  zero-vault-rust-target:
+  zero-vault-avd:

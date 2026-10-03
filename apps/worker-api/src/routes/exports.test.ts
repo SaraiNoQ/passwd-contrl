@@ -12,6 +12,7 @@ import { exportRoutes } from "./exports";
 import { sessionMiddleware } from "../middleware/session";
 import { hashToken } from "../utils/crypto";
 import { SESSION_COOKIE_NAME } from "../utils/cookies";
+import { R2Storage } from "../storage/r2-helpers";
 
 // ── D1 Mock (better-sqlite3) ───────────────────────────────────────────────
 
@@ -108,6 +109,7 @@ const MIGRATION_SQL = `
     public_key_bundle TEXT NOT NULL,
     encrypted_recovery_packet TEXT NOT NULL,
     server_revision INTEGER NOT NULL DEFAULT 0,
+    auth_epoch INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -117,8 +119,20 @@ const MIGRATION_SQL = `
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash TEXT UNIQUE NOT NULL,
     csrf_token TEXT NOT NULL,
+    device_id TEXT,
+    auth_epoch INTEGER NOT NULL DEFAULT 0,
     expires_at TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS trusted_devices (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    public_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
   );
 `;
 
@@ -146,17 +160,21 @@ class MockR2Bucket {
     options?: {
       httpMetadata?: { contentType?: string };
       customMetadata?: Record<string, string>;
+      onlyIf?: { etagDoesNotMatch?: string };
     }
-  ): Promise<void> {
+  ): Promise<MockR2Object | null> {
+    if (options?.onlyIf?.etagDoesNotMatch === "*" && this.objects.has(key)) return null;
     const body = value;
-    this.objects.set(key, {
+    const object = {
       key,
       size: value.byteLength,
       uploaded: new Date("2026-06-16T08:00:00.000Z"),
       customMetadata: options?.customMetadata,
       body,
       arrayBuffer: async () => body
-    });
+    };
+    this.objects.set(key, object);
+    return object;
   }
 
   async get(key: string): Promise<MockR2Object | null> {
@@ -385,6 +403,30 @@ describe("Export routes", () => {
       const exports = body.exports as Record<string, unknown>[];
       expect(exports[0]!.createdAt).toBe(uploaded.toISOString());
     });
+
+    it("falls back to the default algorithm for legacy exports without metadata algorithm", async () => {
+      const { token, userId } = await createAuthenticatedSession(db);
+      const exportId = crypto.randomUUID();
+      r2.objects.set(`exports/${userId}/${exportId}`, {
+        key: `exports/${userId}/${exportId}`,
+        size: 16,
+        uploaded: new Date("2026-06-16T10:30:00.000Z"),
+        customMetadata: {},
+        body: new ArrayBuffer(16),
+        arrayBuffer: async () => new ArrayBuffer(16)
+      });
+
+      const res = await app.request(
+        "/exports",
+        { headers: authHeaders(token) },
+        createEnv(db, r2)
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Record<string, unknown>;
+      const exports = body.exports as Record<string, unknown>[];
+      expect(exports[0]!.algorithm).toBe("XCHACHA20_POLY1305");
+    });
   });
 
   // ── POST /exports/create ──────────────────────────────────────────────────
@@ -413,10 +455,35 @@ describe("Export routes", () => {
       const body = (await res.json()) as Record<string, unknown>;
       expect(body.ok).toBe(true);
       expect(body.size).toBe(64);
-      expect(typeof body.key).toBe("string");
+      expect(body.key).toBeUndefined();
 
       // Verify the export was stored in R2
       expect(r2.objects.size).toBe(1);
+    });
+
+    it("rejects replacing an existing backup id", async () => {
+      const { token } = await createAuthenticatedSession(db);
+      const exportId = crypto.randomUUID();
+      const request = (size: number) => app.request(
+        "/exports/create",
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(token),
+            "x-export-id": exportId,
+            "x-export-algorithm": "ZERO_VAULT_MOBILE_BACKUP_V2",
+            "content-type": "application/octet-stream",
+          },
+          body: new ArrayBuffer(size),
+        },
+        createEnv(db, r2),
+      );
+
+      expect((await request(32)).status).toBe(201);
+      const replacement = await request(64);
+      expect(replacement.status).toBe(409);
+      expect(await replacement.json()).toEqual({ error: "export_exists" });
+      expect([...r2.objects.values()][0]!.size).toBe(32);
     });
 
     it("returns 400 when x-export-id header is missing", async () => {
@@ -462,7 +529,7 @@ describe("Export routes", () => {
       expect(body.error).toBe("empty_body");
     });
 
-    it("stores export with custom algorithm metadata", async () => {
+    it("stores the mobile encrypted-envelope algorithm metadata", async () => {
       const { token } = await createAuthenticatedSession(db);
       const exportId = crypto.randomUUID();
 
@@ -473,7 +540,7 @@ describe("Export routes", () => {
           headers: {
             ...authHeaders(token),
             "x-export-id": exportId,
-            "x-export-algorithm": "AES256_GCM",
+            "x-export-algorithm": "ZERO_VAULT_MOBILE_BACKUP_V2",
             "content-type": "application/octet-stream"
           },
           body: new ArrayBuffer(48)
@@ -487,7 +554,27 @@ describe("Export routes", () => {
 
       // Check the stored object metadata
       const storedEntry = Array.from(r2.objects.values())[0];
-      expect(storedEntry!.customMetadata!.alg).toBe("AES256_GCM");
+      expect(storedEntry!.customMetadata!.alg).toBe("ZERO_VAULT_MOBILE_BACKUP_V2");
+    });
+
+    it("rejects unsupported algorithm metadata", async () => {
+      const { token } = await createAuthenticatedSession(db);
+      const res = await app.request(
+        "/exports/create",
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(token),
+            "x-export-id": crypto.randomUUID(),
+            "x-export-algorithm": "PLAINTEXT",
+            "content-type": "application/octet-stream"
+          },
+          body: new ArrayBuffer(16)
+        },
+        createEnv(db, r2)
+      );
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "export_algorithm_unsupported" });
     });
   });
 
@@ -591,5 +678,32 @@ describe("Export routes", () => {
       // Verify it's gone
       expect(r2.objects.size).toBe(0);
     });
+  });
+});
+
+describe("R2 account export cleanup", () => {
+  it("deletes every export/backup page and never broadens beyond the account prefix", async () => {
+    const userId = crypto.randomUUID();
+    const first = `exports/${userId}/${crypto.randomUUID()}`;
+    const second = `exports/${userId}/${crypto.randomUUID()}`;
+    const backup = `backups/${userId}/${crypto.randomUUID()}`;
+    const other = `exports/${crypto.randomUUID()}/${crypto.randomUUID()}`;
+    const deleted: string[] = [];
+    const bucket = {
+      async list(options: { prefix?: string; cursor?: string }) {
+        if (options.prefix === `backups/${userId}/`) {
+          return { objects: [{ key: backup }], truncated: false };
+        }
+        expect(options.prefix).toBe(`exports/${userId}/`);
+        return options.cursor
+          ? { objects: [{ key: second }], truncated: false }
+          : { objects: [{ key: first }], truncated: true, cursor: "page-2" };
+      },
+      async delete(key: string) { deleted.push(key); },
+    } as unknown as R2Bucket;
+
+    await expect(new R2Storage(bucket).deleteAccountObjects(userId)).resolves.toBe(3);
+    expect(deleted).toEqual([first, second, backup]);
+    expect(deleted).not.toContain(other);
   });
 });

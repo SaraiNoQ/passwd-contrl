@@ -7,16 +7,43 @@ license = "MIT"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = []
+uniffi = [
+  "dep:base64",
+  "dep:ed25519-dalek",
+  "dep:generic-array",
+  "dep:hmac",
+  "dep:opaque-ke",
+  "dep:sha1",
+  "dep:uniffi",
+  "dep:zeroize",
+]
+uniffi-cli = ["uniffi", "uniffi/cli"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["uniffi-cli"]
+
 [dependencies]
 argon2 = "0.5"
+base64 = { version = "0.22", optional = true }
 chacha20poly1305 = "0.10"
+ed25519-dalek = { version = "2", optional = true, features = ["zeroize"] }
+generic-array = { version = "=0.14.7", optional = true }
 getrandom = { version = "0.2", features = ["js"] }
 hkdf = "0.12"
+hmac = { version = "0.12", optional = true }
+opaque-ke = { version = "=4.0.0", features = ["argon2"], optional = true }
 rand_core = { version = "0.6", features = ["getrandom"] }
+sha1 = { version = "0.10", optional = true }
 sha2 = "0.10"
 thiserror = "1.0"
+uniffi = { version = "=0.29.4", optional = true }
 wasm-bindgen = "0.2"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
+zeroize = { version = "1.8", optional = true }
 
 [dev-dependencies]
 hex = "0.4"

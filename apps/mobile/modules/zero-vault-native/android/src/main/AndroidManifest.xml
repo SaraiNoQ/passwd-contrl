@@ -1,0 +1,68 @@
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- The association picker and Autofill verifier only need packages with
+         user-launchable activities. Keep package visibility scoped instead of
+         requesting the Play-restricted QUERY_ALL_PACKAGES permission. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <application>
+        <service
+            android:name="expo.modules.zerovault.autofill.ZeroVaultAutofillService"
+            android:directBootAware="false"
+            android:enabled="true"
+            android:exported="true"
+            android:process=":vault_system"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.autofill"
+                android:resource="@xml/zero_vault_autofill_service" />
+        </service>
+
+        <service
+            android:name="expo.modules.zerovault.credential.ZeroVaultCredentialProviderService"
+            android:directBootAware="false"
+            android:enabled="true"
+            android:exported="true"
+            android:process=":vault_system"
+            android:permission="android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE"
+            tools:targetApi="34">
+            <intent-filter>
+                <action android:name="android.service.credentials.CredentialProviderService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.credentials.provider"
+                android:resource="@xml/zero_vault_credential_provider" />
+        </service>
+
+        <activity
+            android:name="expo.modules.zerovault.autofill.ZeroVaultAutofillAuthActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:process=":vault_system"
+            android:taskAffinity=""
+            android:theme="@style/ZeroVaultSecureActivityTheme" />
+
+        <activity
+            android:name="expo.modules.zerovault.credential.ZeroVaultCredentialActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:process=":vault_system"
+            android:taskAffinity=""
+            android:theme="@style/ZeroVaultSecureActivityTheme" />
+    </application>
+</manifest>

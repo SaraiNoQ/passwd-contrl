@@ -1,0 +1,60 @@
+appId: com.android.settings
+name: API 36 strong biometric enrollment
+tags:
+  - api36
+  - biometric
+  - sensitive-device-pin
+---
+- runFlow:
+    when:
+      visible: "(?i).*set up screen lock.*"
+    commands:
+      - tapOn: "(?i).*set up screen lock.*"
+- runFlow:
+    when:
+      visible: "(?i).*choose.*screen lock.*"
+    commands:
+      - tapOn: "(?i).*PIN.*"
+      - extendedWaitUntil:
+          visible:
+            id: "com.android.settings:id/password_entry"
+          timeout: 15000
+      - tapOn:
+          id: "com.android.settings:id/password_entry"
+      - inputText: ${DEVICE_PIN}
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible: "(?i).*(re-enter|confirm).*PIN.*"
+          timeout: 15000
+      - tapOn:
+          id: "com.android.settings:id/password_entry"
+      - inputText: ${DEVICE_PIN}
+      - pressKey: Enter
+- runFlow:
+    when:
+      visible:
+        id: "com.android.settings:id/radio_group"
+    commands:
+      - tapOn:
+          id: "com.android.settings:id/redact_sensitive"
+      - tapOn: "(?i).*done.*"
+- extendedWaitUntil:
+    visible: "(?i).*(set up your fingerprint|fingerprint setup|let.?s start|use.*fingerprint|fingerprint.*unlock).*"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "(?i).*more.*"
+    commands:
+      - tapOn: "(?i).*more.*"
+- extendedWaitUntil:
+    visible: "(?i).*(I agree|touch.*sensor|fingerprint added).*"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "(?i).*I agree.*"
+    commands:
+      - tapOn: "(?i).*I agree.*"
+- extendedWaitUntil:
+    visible: "(?i).*fingerprint added.*"
+    timeout: 60000
+- tapOn: "(?i).*done.*"

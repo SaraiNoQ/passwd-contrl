@@ -349,6 +349,7 @@ export default function SyncDevicePanel({
                         </span>
                       </div>
                       <div className={styles.deviceMeta}>
+                        {device.fingerprint ? <span>指纹：{device.fingerprint}</span> : null}
                         <Clock size={10} />
                         <span>{formatDeviceSeenAt(device)}</span>
                         {deviceNetworkMeta(device) ? (

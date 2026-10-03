@@ -9,33 +9,8 @@ import styles from "./password-generator.module.css";
    Types
    --------------------------------------------------------------------------- */
 
-export interface GeneratorOptions {
-  length: number;
-  includeUpper: boolean;
-  includeLower: boolean;
-  includeDigits: boolean;
-  includeSymbols: boolean;
-  excludeSimilar: boolean;
-  excludeAmbiguous: boolean;
-}
-
-const DEFAULT_OPTIONS: GeneratorOptions = {
-  length: 20,
-  includeUpper: true,
-  includeLower: true,
-  includeDigits: true,
-  includeSymbols: true,
-  excludeSimilar: false,
-  excludeAmbiguous: false,
-};
-
-const UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const LOWER = "abcdefghijklmnopqrstuvwxyz";
-const DIGITS = "0123456789";
-const SYMBOLS = "!@#$%^&*";
-
-const SIMILAR_CHARS = ["i", "l", "1", "L", "o", "0", "O", "I"];
-const AMBIGUOUS_CHARS = ["{", "}", "[", "]", "(", ")", "/", "\\", "'", '"', "`", "~", ",", ";", ".", "<", ">"];
+import { DEFAULT_OPTIONS, buildCharset, generatePassword as generate, type GeneratorOptions } from "@zero-vault/browser-vault/password-generator";
+export type { GeneratorOptions } from "@zero-vault/browser-vault/password-generator";
 
 const HISTORY_MAX = 5;
 
@@ -73,42 +48,6 @@ function getStrength(entropy: number): StrengthInfo {
 /* ---------------------------------------------------------------------------
    Generator logic
    --------------------------------------------------------------------------- */
-
-function buildCharset(opts: GeneratorOptions): string {
-  let charset = "";
-  if (opts.includeUpper) charset += UPPER;
-  if (opts.includeLower) charset += LOWER;
-  if (opts.includeDigits) charset += DIGITS;
-  if (opts.includeSymbols) charset += SYMBOLS;
-
-  if (opts.excludeSimilar && charset.length > 0) {
-    charset = [...charset].filter((c) => !SIMILAR_CHARS.includes(c)).join("");
-  }
-  if (opts.excludeAmbiguous && charset.length > 0) {
-    charset = [...charset].filter((c) => !AMBIGUOUS_CHARS.includes(c)).join("");
-  }
-
-  return charset;
-}
-
-function generate(opts: GeneratorOptions): string {
-  const charset = buildCharset(opts);
-  if (!charset) return "";
-
-  const bytes = new Uint8Array(opts.length);
-  crypto.getRandomValues(bytes);
-
-  const charsetArr = [...charset];
-  const n = charsetArr.length;
-  let result = "";
-
-  for (let i = 0; i < opts.length; i++) {
-    const idx = bytes[i]! % n;
-    result += charsetArr[idx];
-  }
-
-  return result;
-}
 
 /* ---------------------------------------------------------------------------
    Component

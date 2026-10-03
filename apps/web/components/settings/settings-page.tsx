@@ -34,9 +34,12 @@ export type SettingsPageProps = {
   cloudExports?: Array<{ id: string; createdAt: string; algorithm: string }>;
   cloudExportLoading?: boolean;
   cloudExportError?: string;
+  cloudExportStatus?: string;
+  cloudExportRestoringId?: string | null;
   onLoadCloudExports?: () => Promise<void>;
   onCreateCloudExport?: () => Promise<void>;
   onDeleteCloudExport?: (id: string) => Promise<void>;
+  onRestoreCloudExport?: (id: string) => Promise<void>;
 };
 
 const AUTO_LOCK_OPTIONS: { label: string; value: number }[] = [
@@ -75,9 +78,12 @@ export function SettingsPage({
   cloudExports,
   cloudExportLoading,
   cloudExportError,
+  cloudExportStatus,
+  cloudExportRestoringId,
   onLoadCloudExports,
   onCreateCloudExport,
   onDeleteCloudExport,
+  onRestoreCloudExport,
 }: SettingsPageProps) {
   // Extension ID draft state
   const [extensionIdDraft, setExtensionIdDraft] = useState(extensionId);
@@ -93,6 +99,7 @@ export function SettingsPage({
   // Delete account state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // CSV export confirmation state
   const [csvExportModalOpen, setCsvExportModalOpen] = useState(false);
@@ -160,14 +167,19 @@ export function SettingsPage({
   }, [currentPassword, newPassword, confirmPassword, onChangeMasterPassword]);
 
   const handleDeleteConfirm = useCallback(async () => {
+    setDeleteError("");
     setDeleteLoading(true);
     try {
       await onDeleteAccount();
-    } catch {
-      // Parent handles navigation / error display
+      setDeleteModalOpen(false);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "账户删除失败。服务器未确认删除，本地数据仍然保留。",
+      );
     } finally {
       setDeleteLoading(false);
-      setDeleteModalOpen(false);
     }
   }, [onDeleteAccount]);
 
@@ -484,10 +496,7 @@ export function SettingsPage({
                 <span />
               </div>
               <p className={styles.cardKicker}>BROWSER EXTENSION</p>
-              <h3 className={styles.cardTitle}>浏览器扩展</h3>
-              <p className={styles.cardDescription}>
-                填入浏览器扩展 ID，用于启用自动填充和快速保存入口。
-              </p>
+              <h3 className={styles.cardTitle}>扩展</h3>
             </div>
 
             <div className={styles.extensionRow}>
@@ -517,9 +526,12 @@ export function SettingsPage({
               exports={cloudExports ?? []}
               loading={cloudExportLoading ?? false}
               error={cloudExportError ?? ""}
+              status={cloudExportStatus ?? ""}
+              restoringId={cloudExportRestoringId ?? null}
               onLoad={onLoadCloudExports}
               onCreate={onCreateCloudExport}
               onDelete={onDeleteCloudExport}
+              onRestore={(id) => onRestoreCloudExport?.(id) ?? Promise.resolve()}
               disabled={loading}
             />
           ) : null}
@@ -600,7 +612,10 @@ export function SettingsPage({
             </div>
             <Button
               variant="danger"
-              onClick={() => setDeleteModalOpen(true)}
+              onClick={() => {
+                setDeleteError("");
+                setDeleteModalOpen(true);
+              }}
               disabled={loading}
             >
               删除账户
@@ -647,7 +662,12 @@ export function SettingsPage({
       {/* ===== Delete confirmation modal ===== */}
       <Modal
         open={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
+        onClose={() => {
+          if (!deleteLoading) {
+            setDeleteError("");
+            setDeleteModalOpen(false);
+          }
+        }}
         title="确认删除账户"
         eyebrow="DANGER AREA / 危险操作"
         status="此操作不可撤销"
@@ -656,7 +676,10 @@ export function SettingsPage({
           <>
             <Button
               variant="secondary"
-              onClick={() => setDeleteModalOpen(false)}
+              onClick={() => {
+                setDeleteError("");
+                setDeleteModalOpen(false);
+              }}
               disabled={deleteLoading}
             >
               取消
@@ -683,6 +706,11 @@ export function SettingsPage({
           <p className={styles.deleteModalIrreversible}>
             此操作不可撤销，请确认您已备份重要数据。
           </p>
+          {deleteError ? (
+            <p className={styles.deleteModalError} role="alert">
+              {deleteError} 本地加密数据尚未清除，您可以检查网络后重试。
+            </p>
+          ) : null}
         </div>
       </Modal>
     </div>

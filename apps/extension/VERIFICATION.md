@@ -1,181 +1,45 @@
-# Extension Release Verification Checklist
+# Extension 0.2.0 verification
 
-## 1. Install Unpacked Extension
+Date: 2026-10-03
 
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in top-right)
-3. Click **Load unpacked** and select the `apps/extension/` directory
-4. Confirm the Zero Vault extension appears with version `0.1.0`
-5. Verify the extension icon appears in the toolbar
-6. Pin the extension for easy access during testing
+## Current evidence
 
-## 2. HTTPS Site Credential Save and Fill
+- Extension typecheck and 57 unit tests pass: strict message sender boundaries, rejected external publishing, exact-origin matching, field visibility/native setter, focus-triggered mutations, page-controlled selector rejection, explicit injection for an existing page, candidate expiry and exclusions, password rejection sampling, hostile UI strings, real WASM local identity/vault encryption, wrong-password/tamper rejection and offline lock/unlock persistence.
+- Web typecheck, production static build and 192 unit tests pass, including the shared sync engine's two-client edits, deletions, exact retry after response loss and explicit conflicts.
+- Worker typecheck and 208 tests pass; extension login uses bearer transport, pending-device restrictions and revocation checks. SHA-256 fingerprints are derived from the actual recipient public key for approval display, including legacy-route registrations.
+- Real Chrome and Edge journeys pass independent device approval, plugin→Web save, Web→plugin password update, saved credential fill, password update prompt, wrong-login suppression and independent unlock with the Web page closed.
+- Real Firefox passes independent approval, generator, isolated page save, plugin→Web and Web→plugin synchronization, exact-origin fill and absence of plaintext site passwords in persistent extension storage. Firefox uses a temporary profile and unsigned temporary add-on.
+- Android/native acceptance remains pending the required campus-server connection. Browser evidence is not a claim of native Android verification.
 
-1. Navigate to any HTTPS login page (e.g. `https://github.com/login`)
-2. Click the Zero Vault extension icon to open the popup
-3. Verify the popup shows the site origin and "Extension active" status
-4. In the web vault, unlock the vault so credentials are published to the extension
-5. If the site has credentials stored, verify they appear in the popup with `matchType: "exact"`
-6. Click a credential in the popup to fill the login form
-7. Verify username and password fields are filled without form submission
-8. Verify the popup shows "Filled successfully" confirmation
+## Runnable checks
 
-## 3. Phishing Warning on Similar Domains
+From the repository root:
 
-1. Store a credential for `https://example.com`
-2. Navigate to `https://sub.example.com` (same eTLD+1, different subdomain)
-3. Open the popup and verify the credential shows a "Similar origin" badge and warning text
-4. Try to fill the similar credential -- verify it is blocked with `similar_origin_not_acknowledged` error
-5. Click "I verified this site - allow fill" button in the popup
-6. Verify the badge changes to "Verified" and fill now succeeds
+~~~sh
+pnpm --filter @zero-vault/extension typecheck
+pnpm --filter @zero-vault/extension test
+pnpm --filter @zero-vault/web test
+pnpm --filter @zero-vault/worker-api test
+pnpm --filter @zero-vault/extension test:e2e
+~~~
 
-### Punycode / IDN Homograph Protection
+The default E2E project uses the installed Google Chrome. Set ZERO_VAULT_EDGE_BINARY to an actual Edge binary and ZERO_VAULT_GECKODRIVER to an official geckodriver to add those browser projects; ZERO_VAULT_FIREFOX_BINARY can override Firefox's location. Test fixtures use synthetic values and a local Worker/Web Vault, never production account data. Test builds are separate from release builds.
 
-1. Store a credential for `https://google.com`
-2. Navigate to a punycode domain like `https://xn--googl-e4d.com`
-3. Verify the credential shows a "Blocked" badge and "Potential phishing detected" message
-4. Verify the credential cannot be filled at all (returns `suspicious_origin` error, no acknowledge button)
+## Installation acceptance
 
-## 4. Multi-Credential Picker
+Follow [INSTALL.md](INSTALL.md). Confirm:
 
-1. Store multiple credentials for the same origin (e.g. Personal and Work accounts for `https://example.com`)
-2. Navigate to the site and open the popup
-3. Verify all matching credentials are listed with title and username
-4. Verify the match count text (e.g. "2 credentials matched")
-5. Click a specific credential to fill it
-6. Verify the correct username/password pair was filled (not a different credential)
-7. Click a different credential to switch accounts
-8. Verify the form is updated with the new credentials
+1. Generator works while locked; copying and filling require separate actions.
+2. Initial device remains pending until approved in Web/mobile; verify the full fingerprint.
+3. An exact HTTPS site saves only after a choice; same credentials do not duplicate, changed passwords require explicit update.
+4. A disappeared SPA form or same-origin navigation offers a prompt; a failed visible form does not. A different origin receives no old-site page prompt.
+5. Locked prompts open an extension page to unlock; no master password input appears inside a website frame.
+6. Multiple records require a selection. Similar/suspicious origins, HTTP, hidden/readonly/disabled fields and cross-origin frames remain blocked.
+7. Offline saves remain encrypted locally and retry after reconnection. Conflicts remain visible until selected resolution.
+8. Lock, five-minute inactivity and browser restart clear volatile vault access; candidates also expire and clear on tab close.
+9. Cloud-session expiry requires account reauthentication; a revoked device receives no further cloud data.
+10. Firefox temporary installation disappears at restart; long-term distribution requires Mozilla signing.
 
-## 5. Keyboard Navigation
+## Production package review
 
-1. Open the popup on a page with multiple matched credentials
-2. Press **ArrowDown** or **ArrowRight** -- verify selection moves to the next credential
-3. Press **ArrowUp** or **ArrowLeft** -- verify selection moves to the previous credential
-4. Verify selection wraps around (last to first, first to last)
-5. Verify the selected credential has a visible focus/selection outline
-6. Press **Enter** -- verify the selected credential is filled
-7. Navigate to a different credential with arrow keys, press **Enter** again
-8. Verify the new credential is filled (confirming selection changed)
-
-## 6. Extension <-> Web Vault Bridge Connectivity
-
-1. Open the web vault in a browser tab
-2. Unlock the vault
-3. Verify the popup status shows "Extension active" with matched credential count
-4. Lock the web vault
-5. Verify the popup status updates (credentials disappear from the extension)
-6. Open `chrome-extension://<extension-id>/bridge.html` and verify it loads
-
-### GET_EXTENSION_STATUS Verification
-
-From a page with `chrome.runtime` access to the extension:
-1. Send `{ type: "GET_EXTENSION_STATUS" }` via `chrome.runtime.sendMessage`
-2. Verify response includes `installed: true`, `version: "0.1.0"`, `credentialsLoaded` (boolean), `matchedCredentials` (number)
-
-## 7. Session Cleared on Vault Lock
-
-1. Unlock the web vault and verify credentials appear in the popup
-2. Lock the web vault (triggers `ZERO_VAULT_SESSION_CLEAR`)
-3. Verify the popup shows no credentials
-4. Verify `sessionCredentials`, `lastCandidate`, and `acknowledgedOrigins` are all cleared from `chrome.storage.session`
-5. Verify acknowledged similar-origin warnings are reset (re-navigating requires re-acknowledgment)
-
-## 8. Content Script Safety Checks
-
-### Hidden / Invisible Fields
-- `type="hidden"` password fields are not detected
-- `disabled` password fields are not detected
-- `readonly` password fields are not detected
-- `visibility: hidden` or `display: none` fields are not detected
-- Zero-dimension fields are not detected
-
-### Cross-Origin Iframes
-- Forms inside cross-origin iframes are not detected by the content script
-- Fill is not attempted on cross-origin iframe fields
-- Same-origin iframes work normally
-
-### HTTPS Enforcement
-- HTTP pages are not scanned for login forms
-- HTTP pages show "Zero Vault only fills HTTPS pages." in the popup
-
-## 9. Manifest Permissions Audit
-
-Verify `manifest.json` requests only these permissions:
-- `activeTab` -- required for querying the active tab
-- `scripting` -- required for "Scan page" button (`chrome.scripting.executeScript`)
-- `storage` -- required for `chrome.storage.session` (credentials, candidates, acknowledgments)
-- `host_permissions: ["https://*/*"]` -- required for content script on HTTPS pages
-- `externally_connectable` -- localhost only, for web vault bridge
-
-No additional permissions should be present.
-
----
-
-## Build and Package Instructions
-
-### Prerequisites
-
-- Node.js >= 18
-- pnpm (install globally: `npm install -g pnpm`, or use `npx pnpm`)
-
-### Build
-
-```bash
-# From monorepo root
-npx pnpm --filter @zero-vault/extension build
-```
-
-This runs:
-1. TypeScript type-check (`tsc --noEmit`)
-2. `esbuild` bundles three entry points:
-   - `dist/background.js` (ESM, service worker)
-   - `dist/popup.js` (ESM, popup script)
-   - `dist/content-script.js` (IIFE, content script)
-
-### Run Unit Tests
-
-```bash
-npx pnpm --filter @zero-vault/extension test
-```
-
-Runs Vitest with jsdom environment covering:
-- `background.test.ts` -- session routing, origin matching, fill logic
-- `form-detection.test.ts` -- field detection, visibility checks
-- `form-fill.test.ts` -- fill safety, field rejection
-- `origin-matching.test.ts` -- eTLD+1, punycode, typosquatting
-- `popup.test.ts` -- keyboard navigation, credential selection
-
-### Run E2E Tests
-
-```bash
-npx pnpm --filter @zero-vault/extension test:e2e
-```
-
-Runs Playwright with a real Chromium instance and the unpacked extension loaded. Covers:
-- HTTPS form detection and fill
-- Multi-credential picker
-- Phishing warning and acknowledgment flow
-- Session credential clearing on vault lock
-- Cross-origin iframe blocking
-- Hidden/disabled/readonly field blocking
-- HTTP page blocking
-- Stale candidate rejection (different active tab)
-
-### Package for Distribution
-
-```bash
-cd apps/extension
-# Build first
-npx pnpm --filter @zero-vault/extension build
-
-# Create a ZIP of the extension directory (excluding source, tests, node_modules)
-zip -r zero-vault-extension.zip \
-  manifest.json \
-  popup.html \
-  bridge.html \
-  dist/ \
-  -x "*.test.*" "*.spec.*" "node_modules/*" "src/*" "e2e/*" "fixtures/*"
-```
-
-The resulting `zero-vault-extension.zip` can be uploaded to the Chrome Web Store or loaded as an unpacked extension.
+Permissions: activeTab, scripting, storage, alarms, HTTPS host access. No cookie, network interception or clipboard read permission. Only the isolated save prompt and its UI assets are web-accessible. Production manifests have no externally_connectable website allowlist or localhost API override. WASM is bundled, external JS and unsafe-eval are not used. Packaging refuses test manifests and produces SHA256SUMS beside the two ZIPs.

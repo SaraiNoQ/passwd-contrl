@@ -7,13 +7,13 @@ export const isVisibleInput = (input: HTMLInputElement): boolean => {
 
   const rect = input.getBoundingClientRect();
   const style = window.getComputedStyle(input);
-  return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+  return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none" && style.opacity !== "0" && (!input.checkVisibility || input.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }));
 };
 
 export const safeFieldId = (input: HTMLInputElement): string => {
-  if (!input.dataset.zeroVaultFieldId) {
-    input.dataset.zeroVaultFieldId = crypto.randomUUID();
-  }
+  // Page-controlled attributes are not trusted selectors. Assign a fresh ID
+  // for each synchronous scan rather than accepting a site's value.
+  input.dataset.zeroVaultFieldId = crypto.randomUUID();
 
   return input.dataset.zeroVaultFieldId;
 };
@@ -55,8 +55,7 @@ const USERNAME_SELECTORS = [
   "input[id='username']",
   "input[id='user']",
   "input[id='login']",
-  "input[id='email']",
-  "input[type='text']"
+  "input[id='email']"
 ];
 
 export const detectForms = (): FormCandidate[] => {
@@ -77,7 +76,7 @@ export const detectForms = (): FormCandidate[] => {
       continue;
     }
 
-    const password = Array.from(form.querySelectorAll<HTMLInputElement>("input[type='password']")).find(isVisibleInput);
+    const password = Array.from(form.querySelectorAll<HTMLInputElement>("input[type='password']")).find(input => input.form === form && isVisibleInput(input));
     if (!password) {
       continue;
     }
@@ -85,7 +84,7 @@ export const detectForms = (): FormCandidate[] => {
     // Try multiple selectors for username field, in priority order
     let username: HTMLInputElement | null = null;
     for (const selector of USERNAME_SELECTORS) {
-      const found = Array.from(form.querySelectorAll<HTMLInputElement>(selector)).find(isVisibleInput);
+      const found = Array.from(form.querySelectorAll<HTMLInputElement>(selector)).find(input => input.form === form && isVisibleInput(input));
       if (found) {
         username = found;
         break;

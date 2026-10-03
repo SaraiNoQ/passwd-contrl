@@ -1,0 +1,27 @@
+appId: com.zerovault.mobile
+name: Two-device B edits one shared baseline while offline
+tags:
+  - api36
+  - two-device
+  - conflict
+---
+- launchApp:
+    clearState: false
+- runFlow:
+    file: subflows/two-device-unlock-if-needed.yml
+    env:
+      E2E_PASSWORD: ${E2E_PASSWORD}
+- runFlow:
+    file: subflows/two-device-edit-login.yml
+    env:
+      ITEM_TITLE: ${ITEM_TITLE}
+      ITEM_USERNAME: ${LOCAL_USERNAME}
+- assertVisible: "待同步 1 项"
+- tapOn:
+    id: "vault-sync"
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync-feedback"
+    timeout: 30000
+- assertVisible: "同步失败"
+- assertVisible: "待同步 1 项"

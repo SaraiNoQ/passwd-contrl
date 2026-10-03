@@ -1,0 +1,34 @@
+appId: com.zerovault.mobile
+---
+- scrollUntilVisible:
+    element: "打开条目 ${ITEM_TITLE}"
+    direction: DOWN
+- tapOn: "打开条目 ${ITEM_TITLE}"
+- tapOn:
+    id: "credential-edit"
+- tapOn:
+    id: "editor-username"
+- eraseText: 100
+# Tapping a populated RN TextInput can place the cursor before its last few
+# characters. Re-focus after the first erase so any suffix is at the caret,
+# then clear once more before entering the synthetic conflict value.
+- tapOn:
+    id: "editor-username"
+- eraseText: 100
+- inputText: ${ITEM_USERNAME}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible:
+      id: "credential-edit"
+    timeout: 15000
+- pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 15000

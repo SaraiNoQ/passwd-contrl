@@ -1,0 +1,134 @@
+appId: com.zerovault.mobile
+name: API 36 Autofill and Credential Provider setup
+tags:
+  - api36
+  - autofill
+  - credential-provider
+  - destructive
+---
+- extendedWaitUntil:
+    visible: "设置"
+    timeout: 30000
+
+# The device biometric was enrolled through ACTION_BIOMETRIC_ENROLL. This step
+# creates the non-exportable BIOMETRIC_STRONG-bound wrapping key.
+- scrollUntilVisible:
+    element:
+      id: "settings-biometric"
+    direction: DOWN
+- tapOn:
+    id: "settings-biometric"
+- extendedWaitUntil:
+    visible: "以后可使用系统生物识别解锁。生物信息变化会使本机密钥失效，不会降级为普通密钥。"
+    timeout: 30000
+- tapOn:
+    id: "android:id/button1"
+- extendedWaitUntil:
+    visible: "设置"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "settings-autofill-status"
+    direction: DOWN
+- extendedWaitUntil:
+    visible: "(已解锁，可安全填充|Unlocked and ready for secure autofill)"
+    timeout: 30000
+
+# Enable the system Autofill provider through the user-visible Android UI.
+- scrollUntilVisible:
+    element:
+      id: "settings-autofill"
+    direction: DOWN
+- tapOn:
+    id: "settings-autofill"
+- extendedWaitUntil:
+    visible: "(?i).*Zero Vault.*"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "^Zero Vault$"
+    commands:
+      - tapOn: "^Zero Vault$"
+- extendedWaitUntil:
+    visible:
+      id: "android:id/button1"
+    timeout: 15000
+- tapOn:
+    id: "android:id/button1"
+
+# Returning from system settings may lock the React Native surface. Unlock with
+# the biometric key, then enable Credential Provider if Autofill did not already
+# select it as Android 15+'s preferred credential service.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: "解锁密码库"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "unlock-biometric"
+          timeout: 30000
+      - tapOn:
+          id: "unlock-biometric"
+      - extendedWaitUntil:
+          visible: "凭据"
+          timeout: 30000
+      - tapOn: "设置"
+- extendedWaitUntil:
+    visible: "设置"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "settings-credential-provider"
+    direction: DOWN
+- tapOn:
+    id: "settings-credential-provider"
+- extendedWaitUntil:
+    visible: "(?i).*Zero Vault.*"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "android:id/button1"
+    timeout: 15000
+- tapOn:
+    id: "android:id/button1"
+
+# Fail closed unless native status confirms both providers after the round trip.
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: "解锁密码库"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "unlock-biometric"
+          timeout: 30000
+      - tapOn:
+          id: "unlock-biometric"
+      - extendedWaitUntil:
+          visible: "凭据"
+          timeout: 30000
+      - tapOn: "设置"
+- extendedWaitUntil:
+    visible: "设置"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "settings-autofill"
+    direction: DOWN
+- tapOn:
+    id: "settings-autofill"
+- extendedWaitUntil:
+    visible: "Zero Vault 已是当前自动填充服务。"
+    timeout: 15000
+- tapOn:
+    id: "android:id/button1"
+- tapOn:
+    id: "settings-credential-provider"
+- extendedWaitUntil:
+    visible: "Zero Vault 凭据提供方已启用。"
+    timeout: 15000
+- tapOn:
+    id: "android:id/button1"

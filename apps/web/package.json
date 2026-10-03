@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "next build",
+    "build:cloudflare": "CLOUDFLARE_PAGES=1 NEXT_PUBLIC_API_URL=/api next build",
     "dev": "next dev",
     "lint": "eslint .",
     "test": "vitest run",
@@ -13,6 +14,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@zero-vault/browser-vault": "workspace:*",
     "@serenity-kit/opaque": "^1.1.0",
     "@zero-vault/crypto-core-wasm": "workspace:*",
     "@zero-vault/shared": "workspace:*",

@@ -1,0 +1,339 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "39b09066a4f638944cbb3ed5adc6ceb4",
+    "entities": [
+      {
+        "tableName": "vault_ciphertexts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_id` TEXT NOT NULL, `record_id` TEXT NOT NULL, `ciphertext_envelope_json` TEXT NOT NULL, `item_revision` INTEGER NOT NULL, `last_synced_at` TEXT NOT NULL, `has_conflict` INTEGER NOT NULL, `item_type` TEXT, `is_deleted` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`account_id`, `record_id`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordId",
+            "columnName": "record_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ciphertextEnvelopeJson",
+            "columnName": "ciphertext_envelope_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemRevision",
+            "columnName": "item_revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncedAt",
+            "columnName": "last_synced_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasConflict",
+            "columnName": "has_conflict",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemType",
+            "columnName": "item_type",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isDeleted",
+            "columnName": "is_deleted",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_id",
+            "record_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_vault_ciphertexts_account_id_has_conflict",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "has_conflict"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vault_ciphertexts_account_id_has_conflict` ON `${TABLE_NAME}` (`account_id`, `has_conflict`)"
+          },
+          {
+            "name": "index_vault_ciphertexts_account_id_is_deleted",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "is_deleted"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vault_ciphertexts_account_id_is_deleted` ON `${TABLE_NAME}` (`account_id`, `is_deleted`)"
+          }
+        ]
+      },
+      {
+        "tableName": "sync_cursors",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_id` TEXT NOT NULL, `server_revision` INTEGER NOT NULL, `last_synced_at` TEXT, `server_cursor` INTEGER, `schema_version` INTEGER NOT NULL DEFAULT 2, PRIMARY KEY(`account_id`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverRevision",
+            "columnName": "server_revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncedAt",
+            "columnName": "last_synced_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "serverCursor",
+            "columnName": "server_cursor",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "schemaVersion",
+            "columnName": "schema_version",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "2"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_id"
+          ]
+        }
+      },
+      {
+        "tableName": "pending_mutations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_id` TEXT NOT NULL, `client_mutation_id` TEXT NOT NULL, `record_id` TEXT NOT NULL, `operation` TEXT NOT NULL, `base_item_revision` INTEGER NOT NULL, `ciphertext_envelope_json` TEXT, `created_at` TEXT NOT NULL, `attempt_count` INTEGER NOT NULL DEFAULT 0, `last_error_code` TEXT, PRIMARY KEY(`account_id`, `client_mutation_id`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clientMutationId",
+            "columnName": "client_mutation_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordId",
+            "columnName": "record_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operation",
+            "columnName": "operation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "baseItemRevision",
+            "columnName": "base_item_revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ciphertextEnvelopeJson",
+            "columnName": "ciphertext_envelope_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptCount",
+            "columnName": "attempt_count",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "lastErrorCode",
+            "columnName": "last_error_code",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_id",
+            "client_mutation_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_pending_mutations_account_id_record_id",
+            "unique": true,
+            "columnNames": [
+              "account_id",
+              "record_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_pending_mutations_account_id_record_id` ON `${TABLE_NAME}` (`account_id`, `record_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "sync_conflicts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_id` TEXT NOT NULL, `record_id` TEXT NOT NULL, `reason` TEXT NOT NULL, `local_ciphertext_envelope_json` TEXT, `remote_ciphertext_envelope_json` TEXT, `server_revision` INTEGER NOT NULL, `server_item_revision` INTEGER, `status` TEXT NOT NULL DEFAULT 'UNRESOLVED', `created_at` TEXT NOT NULL, PRIMARY KEY(`account_id`, `record_id`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordId",
+            "columnName": "record_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localCiphertextEnvelopeJson",
+            "columnName": "local_ciphertext_envelope_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remoteCiphertextEnvelopeJson",
+            "columnName": "remote_ciphertext_envelope_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "serverRevision",
+            "columnName": "server_revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverItemRevision",
+            "columnName": "server_item_revision",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'UNRESOLVED'"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_id",
+            "record_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_sync_conflicts_account_id_status",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_sync_conflicts_account_id_status` ON `${TABLE_NAME}` (`account_id`, `status`)"
+          }
+        ]
+      },
+      {
+        "tableName": "device_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_id` TEXT NOT NULL, `device_id` TEXT NOT NULL, `public_key` TEXT NOT NULL, `fingerprint` TEXT NOT NULL, `encrypted_vault_key` TEXT, `created_at` TEXT NOT NULL, PRIMARY KEY(`account_id`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceId",
+            "columnName": "device_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "publicKey",
+            "columnName": "public_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fingerprint",
+            "columnName": "fingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "encryptedVaultKey",
+            "columnName": "encrypted_vault_key",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '39b09066a4f638944cbb3ed5adc6ceb4')"
+    ]
+  }
+}

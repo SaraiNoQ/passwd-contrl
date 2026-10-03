@@ -38,7 +38,9 @@ export async function exportVaultToR2(
     size: String(size)
   };
 
-  await storage.uploadExport(userId, exportId, encryptedVaultData, metadata);
+  if (!await storage.uploadExport(userId, exportId, encryptedVaultData, metadata)) {
+    throw new Error("export_exists");
+  }
 
   return {
     key: `exports/${userId}/${exportId}`,

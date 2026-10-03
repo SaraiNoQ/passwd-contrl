@@ -21,6 +21,7 @@ export type FormCandidatesMessage = {
 
 export type FillCredentialMessage = {
   type: "FILL_CREDENTIAL";
+  origin?: string;
   username?: string;
   password: string;
 };

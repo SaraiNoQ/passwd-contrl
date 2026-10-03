@@ -776,3 +776,25 @@
     justify-content: center;
   }
 }
+.cloudConnection {
+  margin-top: var(--spacing-24, 24px);
+  color: var(--color-graphite-ink);
+}
+
+.cloudConnection summary {
+  cursor: pointer;
+  padding-block: 12px;
+  font-weight: 600;
+}
+
+.cloudConnection form {
+  display: grid;
+  gap: var(--spacing-16, 16px);
+  padding-block: 8px;
+}
+
+.cloudConnection p {
+  color: var(--color-slate-pencil);
+  font-size: 14px;
+  line-height: 1.6;
+}

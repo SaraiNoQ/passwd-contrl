@@ -2,30 +2,82 @@
   "expo": {
     "name": "Zero Vault",
     "slug": "zero-vault",
-    "version": "0.1.0",
+    "version": "0.1.2",
+    "icon": "./assets/images/icon.png",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "scheme": "zero-vault",
-    "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
-    "splash": {
-      "backgroundColor": "#050B12"
-    },
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zerovault.mobile"
     },
     "android": {
+      "package": "com.zerovault.mobile",
+      "versionCode": 1,
+      "allowBackup": false,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#050B12"
-      },
-      "package": "com.zerovault.mobile"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#F5F1E8"
+      }
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
-      "expo-sqlite"
+      "expo-system-ui",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F5F1E8",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 184,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#081B2B",
+            "image": "./assets/images/splash-icon.png"
+          }
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
+            "ndkVersion": "27.1.12297006",
+            "buildArchs": [
+              "arm64-v8a",
+              "x86_64"
+            ],
+            "usesCleartextTraffic": false
+          }
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "LXGW WenKai",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/LXGWWenKai-Regular.ttf",
+                    "weight": 400
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "./plugins/with-zero-vault-android"
     ]
   }
 }

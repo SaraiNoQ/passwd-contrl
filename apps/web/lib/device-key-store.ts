@@ -31,7 +31,8 @@ const withStore = async <T>(
     const tx = db.transaction(STORE_NAME, mode);
     const store = tx.objectStore(STORE_NAME);
     const request = fn(store);
-    request.onsuccess = () => resolve(request.result);
+    tx.oncomplete = () => { db.close(); resolve(request.result); };
+    tx.onabort = () => { db.close(); reject(tx.error ?? new Error("device_key_transaction_failed")); };
     request.onerror = () => reject(request.error);
   });
 };
@@ -63,4 +64,11 @@ export const hasDevicePrivateKey = async (): Promise<boolean> => {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(`设备密钥读取失败: ${message}`);
   }
+};
+
+export const loadWebDeviceIdentity = async (email: string): Promise<{ id: string; credential: string } | null> =>
+  (await withStore("readonly", (store) => store.get(`web-device:${email.toLowerCase()}`))) ?? null;
+
+export const saveWebDeviceIdentity = async (email: string, identity: { id: string; credential: string }): Promise<void> => {
+  await withStore("readwrite", (store) => store.put(identity, `web-device:${email.toLowerCase()}`));
 };

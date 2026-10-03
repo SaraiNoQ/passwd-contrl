@@ -9,8 +9,18 @@ vi.mock("./device-trust", () => ({
     { id: "dev-2", name: "Device 2", publicKey: "pk2", status: "pending" },
   ]),
   getDeviceId: vi.fn(() => "dev-1"),
-  encryptVaultKeyForDevice: vi.fn(async () => new Uint8Array([1, 2, 3])),
-  shareVaultKeyWithDevice: vi.fn(async () => ({ ok: true })),
+  encryptVaultKeyForDevice: vi.fn(async () => "encrypted-blob"),
+  createDeviceVaultKeyPacket: vi.fn(() => ({
+    version: 1,
+    recipientDeviceId: "dev-2",
+    recipientPublicKey: "pk2",
+    ephemeralPublicKey: "E".repeat(43),
+    encryptedVaultKey: {
+      alg: "XCHACHA20_POLY1305",
+      nonce: "bm9uY2U",
+      ciphertext: "Y2lwaGVydGV4dA"
+    }
+  })),
 }));
 
 const { handleRefreshDevices, handleApproveDevice, handleRejectDevice, handleRevokeDevice } = await import("./vault-device");
@@ -55,7 +65,22 @@ describe("handleApproveDevice", () => {
       devices: [{ id: "dev-2", name: "Device 2", publicKey: "pk2", status: "pending" }],
     });
     expect(result.status).toBe("ok");
-    expect(approveDevice).toHaveBeenCalledWith("token", "dev-2");
+    expect(approveDevice).toHaveBeenCalledWith(
+      "token",
+      "dev-2",
+      expect.objectContaining({ recipientDeviceId: "dev-2", recipientPublicKey: "pk2" })
+    );
+  });
+
+  it("does not approve before the vault key packet can be created", async () => {
+    const result = await handleApproveDevice({
+      csrfToken: "token",
+      deviceId: "dev-2",
+      unlockedVault: null,
+      devices: [{ id: "dev-2", name: "Device 2", publicKey: "pk2", status: "pending" }]
+    });
+    expect(result.status).toBe("key-share-failed");
+    expect(approveDevice).not.toHaveBeenCalled();
   });
 
   it("returns not-logged-in without csrfToken", async () => {

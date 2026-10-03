@@ -6,6 +6,10 @@ vi.mock("./local-vault", () => ({
     encrypted: { schemaVersion: 1, kdf: {}, cipher: {}, ciphertext: "enc", itemCount: 0, updatedAt: "" },
     unlocked: { runtime: "crypto-core-wasm", key: new Uint8Array(32), kdf: {}, snapshot: { schemaVersion: 1, items: [], createdAt: "", updatedAt: "" } },
   })),
+  createLocalVaultWithSharedKey: vi.fn(async (_password, key, snapshot) => ({
+    encrypted: { runtime: "crypto-core-wasm", schemaVersion: 1, kdf: {}, cipher: {}, itemCount: snapshot.items.length, updatedAt: "" },
+    unlocked: { runtime: "crypto-core-wasm", key, kdf: {}, snapshot }
+  })),
   persistUnlockedVault: vi.fn(async (vault) => ({
     encrypted: { schemaVersion: 1, kdf: {}, cipher: {}, ciphertext: "enc", itemCount: 0, updatedAt: "" },
     unlocked: vault,
@@ -136,10 +140,24 @@ describe("handleDeleteAccount", () => {
     const { deleteAccount } = await import("./api-client");
     await handleDeleteAccount("csrf-token");
     expect(deleteAccount).toHaveBeenCalledWith("csrf-token");
+    expect(localStorage.removeItem).toHaveBeenCalledWith("zero-vault.local.encrypted-vault.v1");
+    expect(localStorage.removeItem).toHaveBeenCalledWith("zero-vault.local.offline-queue.v1");
+    expect(localStorage.removeItem).toHaveBeenCalledWith("zero-vault.local.device-id.v1");
   });
 
-  it("works even without csrfToken", async () => {
-    await handleDeleteAccount("");
-    // Should not throw
+  it("keeps all local data when the server deletion fails", async () => {
+    const { deleteAccount } = await import("./api-client");
+    vi.mocked(deleteAccount).mockRejectedValueOnce(new Error("network_error"));
+
+    await expect(handleDeleteAccount("csrf-token")).rejects.toThrow("network_error");
+    expect(localStorage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it("requires an authenticated session before touching local data", async () => {
+    const { deleteAccount } = await import("./api-client");
+
+    await expect(handleDeleteAccount("")).rejects.toThrow("not_authenticated");
+    expect(deleteAccount).not.toHaveBeenCalled();
+    expect(localStorage.removeItem).not.toHaveBeenCalled();
   });
 });

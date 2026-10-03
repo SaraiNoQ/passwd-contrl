@@ -15,6 +15,26 @@ import { hashToken } from "../utils/crypto";
 import { SESSION_COOKIE_NAME } from "../utils/cookies";
 import type { CiphertextEnvelope } from "@zero-vault/shared";
 
+const DEVICE_KEY_A = "A".repeat(43);
+const DEVICE_KEY_B = "B".repeat(43);
+const DEVICE_KEY_C = "C".repeat(43);
+const DEVICE_KEY_D = "D".repeat(43);
+const DEVICE_KEY_E = "E".repeat(43);
+
+const vaultKeyPacket = (deviceId: unknown, publicKey = DEVICE_KEY_A) => ({
+  encryptedVaultKeyPacket: {
+    version: 1,
+    recipientDeviceId: deviceId,
+    recipientPublicKey: publicKey,
+    ephemeralPublicKey: "Z".repeat(43),
+    encryptedVaultKey: {
+      alg: "XCHACHA20_POLY1305",
+      nonce: "N".repeat(32),
+      ciphertext: "A".repeat(64)
+    }
+  }
+});
+
 // ── D1 Mock (better-sqlite3) ───────────────────────────────────────────────
 
 class MockD1Result {
@@ -110,6 +130,7 @@ const MIGRATION_SQL = `
     public_key_bundle TEXT NOT NULL,
     encrypted_recovery_packet TEXT NOT NULL,
     server_revision INTEGER NOT NULL DEFAULT 0,
+    auth_epoch INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -119,6 +140,8 @@ const MIGRATION_SQL = `
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash TEXT UNIQUE NOT NULL,
     csrf_token TEXT NOT NULL,
+    device_id TEXT,
+    auth_epoch INTEGER NOT NULL DEFAULT 0,
     expires_at TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -130,6 +153,7 @@ const MIGRATION_SQL = `
     fingerprint TEXT,
     public_key TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
+    credential_hash TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     last_seen_ip TEXT,
@@ -153,8 +177,8 @@ function runMigration(db: MockD1Database): void {
 
 const mockEnvelope: CiphertextEnvelope = {
   alg: "XCHACHA20_POLY1305",
-  nonce: "dGVzdA",
-  ciphertext: "dGVzdA"
+  nonce: "N".repeat(32),
+  ciphertext: "A".repeat(22)
 };
 
 const createEnv = (db: MockD1Database): Env =>
@@ -354,7 +378,7 @@ describe("Device routes", () => {
           body: JSON.stringify({
             name: "My Laptop",
             fingerprint: "test-fingerprint",
-            publicKey: "dGVzdC1way"
+            publicKey: DEVICE_KEY_A
           })
         },
         createEnv(db)
@@ -364,7 +388,7 @@ describe("Device routes", () => {
       const body = (await res.json()) as Record<string, unknown>;
       expect(body.name).toBe("My Laptop");
       expect(body.fingerprint).toBe("test-fingerprint");
-      expect(body.publicKey).toBe("dGVzdC1way");
+      expect(body.publicKey).toBe(DEVICE_KEY_A);
       expect(body.status).toBe("pending");
       expect(body.id).toBeTruthy();
     });
@@ -380,7 +404,7 @@ describe("Device routes", () => {
           body: JSON.stringify({
             name: "My Laptop",
             fingerprint: "same-browser",
-            publicKey: "dGVzdC1way"
+            publicKey: DEVICE_KEY_A
           })
         },
         createEnv(db)
@@ -395,7 +419,7 @@ describe("Device routes", () => {
           body: JSON.stringify({
             name: "My Laptop Renamed",
             fingerprint: "same-browser",
-            publicKey: "dGVzdC1way"
+            publicKey: DEVICE_KEY_A
           })
         },
         createEnv(db)
@@ -426,7 +450,7 @@ describe("Device routes", () => {
           body: JSON.stringify({
             name: "Mac",
             fingerprint: "same-mac-fingerprint",
-            publicKey: "Zmlyc3Q"
+            publicKey: DEVICE_KEY_B
           })
         },
         createEnv(db)
@@ -441,7 +465,7 @@ describe("Device routes", () => {
           body: JSON.stringify({
             name: "Mac",
             fingerprint: "same-mac-fingerprint",
-            publicKey: "c2Vjb25k"
+            publicKey: DEVICE_KEY_C
           })
         },
         createEnv(db)
@@ -450,7 +474,7 @@ describe("Device routes", () => {
       expect(second.status).toBe(200);
       const secondBody = (await second.json()) as Record<string, unknown>;
       expect(secondBody.id).toBe(firstBody.id);
-      expect(secondBody.publicKey).toBe("c2Vjb25k");
+      expect(secondBody.publicKey).toBe(DEVICE_KEY_C);
 
       const list = await app.request(
         "/devices",
@@ -476,7 +500,7 @@ describe("Device routes", () => {
           body: JSON.stringify({
             name: "Travel Laptop",
             fingerprint: "travel-fingerprint",
-            publicKey: "dHJhdmVs"
+            publicKey: DEVICE_KEY_D
           })
         },
         createEnv(db)
@@ -510,6 +534,17 @@ describe("Device routes", () => {
   // ── GET /devices (list) ────────────────────────────────────────────────────
 
   describe("GET /devices", () => {
+    it("derives SHA-256 fingerprints from the actual public key even after legacy registration", async () => {
+      const { token, csrfToken } = await createAuthenticatedSession(db);
+      const publicKey = 'A'.repeat(42) + 'E';
+      const registered = await app.request('/devices', { method: 'POST', headers: authHeaders(token, csrfToken), body: JSON.stringify({ name: 'Synthetic extension', publicKey, fingerprint: '0'.repeat(64) }) }, createEnv(db));
+      expect(registered.status).toBe(201);
+      const response = await app.request('/devices', { headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` } }, createEnv(db));
+      const { devices } = await response.json() as { devices: Array<{ fingerprint: string }> };
+      const bytes = new Uint8Array(32); bytes[31] = 1;
+      const expected = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), byte => byte.toString(16).padStart(2, '0')).join('');
+      expect(devices[0]?.fingerprint).toBe(expected); expect(devices[0]?.fingerprint).not.toBe('0'.repeat(64));
+    });
     it("returns empty list when no devices", async () => {
       const { token } = await createAuthenticatedSession(db);
 
@@ -535,7 +570,7 @@ describe("Device routes", () => {
           headers: authHeaders(token, csrfToken),
           body: JSON.stringify({
             name: "My Phone",
-            publicKey: "dGVzdC1wayQ"
+            publicKey: DEVICE_KEY_E
           })
         },
         createEnv(db)
@@ -567,7 +602,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ name: "Laptop", publicKey: "dGVzdC1way" })
+          body: JSON.stringify({ name: "Laptop", publicKey: DEVICE_KEY_A })
         },
         createEnv(db)
       );
@@ -578,7 +613,8 @@ describe("Device routes", () => {
         `/devices/${deviceId}/approve`,
         {
           method: "POST",
-          headers: authHeaders(token, csrfToken)
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify(vaultKeyPacket(deviceId))
         },
         createEnv(db)
       );
@@ -595,6 +631,158 @@ describe("Device routes", () => {
       );
       const listBody = (await listRes.json()) as Record<string, unknown>;
       expect((listBody.devices as Record<string, unknown>[])[0]!.status).toBe("approved");
+    });
+
+    it("keeps the legacy Desktop approve({}) marker pending until raw104 share-key commits both", async () => {
+      const { userId, token, csrfToken } = await createAuthenticatedSession(db);
+      const registered = await app.request(
+        "/devices",
+        {
+          method: "POST",
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify({ name: "Legacy Desktop target", publicKey: DEVICE_KEY_A })
+        },
+        createEnv(db)
+      );
+      const { id: deviceId } = await registered.json() as { id: string };
+
+      const marker = await app.request(
+        `/devices/${deviceId}/approve`,
+        {
+          method: "POST",
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify({})
+        },
+        createEnv(db)
+      );
+      expect(marker.status).toBe(200);
+      expect(db.sqlite.prepare(
+        "SELECT status FROM trusted_devices WHERE id = ? AND user_id = ?"
+      ).get(deviceId, userId)).toEqual({ status: "pending" });
+      expect(db.sqlite.prepare(
+        "SELECT count(*) AS count FROM device_vault_keys WHERE device_id = ?"
+      ).get(deviceId)).toEqual({ count: 0 });
+
+      const raw104 = Buffer.from(Uint8Array.from({ length: 104 }, (_, index) => index))
+        .toString("base64url");
+      const shared = await app.request(
+        `/devices/${deviceId}/share-key`,
+        {
+          method: "POST",
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify({ encryptedVaultKey: raw104 })
+        },
+        createEnv(db)
+      );
+      expect(shared.status).toBe(200);
+      expect(db.sqlite.prepare(
+        "SELECT status FROM trusted_devices WHERE id = ? AND user_id = ?"
+      ).get(deviceId, userId)).toEqual({ status: "approved" });
+      const stored = db.sqlite.prepare(
+        "SELECT encrypted_blob FROM device_vault_keys WHERE device_id = ?"
+      ).get(deviceId) as { encrypted_blob: string };
+      expect(JSON.parse(stored.encrypted_blob)).toMatchObject({
+        version: 1,
+        recipientDeviceId: deviceId,
+        recipientPublicKey: DEVICE_KEY_A,
+        encryptedVaultKey: { alg: "XCHACHA20_POLY1305" }
+      });
+    });
+
+    it("fails closed on malformed legacy lengths or extra fields without approving", async () => {
+      const { userId, token, csrfToken } = await createAuthenticatedSession(db);
+      const registered = await app.request(
+        "/devices",
+        {
+          method: "POST",
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify({ name: "Malformed legacy target", publicKey: DEVICE_KEY_A })
+        },
+        createEnv(db)
+      );
+      const { id: deviceId } = await registered.json() as { id: string };
+      const cases = [
+        { encryptedVaultKey: Buffer.alloc(103).toString("base64url") },
+        { encryptedVaultKey: Buffer.alloc(105).toString("base64url") },
+        { encryptedVaultKey: Buffer.alloc(104).toString("base64url"), extra: true }
+      ];
+      for (const body of cases) {
+        const response = await app.request(
+          `/devices/${deviceId}/share-key`,
+          {
+            method: "POST",
+            headers: authHeaders(token, csrfToken),
+            body: JSON.stringify(body)
+          },
+          createEnv(db)
+        );
+        expect(response.status).toBe(400);
+      }
+      expect(db.sqlite.prepare(
+        "SELECT status FROM trusted_devices WHERE id = ? AND user_id = ?"
+      ).get(deviceId, userId)).toEqual({ status: "pending" });
+      expect(db.sqlite.prepare(
+        "SELECT count(*) AS count FROM device_vault_keys WHERE device_id = ?"
+      ).get(deviceId)).toEqual({ count: 0 });
+    });
+
+    it("does not expose the legacy empty/raw adapter to bearer clients", async () => {
+      const { userId, token, csrfToken } = await createAuthenticatedSession(db);
+      const registered = await app.request(
+        "/devices",
+        {
+          method: "POST",
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify({ name: "Bearer target", publicKey: DEVICE_KEY_A })
+        },
+        createEnv(db)
+      );
+      const { id: targetId } = await registered.json() as { id: string };
+      const approverId = crypto.randomUUID();
+      const bearer = "Q".repeat(43);
+      const bearerCsrf = "bearer-csrf";
+      const now = new Date().toISOString();
+      db.sqlite.prepare(
+        `INSERT INTO trusted_devices
+           (id, user_id, name, fingerprint, public_key, status, credential_hash, created_at, updated_at)
+         VALUES (?, ?, 'Approver', 'bearer-approver', ?, 'approved', 'hash', ?, ?)`
+      ).run(approverId, userId, DEVICE_KEY_B, now, now);
+      db.sqlite.prepare(
+        `INSERT INTO sessions
+           (id, user_id, token_hash, csrf_token, device_id, auth_epoch, expires_at, created_at)
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?)`
+      ).run(
+        crypto.randomUUID(),
+        userId,
+        await hashToken(bearer),
+        bearerCsrf,
+        approverId,
+        new Date(Date.now() + 86_400_000).toISOString(),
+        now
+      );
+      const headers = {
+        authorization: `Bearer ${bearer}`,
+        "content-type": "application/json",
+        "x-zero-vault-csrf": bearerCsrf
+      };
+      const marker = await app.request(
+        `/devices/${targetId}/approve`,
+        { method: "POST", headers, body: JSON.stringify({}) },
+        createEnv(db)
+      );
+      expect(marker.status).toBe(400);
+      const raw = await app.request(
+        `/devices/${targetId}/share-key`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ encryptedVaultKey: Buffer.alloc(104).toString("base64url") })
+        },
+        createEnv(db)
+      );
+      expect(raw.status).toBe(400);
+      expect(db.sqlite.prepare("SELECT status FROM trusted_devices WHERE id = ?")
+        .get(targetId)).toEqual({ status: "pending" });
     });
 
     it("returns 404 for non-existent device", async () => {
@@ -627,7 +815,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ name: "Laptop", publicKey: "dGVzdC1way" })
+          body: JSON.stringify({ name: "Laptop", publicKey: DEVICE_KEY_A })
         },
         createEnv(db)
       );
@@ -638,7 +826,8 @@ describe("Device routes", () => {
         `/devices/${deviceId}/reject`,
         {
           method: "POST",
-          headers: authHeaders(token, csrfToken)
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify(vaultKeyPacket(deviceId))
         },
         createEnv(db)
       );
@@ -687,7 +876,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ name: "Laptop", publicKey: "dGVzdC1way" })
+          body: JSON.stringify({ name: "Laptop", publicKey: DEVICE_KEY_A })
         },
         createEnv(db)
       );
@@ -697,7 +886,8 @@ describe("Device routes", () => {
         `/devices/${deviceId}/approve`,
         {
           method: "POST",
-          headers: authHeaders(token, csrfToken)
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify(vaultKeyPacket(deviceId))
         },
         createEnv(db)
       );
@@ -777,7 +967,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ name: "Laptop", publicKey: "dGVzdC1way" })
+          body: JSON.stringify({ name: "Laptop", publicKey: DEVICE_KEY_A })
         },
         createEnv(db)
       );
@@ -803,7 +993,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ name: "Laptop", publicKey: "dGVzdC1way" })
+          body: JSON.stringify({ name: "Laptop", publicKey: DEVICE_KEY_A })
         },
         createEnv(db)
       );
@@ -813,7 +1003,8 @@ describe("Device routes", () => {
         `/devices/${deviceId}/approve`,
         {
           method: "POST",
-          headers: authHeaders(token, csrfToken)
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify(vaultKeyPacket(deviceId))
         },
         createEnv(db)
       );
@@ -824,7 +1015,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ encryptedVaultKey: "encrypted-key-blob-123" })
+          body: JSON.stringify(vaultKeyPacket(deviceId))
         },
         createEnv(db)
       );
@@ -838,10 +1029,57 @@ describe("Device routes", () => {
 
       expect(res.status).toBe(200);
       const body = (await res.json()) as Record<string, unknown>;
-      expect(body.encryptedVaultKey).toBe("encrypted-key-blob-123");
+      expect(body.encryptedVaultKeyPacket).toEqual(vaultKeyPacket(deviceId).encryptedVaultKeyPacket);
     });
 
-    it("returns 404 for approved device with no shared key", async () => {
+    it("allows an approved bearer to fetch only its own device packet", async () => {
+      const { userId } = await createAuthenticatedSession(db);
+      const ownDeviceId = "77777777-7777-4777-8777-777777777777";
+      const otherDeviceId = "88888888-8888-4888-8888-888888888888";
+      const bearer = "B".repeat(43);
+      const now = new Date().toISOString();
+      for (const [id, publicKey] of [[ownDeviceId, DEVICE_KEY_A], [otherDeviceId, DEVICE_KEY_B]]) {
+        db.sqlite.prepare(
+          `INSERT INTO trusted_devices
+             (id, user_id, name, fingerprint, public_key, status, credential_hash, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 'approved', ?, ?, ?)`
+        ).run(id, userId, id, `fingerprint-${id}`, publicKey, "credential", now, now);
+        db.sqlite.prepare(
+          `INSERT INTO device_vault_keys (user_id, device_id, encrypted_blob, created_at)
+           VALUES (?, ?, ?, ?)`
+        ).run(userId, id, JSON.stringify(vaultKeyPacket(id, publicKey).encryptedVaultKeyPacket), now);
+      }
+      db.sqlite.prepare(
+        `INSERT INTO sessions
+           (id, user_id, token_hash, csrf_token, device_id, expires_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        crypto.randomUUID(),
+        userId,
+        await hashToken(bearer),
+        "bearer-csrf",
+        ownDeviceId,
+        new Date(Date.now() + 86_400_000).toISOString(),
+        now
+      );
+
+      const own = await app.request(
+        `/devices/${ownDeviceId}/key`,
+        { headers: { authorization: `Bearer ${bearer}` } },
+        createEnv(db)
+      );
+      expect(own.status).toBe(200);
+
+      const other = await app.request(
+        `/devices/${otherDeviceId}/key`,
+        { headers: { authorization: `Bearer ${bearer}` } },
+        createEnv(db)
+      );
+      expect(other.status).toBe(403);
+      expect(await other.json()).toEqual({ error: "device_key_access_denied" });
+    });
+
+    it("requires a vault key packet before approval", async () => {
       const { token, csrfToken } = await createAuthenticatedSession(db);
 
       // Register and approve (but do NOT share key)
@@ -850,13 +1088,13 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ name: "Laptop", publicKey: "dGVzdC1way" })
+          body: JSON.stringify({ name: "Laptop", publicKey: DEVICE_KEY_A })
         },
         createEnv(db)
       );
       const { id: deviceId } = (await regRes.json()) as Record<string, unknown>;
 
-      await app.request(
+      const approve = await app.request(
         `/devices/${deviceId}/approve`,
         {
           method: "POST",
@@ -864,16 +1102,8 @@ describe("Device routes", () => {
         },
         createEnv(db)
       );
-
-      const res = await app.request(
-        `/devices/${deviceId}/key`,
-        { headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` } },
-        createEnv(db)
-      );
-
-      expect(res.status).toBe(404);
-      const body = (await res.json()) as Record<string, unknown>;
-      expect(body.error).toBe("key_not_shared");
+      expect(approve.status).toBe(400);
+      expect(await approve.json()).toEqual({ error: "invalid_device_vault_key_packet" });
     });
   });
 
@@ -889,7 +1119,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ name: "Laptop", publicKey: "dGVzdC1way" })
+          body: JSON.stringify({ name: "Laptop", publicKey: DEVICE_KEY_A })
         },
         createEnv(db)
       );
@@ -899,7 +1129,8 @@ describe("Device routes", () => {
         `/devices/${deviceId}/approve`,
         {
           method: "POST",
-          headers: authHeaders(token, csrfToken)
+          headers: authHeaders(token, csrfToken),
+          body: JSON.stringify(vaultKeyPacket(deviceId))
         },
         createEnv(db)
       );
@@ -910,7 +1141,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ encryptedVaultKey: "encrypted-key-blob" })
+          body: JSON.stringify(vaultKeyPacket(deviceId))
         },
         createEnv(db)
       );
@@ -928,7 +1159,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ name: "Laptop", publicKey: "dGVzdC1way" })
+          body: JSON.stringify({ name: "Laptop", publicKey: DEVICE_KEY_A })
         },
         createEnv(db)
       );
@@ -946,7 +1177,7 @@ describe("Device routes", () => {
 
       expect(res.status).toBe(400);
       const body = (await res.json()) as Record<string, unknown>;
-      expect(body.error).toBe("encrypted_vault_key_required");
+      expect(body.error).toBe("invalid_device_vault_key_packet");
     });
 
     it("returns 400 when encryptedVaultKey is empty string", async () => {
@@ -957,7 +1188,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ name: "Laptop", publicKey: "dGVzdC1way" })
+          body: JSON.stringify({ name: "Laptop", publicKey: DEVICE_KEY_A })
         },
         createEnv(db)
       );
@@ -975,7 +1206,7 @@ describe("Device routes", () => {
 
       expect(res.status).toBe(400);
       const body = (await res.json()) as Record<string, unknown>;
-      expect(body.error).toBe("encrypted_vault_key_required");
+      expect(body.error).toBe("invalid_device_vault_key_packet");
     });
 
     it("returns 404 for non-existent device", async () => {
@@ -986,7 +1217,7 @@ describe("Device routes", () => {
         {
           method: "POST",
           headers: authHeaders(token, csrfToken),
-          body: JSON.stringify({ encryptedVaultKey: "encrypted-key-blob" })
+          body: JSON.stringify(vaultKeyPacket("77777777-7777-4777-8777-777777777777"))
         },
         createEnv(db)
       );

@@ -26,7 +26,7 @@ export interface RecoveryModalProps {
   confirmed: boolean;
   onConfirmChange: (confirmed: boolean) => void;
   mode?: "initial" | "rotated";
-  serverSaveFailed?: boolean;
+  migrationMessage?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ export function RecoveryModal({
   confirmed,
   onConfirmChange,
   mode = "initial",
-  serverSaveFailed = false,
+  migrationMessage = "",
 }: RecoveryModalProps) {
   const [copied, setCopied] = useState(false);
   const isRotated = mode === "rotated";
@@ -62,7 +62,7 @@ export function RecoveryModal({
       onClose={onClose}
       title={isRotated ? "保存新的恢复码" : "离线恢复记录"}
       eyebrow="RECOVERY SHARD / 离线恢复码"
-      status={isRotated ? "旧恢复码已失效" : "仅显示一次，请完成离线保存"}
+      status={isRotated ? "本机恢复码已轮换" : "仅显示一次，请完成离线保存"}
       dismissible={confirmed}
       footer={
         <Button
@@ -80,17 +80,15 @@ export function RecoveryModal({
         <AlertTriangle size={16} />
         <span>
           {isRotated
-            ? "密码库已用新主密码恢复。旧恢复码已经失效，请立即保存下面的新恢复码。它不会再次显示。"
+            ? "密码库已用新主密码恢复。此浏览器中的旧恢复码已失效，请立即保存下面的新恢复码；服务器端旧恢复记录未被修改。"
             : "请将备用恢复码保存在安全的离线位置。它可用于忘记主密码时解封密码库，且不会再次显示。"}
         </span>
       </div>
 
-      {serverSaveFailed && (
+      {migrationMessage && (
         <div className={styles.warningBox} role="alert" style={{ borderColor: "var(--color-error, #ef4444)", background: "var(--color-error-bg, #fef2f2)" }}>
           <ShieldAlert size={16} />
-          <span>
-            恢复包未能同步到服务器。如果丢失此设备，服务器上的旧恢复包将无法解密新密码库。请尽快在稳定网络下重新生成恢复码。
-          </span>
+          <span>{migrationMessage}</span>
         </div>
       )}
 

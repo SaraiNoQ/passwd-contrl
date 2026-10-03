@@ -1,326 +1,129 @@
-import type {
-  AcknowledgeSimilarOriginRequest,
-  FillMatchedCredentialRequest,
-  FormCandidatesMessage,
-  GetExtensionStatusRequest,
-  MatchedCredentialDisplay,
-  PopupStateRequest,
-  PopupStateResponse,
-  VaultCredentialSessionItem,
-  VaultSessionMessage
-} from "./messages";
-import { classifyAllMatches, isHttpsOrigin, normalizeOrigin } from "./origin-matching";
+import { api, VERSION, extensionPage } from './browser-api';
+import { z } from 'zod';
+import { access, beginConnect, finishConnect, unlock, lock, readDisk, withVault, synchronize, resolveConflict, safeError, serial } from './vault';
+import { captureLogin, markReady, pendingLogins, candidateDisplay, confirmCandidate, discard, excludeCandidate, forUI } from './login-capture';
+import { classifyOriginMatch } from './origin-matching';
+import { generateTotpCode } from './totp';
 
-type CandidateState = {
-  tabId: number;
-  origin: string;
-  forms: FormCandidatesMessage["forms"];
-  detectedAt: string;
-};
-
-const CANDIDATE_KEY = "lastCandidate";
-const SESSION_CREDENTIALS_KEY = "sessionCredentials";
-const ACKNOWLEDGED_ORIGINS_KEY = "acknowledgedOrigins";
-
-const EXTENSION_VERSION = "0.1.0";
-
-const getSessionCredentials = async (): Promise<VaultCredentialSessionItem[]> => {
-  const stored = await chrome.storage.session.get(SESSION_CREDENTIALS_KEY);
-  return (stored[SESSION_CREDENTIALS_KEY] as VaultCredentialSessionItem[] | undefined) ?? [];
-};
-
-const getCandidate = async (): Promise<CandidateState | null> => {
-  const stored = await chrome.storage.session.get(CANDIDATE_KEY);
-  return (stored[CANDIDATE_KEY] as CandidateState | undefined) ?? null;
-};
-
-const getAcknowledgedOrigins = async (): Promise<string[]> => {
-  const stored = await chrome.storage.session.get(ACKNOWLEDGED_ORIGINS_KEY);
-  return (stored[ACKNOWLEDGED_ORIGINS_KEY] as string[] | undefined) ?? [];
-};
-
-const getActiveTab = async (): Promise<chrome.tabs.Tab | null> => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  return tab ?? null;
-};
-
-const originFromTab = (tab: chrome.tabs.Tab | null): string | null => {
-  if (!tab?.url) {
-    return null;
+const UI_PAGES = ['popup.html'];
+const credentialId = z.string().uuid();
+async function activeTab() { return (await api.tabs.query({ active: true, currentWindow: true }))[0]; }
+async function sendFill(tabId: number, message: { origin: string; type: string; password: string; username?: string }) {
+  let response;
+  try { response = await api.tabs.sendMessage(tabId, message, { frameId: 0 }); }
+  catch {
+    // Explicit fill may be the first interaction with a page opened before installation.
+    try {
+      await api.scripting.executeScript({ target: { tabId, frameIds: [0] }, files: ['dist/content-script.js'] });
+      const current = await api.tabs.get(tabId);
+      if (!current.url || new URL(current.url).origin !== message.origin) throw new Error('candidate_mismatch');
+      response = await api.tabs.sendMessage(tabId, message, { frameId: 0 });
+    } catch { throw new Error('site_access_required'); }
   }
-
-  try {
-    return new URL(tab.url).origin;
-  } catch {
-    return null;
+  if (!response?.ok) throw new Error('fill_target_unavailable');
+}
+async function popupState() {
+  const tab = await activeTab();
+  let origin = '';
+  try { origin = new URL(tab?.url ?? '').origin; } catch { /* Browser internal page. */ }
+  const disk = await readDisk();
+  const session = await access();
+  const setup = (await api.storage.session.get('deviceSetup')).deviceSetup as { identity: { device: { fingerprint: string } } } | undefined;
+  const state = { version: VERSION, origin, connected: !!disk, unlocked: !!session, email: session?.identity.user.email ?? '', fingerprint: setup?.identity.device.fingerprint ?? '', credentials: [] as Array<{ id: string; title: string; username: string; matchType: string; hasTotp?: boolean }>, pending: [] as Array<{ id: string; origin: string; username: string }>, conflicts: [] as Array<{ id: string; title: string }>, lastSync: disk?.lastSync ?? '', syncError: disk?.syncError ?? '' };
+  state.pending = (await pendingLogins()).filter(entry => entry.tabId === tab?.id && (entry.ready || entry.origin !== origin)).map(entry => ({ id: entry.id, origin: entry.origin, username: entry.username }));
+  if (session) await withVault(async ({ vault, disk }) => {
+    state.credentials = vault.snapshot.items.filter(item => item.type === 'login').map(item => ({ id: item.id, title: item.title, username: item.type === 'login' ? item.username : '', hasTotp: item.type === 'login' && !!item.totp, matchType: item.type === 'login' ? classifyOriginMatch(origin, item.origin) : 'different' })).filter(item => item.matchType !== 'different');
+    state.conflicts = disk.sync.conflicts.map(id => ({ id, title: vault.snapshot.items.find(item => item.id === id)?.title ?? '已删除的条目' }));
+  });
+  return state;
+}
+async function fill(id: string) {
+  const tab = await activeTab();
+  if (!tab?.id || !tab.url) throw new Error('candidate_mismatch');
+  const origin = new URL(tab.url).origin;
+  return withVault(async ({ vault }) => {
+    const item = vault.snapshot.items.find(item => item.id === id);
+    if (!item || item.type !== 'login' || classifyOriginMatch(origin, item.origin) !== 'exact') throw new Error('candidate_mismatch');
+    // Re-check tab navigation before sending; the content script re-checks origin and visibility.
+    const current = await api.tabs.get(tab.id!);
+    if (!current.url || new URL(current.url).origin !== origin) throw new Error('candidate_mismatch');
+    if (!await access()) throw new Error('vault_locked');
+    await sendFill(tab.id!, { type: 'FILL_CREDENTIAL', origin, username: item.username, password: item.password });
+  }, true);
+}
+async function route(raw: unknown, sender: chrome.runtime.MessageSender): Promise<unknown> {
+  const message = z.object({ type: z.string() }).passthrough().parse(raw);
+  if (message.type === 'CAPTURE_LOGIN') return captureLogin(message.input, sender);
+  if (message.type === 'PAGE_READY' || message.type === 'LOGIN_FORM_GONE') {
+    const input = z.object({ document: z.string().uuid(), id: z.string().uuid().optional() }).parse(message);
+    return markReady(sender, input.document, input.id);
   }
-};
-
-const popupState = async (): Promise<PopupStateResponse> => {
-  const [candidate, activeTab, acknowledged] = await Promise.all([
-    getCandidate(),
-    getActiveTab(),
-    getAcknowledgedOrigins()
-  ]);
-  const activeOrigin = originFromTab(activeTab);
-  if (!activeOrigin || !isHttpsOrigin(activeOrigin)) {
-    const response: PopupStateResponse = { blockedReason: "Zero Vault 仅支持 HTTPS 页面", credentials: [] };
-    if (activeOrigin) {
-      response.origin = activeOrigin;
-    }
-    return response;
+  if (['GET_SAVE_PROMPT', 'CONFIRM_SAVE', 'DISMISS_SAVE', 'EXCLUDE_SITE', 'OPEN_UNLOCK'].includes(message.type)) {
+    const input = z.object({ id: credentialId, itemId: credentialId.optional() }).parse(message);
+    await forUI(input.id, sender);
+    if (message.type === 'GET_SAVE_PROMPT') return candidateDisplay(input.id, sender);
+    if (message.type === 'CONFIRM_SAVE') { await confirmCandidate(input.id, input.itemId, sender); return { ok: true }; }
+    if (message.type === 'EXCLUDE_SITE') await excludeCandidate(input.id, sender);
+    else if (message.type === 'DISMISS_SAVE') await discard(input.id);
+    else await api.tabs.create({ url: api.runtime.getURL('popup.html') + '?candidate=' + input.id });
+    return { ok: true };
   }
-  if (!candidate) {
-    return { origin: activeOrigin, blockedReason: "当前页面未检测到登录表单", credentials: [] };
+  if (!extensionPage(sender, UI_PAGES) || (sender.frameId !== undefined && sender.frameId !== 0)) throw new Error('untrusted_sender');
+  if (message.type === 'GET_POPUP_STATE') return popupState();
+  if (message.type === 'GET_EXTENSION_STATUS') return { installed: true, version: VERSION, credentialsLoaded: !!await access() };
+  if (message.type === 'CONNECT_ACCOUNT') {
+    const input = z.object({ email: z.string().email(), password: z.string().min(1).max(4096) }).parse(message);
+    return beginConnect(input.email, input.password);
   }
-  if (candidate.tabId !== activeTab?.id || normalizeOrigin(candidate.origin) !== normalizeOrigin(activeOrigin)) {
-    return { origin: activeOrigin, blockedReason: "当前页面未检测到登录表单", credentials: [] };
+  if (message.type === 'FINISH_CONNECT') { await finishConnect(z.string().min(12).max(4096).parse(message.password)); return { ok: true }; }
+  if (message.type === 'UNLOCK_VAULT') {
+    const input = z.object({ password: z.string().min(1).max(4096), accountPassword: z.string().max(4096).optional() }).parse(message);
+    await unlock(input.password, input.accountPassword || undefined); return { ok: true };
   }
-
-  const credentials = await getSessionCredentials();
-  const classified = classifyAllMatches(activeOrigin, credentials);
-
-  // Build display list: exact + acknowledged similar. Suspicious are always excluded from fill.
-  const displayCredentials: MatchedCredentialDisplay[] = [];
-  const originKey = normalizeOrigin(activeOrigin);
-
-  for (const c of classified) {
-    if (c.matchType === "exact") {
-      const { password: _password, ...rest } = c;
-      displayCredentials.push({ ...rest, matchType: "exact" });
-    } else if (c.matchType === "similar") {
-      const { password: _password, ...rest } = c;
-      displayCredentials.push({ ...rest, matchType: "similar" });
-    } else if (c.matchType === "suspicious") {
-      const { password: _password, ...rest } = c;
-      displayCredentials.push({ ...rest, matchType: "suspicious" });
-    }
+  if (message.type === 'LOCK_VAULT') { await lock(); return { ok: true }; }
+  if (message.type === 'SYNC_NOW') { await synchronize(); return { ok: true }; }
+  if (message.type === 'RESOLVE_CONFLICT') {
+    const input = z.object({ itemId: credentialId, choice: z.enum(['local', 'remote', 'copy']) }).parse(message);
+    await resolveConflict(input.itemId, input.choice); return { ok: true };
   }
-
-  const response: PopupStateResponse = {
-    origin: activeOrigin,
-    credentials: displayCredentials
-  };
-
-  if (displayCredentials.length === 0) {
-    response.blockedReason = "没有匹配的凭据";
+  if (message.type === 'FILL_MATCHED_CREDENTIAL') { await fill(credentialId.parse(message.credentialId)); return { ok: true }; }
+  if (message.type === 'GET_TOTP_CODE') {
+    const id = credentialId.parse(message.credentialId); const tab = await activeTab();
+    return withVault(async ({ vault }) => {
+      const item = vault.snapshot.items.find(item => item.id === id);
+      if (!tab?.url || !item || item.type !== 'login' || !item.totp || classifyOriginMatch(new URL(tab.url).origin, item.origin) !== 'exact') throw new Error('candidate_mismatch');
+      return generateTotpCode(item.totp);
+    }, true);
   }
-
-  return response;
-};
-
-/**
- * Resolve credentials for a fill request. Validates origin match type and acknowledged status.
- */
-const resolveFillCredential = async (
-  credentialId: string
-): Promise<{ ok: true; credential: VaultCredentialSessionItem } | { ok: false; error: string }> => {
-  const [candidate, credentials, activeTab] = await Promise.all([
-    getCandidate(),
-    getSessionCredentials(),
-    getActiveTab()
-  ]);
-  const activeOrigin = originFromTab(activeTab);
-  if (!candidate || !activeOrigin || candidate.tabId !== activeTab?.id) {
-    return { ok: false, error: "no_candidate" };
+  if (message.type === 'FILL_GENERATED_PASSWORD') {
+    const password = z.string().min(8).max(128).parse(message.password);
+    const tab = await activeTab();
+    if (!tab?.id || !tab.url || new URL(tab.url).protocol !== 'https:') throw new Error('candidate_mismatch');
+    await sendFill(tab.id, { type: 'FILL_GENERATED_PASSWORD', origin: new URL(tab.url).origin, password }); return { ok: true };
   }
-
-  const credential = credentials.find((item) => item.id === credentialId);
-  if (!credential) {
-    return { ok: false, error: "origin_mismatch" };
+  throw new Error('invalid_message');
+}
+api.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
+  if (message && typeof message === 'object' && 'type' in message && message.type === 'LOCK_VAULT' && extensionPage(sender, UI_PAGES) && (sender.frameId === undefined || sender.frameId === 0)) {
+    void lock().then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false, error: '锁定失败，请重试。' })); return true;
   }
-
-  // Check origin match type first (handles similar/suspicious/different)
-  const { classifyOriginMatch } = await import("./origin-matching");
-  const matchType = classifyOriginMatch(activeOrigin, credential.origin);
-
-  if (matchType === "different") {
-    return { ok: false, error: "origin_mismatch" };
-  }
-
-  if (matchType === "suspicious") {
-    return { ok: false, error: "suspicious_origin" };
-  }
-
-  if (matchType === "similar") {
-    const acknowledged = await getAcknowledgedOrigins();
-    const ackKey = `${credentialId}:${normalizeOrigin(activeOrigin)}`;
-    if (!acknowledged.includes(ackKey)) {
-      return { ok: false, error: "similar_origin_not_acknowledged" };
-    }
-  }
-
-  // "exact" and acknowledged "similar" pass through
-  return { ok: true, credential };
-};
-
-chrome.runtime.onMessage.addListener(
-  (
-    message:
-      | FormCandidatesMessage
-      | PopupStateRequest
-      | FillMatchedCredentialRequest
-      | AcknowledgeSimilarOriginRequest
-      | GetExtensionStatusRequest,
-    sender,
-    sendResponse
-  ) => {
-    if (message.type === "FORM_CANDIDATES") {
-      if (!sender.tab?.id || !message.origin.startsWith("https://")) {
-        return false;
-      }
-
-      chrome.storage.session.set({
-        [CANDIDATE_KEY]: {
-          tabId: sender.tab.id,
-          origin: message.origin,
-          forms: message.forms,
-          detectedAt: new Date().toISOString()
-        }
-      });
-      return false;
-    }
-
-    if (message.type === "GET_POPUP_STATE") {
-      popupState().then(sendResponse);
-      return true;
-    }
-
-    if (message.type === "FILL_MATCHED_CREDENTIAL") {
-      resolveFillCredential(message.credentialId).then((result) => {
-        if (!result.ok) {
-          sendResponse(result);
-          return;
-        }
-        const candidate = getCandidate();
-        candidate.then((c) => {
-          if (!c) {
-            sendResponse({ ok: false, error: "no_candidate" });
-            return;
-          }
-          chrome.tabs.sendMessage(c.tabId, {
-            type: "FILL_CREDENTIAL",
-            username: result.credential.username,
-            password: result.credential.password
-          });
-          sendResponse({ ok: true });
-        });
-      });
-      return true;
-    }
-
-    if (message.type === "ACKNOWLEDGE_SIMILAR_ORIGIN") {
-      getAcknowledgedOrigins().then(async (acknowledged) => {
-        const [candidate, activeTab] = await Promise.all([getCandidate(), getActiveTab()]);
-        const activeOrigin = originFromTab(activeTab);
-        if (!candidate || !activeOrigin || candidate.tabId !== activeTab?.id) {
-          sendResponse({ ok: false });
-          return;
-        }
-        const ackKey = `${message.credentialId}:${normalizeOrigin(activeOrigin)}`;
-        if (!acknowledged.includes(ackKey)) {
-          acknowledged.push(ackKey);
-          await chrome.storage.session.set({ [ACKNOWLEDGED_ORIGINS_KEY]: acknowledged });
-        }
-        sendResponse({ ok: true });
-      });
-      return true;
-    }
-
-    if (message.type === "GET_EXTENSION_STATUS") {
-      getSessionCredentials().then(async (credentials) => {
-        const [candidate, activeTab] = await Promise.all([getCandidate(), getActiveTab()]);
-        const activeOrigin = originFromTab(activeTab);
-        let matchedCount = 0;
-        if (candidate && activeTab?.id && activeOrigin && candidate.tabId === activeTab.id) {
-          const classified = classifyAllMatches(activeOrigin, credentials);
-          matchedCount = classified.filter((c) => c.matchType === "exact").length;
-        }
-        sendResponse({
-          installed: true,
-          version: EXTENSION_VERSION,
-          credentialsLoaded: credentials.length > 0,
-          matchedCredentials: matchedCount
-        });
-      });
-      return true;
-    }
-
-    return false;
-  }
-);
-
-chrome.runtime.onMessageExternal.addListener(
-  (
-    message:
-      | VaultSessionMessage
-      | { type: "GET_POPUP_STATE" }
-      | FillMatchedCredentialRequest
-      | { type: "SET_TEST_CREDENTIALS"; credentials: VaultCredentialSessionItem[] }
-      | { type: "CLEAR_TEST_CREDENTIALS" }
-      | GetExtensionStatusRequest,
-    _sender,
-    sendResponse
-  ) => {
-    if (message.type === "ZERO_VAULT_SESSION_UPDATE") {
-      chrome.storage.session.set({ [SESSION_CREDENTIALS_KEY]: message.credentials }).then(() => sendResponse({ ok: true }));
-      return true;
-    }
-    if (message.type === "ZERO_VAULT_SESSION_CLEAR" || message.type === "CLEAR_TEST_CREDENTIALS") {
-      Promise.all([
-        chrome.storage.session.remove(SESSION_CREDENTIALS_KEY),
-        chrome.storage.session.remove(CANDIDATE_KEY),
-        chrome.storage.session.remove(ACKNOWLEDGED_ORIGINS_KEY)
-      ]).then(() => sendResponse({ ok: true }));
-      return true;
-    }
-    if (message.type === "SET_TEST_CREDENTIALS") {
-      chrome.storage.session.set({ [SESSION_CREDENTIALS_KEY]: message.credentials }).then(() => sendResponse({ ok: true }));
-      return true;
-    }
-    if (message.type === "GET_POPUP_STATE") {
-      popupState().then(sendResponse);
-      return true;
-    }
-    if (message.type === "FILL_MATCHED_CREDENTIAL") {
-      resolveFillCredential(message.credentialId).then((result) => {
-        if (!result.ok) {
-          sendResponse(result);
-          return;
-        }
-        getCandidate().then((c) => {
-          if (!c) {
-            sendResponse({ ok: false, error: "no_candidate" });
-            return;
-          }
-          chrome.tabs.sendMessage(c.tabId, {
-            type: "FILL_CREDENTIAL",
-            username: result.credential.username,
-            password: result.credential.password
-          });
-          sendResponse({ ok: true });
-        });
-      });
-      return true;
-    }
-    if (message.type === "GET_EXTENSION_STATUS") {
-      getSessionCredentials().then(async (credentials) => {
-        const [candidate, activeTab] = await Promise.all([getCandidate(), getActiveTab()]);
-        const activeOrigin = originFromTab(activeTab);
-        let matchedCount = 0;
-        if (candidate && activeTab?.id && activeOrigin && candidate.tabId === activeTab.id) {
-          const classified = classifyAllMatches(activeOrigin, credentials);
-          matchedCount = classified.filter((c) => c.matchType === "exact").length;
-        }
-        sendResponse({
-          installed: true,
-          version: EXTENSION_VERSION,
-          credentialsLoaded: credentials.length > 0,
-          matchedCredentials: matchedCount
-        });
-      });
-      return true;
-    }
-    return false;
-  }
-);
+  void serial(() => route(message, sender)).then(sendResponse, error => sendResponse({ ok: false, error: safeError(error) }));
+  return true;
+});
+// Standalone vaults never accept credentials or fill requests from websites.
+api.runtime.onMessageExternal?.addListener((_message, _sender, sendResponse) => { sendResponse({ ok: false }); return false; });
+async function initialize() {
+  await api.storage.session.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' });
+  await api.storage.local.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' });
+  await api.alarms.create('vault-maintenance', { periodInMinutes: 1 });
+}
+void initialize();
+api.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === 'vault-maintenance') void serial(async () => { await pendingLogins(); await access(); await synchronize(); }).catch(() => undefined);
+});
+api.tabs.onRemoved.addListener(tabId => {
+  void serial(async () => {
+    const entries = (await pendingLogins()).filter(entry => entry.tabId !== tabId);
+    await api.storage.session.set({ pendingLogins: entries });
+  });
+});

@@ -1,0 +1,30 @@
+appId: com.zerovault.mobile
+name: Two-device A returns from the audited device list
+tags:
+  - api36
+  - two-device
+  - device-approval
+---
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible: "可信设备"
+    commands:
+      - pressKey: Back
+      - tapOn: "密码库"
+- runFlow:
+    when:
+      visible:
+        id: "unlock-password"
+    commands:
+      - tapOn:
+          id: "unlock-password"
+      - inputText: ${E2E_PASSWORD}
+      - hideKeyboard
+      - tapOn:
+          id: "unlock-submit"
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 30000

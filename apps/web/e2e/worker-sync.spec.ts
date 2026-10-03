@@ -70,7 +70,7 @@ test("registers with the Worker API and completes two item-level syncs without f
   });
   await registerAccount(page, email);
 
-  await page.getByRole("button", { name: "立即同步" }).click();
+  await page.getByRole("button", { name: "立即同步" }).first().click();
   await expect(page.getByText(/已同步 · 版本 \d+/u).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/冲突/u)).toHaveCount(0);
 
@@ -84,7 +84,7 @@ test("registers with the Worker API and completes two item-level syncs without f
   await drawer.getByRole("button", { name: "保存修改" }).click();
   await expect(drawer).toBeHidden({ timeout: 15_000 });
 
-  await page.getByRole("button", { name: "立即同步" }).click();
+  await page.getByRole("button", { name: "立即同步" }).first().click();
   await expect(page.getByText(/已同步 · 版本 \d+/u).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/检测到冲突/u)).toHaveCount(0);
 });

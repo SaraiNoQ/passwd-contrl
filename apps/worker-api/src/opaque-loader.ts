@@ -427,7 +427,7 @@ function createServerRegistrationResponse(params: {
 
 function startServerLogin(params: {
   serverSetup: string;
-  registrationRecord: string;
+  registrationRecord: string | null | undefined;
   startLoginRequest: string;
   userIdentifier: string;
   identifiers: { client: string; server: string };
@@ -487,7 +487,7 @@ export interface OpaqueServer {
   }): { registrationResponse: string };
   startLogin(params: {
     serverSetup: string;
-    registrationRecord: string;
+    registrationRecord: string | null | undefined;
     startLoginRequest: string;
     userIdentifier: string;
     identifiers: { client: string; server: string };

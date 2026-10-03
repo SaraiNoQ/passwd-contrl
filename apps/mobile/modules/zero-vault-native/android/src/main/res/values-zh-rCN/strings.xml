@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="biometric_cancel">取消</string>
+    <string name="biometric_enable_title">启用 Zero Vault 生物识别</string>
+    <string name="unlock_zero_vault">解锁 Zero Vault</string>
+    <string name="autofill_choose_credential">验证后选择凭据</string>
+    <string name="verify_identity">验证身份</string>
+</resources>

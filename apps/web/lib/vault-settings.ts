@@ -6,6 +6,7 @@
 import {
   addCredential,
   createEmptyLocalVault,
+  createLocalVaultWithSharedKey,
   persistUnlockedVault,
   saveEncryptedLocalVault,
   sealUnlockedVault,
@@ -271,7 +272,9 @@ export async function handleChangeMasterPassword(deps: {
   }
 
   try {
-    const created = await createEmptyLocalVault(newPassword);
+    const created = unlockedVault?.runtime === "crypto-core-wasm"
+      ? await createLocalVaultWithSharedKey(newPassword, unlockedVault.key, unlockedVault.snapshot)
+      : await createEmptyLocalVault(newPassword);
     if (unlockedVault) {
       const persisted = await persistUnlockedVault({
         ...created.unlocked,
@@ -297,32 +300,46 @@ export async function handleChangeMasterPassword(deps: {
   }
 }
 
+const ACCOUNT_LOCAL_STORAGE_KEYS = [
+  "zero-vault.local.encrypted-vault.v1",
+  "zero-vault.local.sync-revision.v1",
+  "zero-vault.local.item-revisions.v1",
+  "zero-vault.local.conflict-ids.v1",
+  "zero-vault.local.last-synced-at.v1",
+  "zero-vault.local.pending-item-mutations.v1",
+  "zero-vault.local.offline-queue.v1",
+  "zero-vault.local.sync-cursor.v1",
+  "zero-vault.local.synced-timestamps.v1",
+  "zero-vault.local.owner.v1",
+  "zero-vault.local.bound-session.v1",
+  "zero-vault.local.recovery-packet.v1",
+  "zero-vault.local.device-id.v1",
+  "zero-vault.local.device-id.v1.public-key",
+  "zero-vault.local.device-fingerprint.v1",
+  "zero-vault.settings.auto-lock-timeout",
+  "zero-vault.settings.auto-sync-enabled",
+  "zero-vault.settings.sync-interval",
+  "zero-vault.settings.extension-id",
+  // Legacy keys are removed only after the server confirms deletion.
+  "zero-vault.local-vault.v1",
+  "zero-vault.recovery.v1"
+] as const;
+
 /**
- * Delete the user's account from the server and clear all local data.
- * Returns success even if the server deletion fails (local data is always cleared).
+ * Delete the authenticated account, then clear its local browser data.
+ *
+ * The order is a security and recoverability boundary: a network, auth, or
+ * server failure must leave the local encrypted vault untouched so the user
+ * can retry or export a backup.
  */
 export async function handleDeleteAccount(csrfToken: string): Promise<void> {
-  if (csrfToken) {
-    try {
-      await deleteAccount(csrfToken);
-    } catch {
-      // Server deletion failed; still clear local data
-    }
+  if (!csrfToken) {
+    throw new Error("not_authenticated");
   }
 
-  const keysToRemove = [
-    "zero-vault.local.encrypted-vault.v1",
-    "zero-vault.local.sync-revision.v1",
-    "zero-vault.local.item-revisions.v1",
-    "zero-vault.local.conflict-ids.v1",
-    "zero-vault.local.last-synced-at.v1",
-    "zero-vault.local.recovery-packet.v1",
-    "zero-vault.settings.auto-lock-timeout",
-    "zero-vault.settings.auto-sync-enabled",
-    "zero-vault.settings.sync-interval",
-    "zero-vault.settings.extension-id"
-  ];
-  for (const key of keysToRemove) {
+  await deleteAccount(csrfToken);
+
+  for (const key of ACCOUNT_LOCAL_STORAGE_KEYS) {
     localStorage.removeItem(key);
   }
 }

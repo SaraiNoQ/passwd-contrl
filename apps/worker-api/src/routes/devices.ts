@@ -1,10 +1,19 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { Env } from "../env";
-import { D1VaultStore } from "../store";
-import { registerDeviceRequestSchema } from "@zero-vault/shared";
+import { convertLegacyDeviceVaultKeyPacket, D1VaultStore } from "../store";
+import { deviceVaultKeyRequestSchema, registerDeviceRequestSchema } from "@zero-vault/shared";
+import type { DeviceVaultKeyPacket, TrustedDevice } from "@zero-vault/shared";
+import { publicKeyFingerprint } from '../utils/crypto';
 
 type DeviceRouteContext = Context<{ Bindings: Env }>;
+// A claimed SHA-256 fingerprint must be derived from the actual packet recipient
+// key when displayed, including devices registered through legacy routes.
+async function verifiedFingerprint(device: TrustedDevice): Promise<TrustedDevice> {
+  if (!device.fingerprint || !/^[a-f0-9]{64}$/i.test(device.fingerprint)) return device;
+  try { return { ...device, fingerprint: await publicKeyFingerprint(device.publicKey) }; }
+  catch { const { fingerprint: _unverified, ...rest } = device; return rest; }
+}
 type RequestWithCf = Request & {
   cf?: Record<string, unknown>;
 };
@@ -38,6 +47,33 @@ const getClientLocation = (c: DeviceRouteContext): string | null => {
   return colo ? `Cloudflare ${colo}` : null;
 };
 
+const isStrictEmptyObject = (value: unknown): value is Record<string, never> =>
+  typeof value === "object" && value !== null && !Array.isArray(value) &&
+  Object.keys(value).length === 0;
+
+const legacyRawVaultKey = (value: unknown): string | null => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  return Object.keys(record).length === 1 && typeof record.encryptedVaultKey === "string"
+    ? record.encryptedVaultKey
+    : null;
+};
+
+const isLegacyDesktopSession = (session: {
+  authTransport: "cookie" | "bearer";
+  deviceId: string | null;
+}): boolean => session.authTransport === "cookie" && session.deviceId === null;
+
+const parseDeviceVaultKeyPacket = (
+  body: unknown,
+  device: TrustedDevice
+): DeviceVaultKeyPacket | null => {
+  const structured = deviceVaultKeyRequestSchema.safeParse(body);
+  if (structured.success) return structured.data.encryptedVaultKeyPacket;
+  const legacyRaw = legacyRawVaultKey(body);
+  return legacyRaw ? convertLegacyDeviceVaultKeyPacket(legacyRaw, device) : null;
+};
+
 export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
 
@@ -48,7 +84,19 @@ export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
 
     const store = new D1VaultStore(c.env.DB);
     const devices = await store.listDevices(session.userId);
-    return c.json({ devices });
+    return c.json({ devices: await Promise.all(devices.map(verifiedFingerprint)) });
+  });
+
+  // Pending bearer sessions may only poll their own approval state.
+  app.get("/devices/self", async (c) => {
+    const session = c.get("session");
+    if (!session) return c.json({ error: "not_authenticated" }, 401);
+    if (!session.deviceId) return c.json({ error: "mobile_device_required" }, 400);
+
+    const store = new D1VaultStore(c.env.DB);
+    const device = await store.getDevice(session.userId, session.deviceId);
+    if (!device) return c.json({ error: "device_not_found" }, 404);
+    return c.json({ device: await verifiedFingerprint(device) });
   });
 
   // ── POST /devices ────────────────────────────────────────────────────────
@@ -88,7 +136,56 @@ export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
     const deviceId = c.req.param("id");
     const store = new D1VaultStore(c.env.DB);
     try {
-      await store.approveDevice(session.userId, deviceId);
+      if (session.deviceId === deviceId) {
+        return c.json({ error: "device_cannot_self_approve" }, 403);
+      }
+      const device = await store.getDevice(session.userId, deviceId);
+      if (!device) return c.json({ error: "device_not_found" }, 404);
+
+      let body: unknown = undefined;
+      const rawBody = await c.req.text();
+      if (rawBody.length > 0) {
+        try {
+          body = JSON.parse(rawBody) as unknown;
+        } catch {
+          return c.json({ error: "invalid_device_vault_key_packet" }, 400);
+        }
+      }
+
+      // Deprecated Desktop flow calls approve({}) and immediately follows with
+      // share-key(raw104). For cookie sessions only, acknowledge this strict
+      // empty marker without changing state; share-key performs the atomic
+      // packet+approval transition. Bearer/mobile callers must use the
+      // structured packet in this request.
+      if (isStrictEmptyObject(body)) {
+        if (!isLegacyDesktopSession(session)) {
+          return c.json({ error: "invalid_device_vault_key_packet" }, 400);
+        }
+        if (device.status !== "pending" && device.status !== "approved") {
+          return c.json({ error: "device_not_pending" }, 409);
+        }
+        return c.json({ ok: true });
+      }
+
+      if (legacyRawVaultKey(body) !== null && !isLegacyDesktopSession(session)) {
+        return c.json({ error: "invalid_device_vault_key_packet" }, 400);
+      }
+
+      const packet = parseDeviceVaultKeyPacket(body, device);
+      if (!packet) return c.json({ error: "invalid_device_vault_key_packet" }, 400);
+      if (packet.recipientDeviceId !== device.id || packet.recipientPublicKey !== device.publicKey) {
+        return c.json({ error: "vault_key_packet_recipient_mismatch" }, 400);
+      }
+
+      if (device.status === "approved") {
+        const existing = await store.getDeviceVaultKey(session.userId, deviceId);
+        if (existing && JSON.stringify(existing) === JSON.stringify(packet)) {
+          return c.json({ ok: true });
+        }
+        return c.json({ error: "device_not_pending" }, 409);
+      }
+      if (device.status !== "pending") return c.json({ error: "device_not_pending" }, 409);
+      await store.approveDeviceWithVaultKey(session.userId, deviceId, packet);
       return c.json({ ok: true });
     } catch (error) {
       if (error instanceof Error && error.message === "device_not_found") {
@@ -105,7 +202,16 @@ export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
 
     const deviceId = c.req.param("id");
     const store = new D1VaultStore(c.env.DB);
+
     try {
+      if (session.deviceId === deviceId) {
+        return c.json({ error: "device_cannot_self_reject" }, 403);
+      }
+      const device = await store.getDevice(session.userId, deviceId);
+      if (!device) return c.json({ error: "device_not_found" }, 404);
+      if (device.status !== "pending") {
+        return c.json({ error: "device_not_pending" }, 409);
+      }
       await store.rejectDevice(session.userId, deviceId);
       return c.json({ ok: true });
     } catch (error) {
@@ -142,6 +248,13 @@ export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
     const deviceId = c.req.param("id");
     const store = new D1VaultStore(c.env.DB);
 
+    // A device-bound bearer may download only the packet encrypted for that
+    // exact device. Do this before existence checks so other device ids are not
+    // an oracle. Cookie sessions remain compatible with the Web trust flow.
+    if (session.authTransport === "bearer" && session.deviceId !== deviceId) {
+      return c.json({ error: "device_key_access_denied" }, 403);
+    }
+
     // Verify the device exists and belongs to this user
     const devices = await store.listDevices(session.userId);
     const device = devices.find((d) => d.id === deviceId);
@@ -153,12 +266,12 @@ export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
       return c.json({ error: "device_not_approved" }, 403);
     }
 
-    const encryptedVaultKey = await store.getDeviceVaultKey(session.userId, deviceId);
-    if (!encryptedVaultKey) {
+    const encryptedVaultKeyPacket = await store.getDeviceVaultKey(session.userId, deviceId);
+    if (!encryptedVaultKeyPacket) {
       return c.json({ error: "key_not_shared" }, 404);
     }
 
-    return c.json({ encryptedVaultKey });
+    return c.json({ encryptedVaultKeyPacket });
   });
 
   // ── POST /devices/:id/share-key ─────────────────────────────────────────
@@ -167,13 +280,12 @@ export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
     if (!session) return c.json({ error: "not_authenticated" }, 401);
 
     const deviceId = c.req.param("id");
-    const body = await c.req.json();
-    const encryptedVaultKey = body.encryptedVaultKey;
-
-    if (typeof encryptedVaultKey !== "string" || encryptedVaultKey.length === 0) {
-      return c.json({ error: "encrypted_vault_key_required" }, 400);
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid_device_vault_key_packet" }, 400);
     }
-
     const store = new D1VaultStore(c.env.DB);
 
     // Verify the device exists and belongs to this user
@@ -183,7 +295,25 @@ export function buildDeviceRoutes(): Hono<{ Bindings: Env }> {
       return c.json({ error: "device_not_found" }, 404);
     }
 
-    await store.saveDeviceVaultKey(session.userId, deviceId, encryptedVaultKey);
+    if (device.status !== "pending" && device.status !== "approved") {
+      return c.json({ error: "device_not_eligible" }, 409);
+    }
+
+    if (legacyRawVaultKey(body) !== null && !isLegacyDesktopSession(session)) {
+      return c.json({ error: "invalid_device_vault_key_packet" }, 400);
+    }
+
+    const packet = parseDeviceVaultKeyPacket(body, device);
+    if (!packet) return c.json({ error: "invalid_device_vault_key_packet" }, 400);
+    if (packet.recipientDeviceId !== device.id || packet.recipientPublicKey !== device.publicKey) {
+      return c.json({ error: "vault_key_packet_recipient_mismatch" }, 400);
+    }
+
+    if (device.status === "pending") {
+      await store.approveDeviceWithVaultKey(session.userId, deviceId, packet);
+    } else {
+      await store.saveDeviceVaultKey(session.userId, deviceId, packet);
+    }
     return c.json({ ok: true });
   });
 

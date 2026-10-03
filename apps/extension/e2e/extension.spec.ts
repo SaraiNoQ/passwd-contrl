@@ -1,641 +1,217 @@
-import { chromium, expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { createServer as createHttpsServer } from "node:https";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { chromium, test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
+import { createServer } from 'node:https';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { FirefoxDriver } from './firefox-driver';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const extensionPath = path.resolve(__dirname, "..");
-const fixturePath = path.resolve(extensionPath, "fixtures/https-login.html");
-const hiddenFieldFixturePath = path.resolve(extensionPath, "fixtures/hidden-field.html");
-const readonlyFieldFixturePath = path.resolve(extensionPath, "fixtures/readonly-field.html");
-const disabledFieldFixturePath = path.resolve(extensionPath, "fixtures/disabled-field.html");
-const crossOriginIframeFixturePath = path.resolve(extensionPath, "fixtures/cross-origin-iframe.html");
-const password = "correct horse battery staple";
-
-type PopupCredential = {
-  id: string;
-  title: string;
-  origin: string;
-  username: string;
-  matchType?: string;
-  password?: never;
-};
-
-type PopupState = {
-  origin?: string;
-  blockedReason?: string;
-  credentials: PopupCredential[];
-};
-
-const listen = (server: Server) =>
-  new Promise<number>((resolve) => {
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (typeof address === "object" && address) resolve(address.port);
-    });
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const profileDirectories: string[] = [];
+const output = path.join(root, 'build-test', process.env.TEST_WORKER_INDEX ?? '0');
+let server: ReturnType<typeof createServer>;
+let origin: string;
+let certificateDirectory: string;
+const accountPassword = 'SyntheticAccountPassword123!';
+const localPassword = 'SyntheticPluginPassword123!';
+const sitePassword = 'SyntheticSitePassword123!';
+test.beforeAll(async () => {
+  execFileSync(process.execPath, ['build.mjs'], { cwd: root, env: { ...process.env, ZERO_VAULT_EXTENSION_API_URL: 'http://localhost:8790', ZERO_VAULT_EXTENSION_OUTPUT: output }, stdio: 'pipe' });
+  certificateDirectory = mkdtempSync(path.join(tmpdir(), 'zero-vault-extension-cert-'));
+  execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-keyout', path.join(certificateDirectory, 'key'), '-out', path.join(certificateDirectory, 'cert'), '-days', '1', '-nodes', '-subj', '/CN=vault-login.test'], { stdio: 'ignore' });
+  server = createServer({ key: readFileSync(path.join(certificateDirectory, 'key')), cert: readFileSync(path.join(certificateDirectory, 'cert')) }, (req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (req.url === '/welcome') { res.end('<h1>合成测试：已登录</h1>'); return; }
+    const failed = req.url === '/failed';
+    res.end('<!doctype html><html lang="zh-CN"><title>合成登录测试</title><h1>合成登录测试</h1><form action="/welcome" method="post"><label>用户名<input name="username" autocomplete="username"></label><label>密码<input type="password" name="password" autocomplete="current-password"></label><button type="submit">登录</button></form><p id="result"></p>' + (failed ? '<script>document.querySelector("form").onsubmit=e=>{e.preventDefault();document.getElementById("result").textContent="合成测试：登录失败"}</script>' : '') + '</html>');
   });
-
-const createCertificate = () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "zero-vault-e2e-cert-"));
-  const keyPath = path.join(dir, "localhost.key");
-  const certPath = path.join(dir, "localhost.crt");
-  execFileSync("openssl", [
-    "req", "-x509", "-newkey", "rsa:2048",
-    "-keyout", keyPath, "-out", certPath,
-    "-days", "1", "-nodes", "-subj", "/CN=localhost",
-    "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1"
-  ]);
-  return {
-    key: readFileSync(keyPath),
-    cert: readFileSync(certPath),
-    cleanup: () => rmSync(dir, { recursive: true, force: true })
-  };
-};
-
-const routeFixture = (req: IncomingMessage, res: ServerResponse) => {
-  if (req.url?.startsWith("/blank")) {
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end("<!doctype html><title>Blank HTTPS Fixture</title><h1>No login form</h1>");
-    return;
-  }
-
-  if (req.url?.startsWith("/hidden-field")) {
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(readFileSync(hiddenFieldFixturePath));
-    return;
-  }
-
-  if (req.url?.startsWith("/readonly-field")) {
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(readFileSync(readonlyFieldFixturePath));
-    return;
-  }
-
-  if (req.url?.startsWith("/disabled-field")) {
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(readFileSync(disabledFieldFixturePath));
-    return;
-  }
-
-  if (req.url?.startsWith("/cross-origin-iframe")) {
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(readFileSync(crossOriginIframeFixturePath));
-    return;
-  }
-
-  if (req.url?.startsWith("/iframe-login")) {
-    // A simple login form served inside an iframe
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(readFileSync(fixturePath));
-    return;
-  }
-
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-  res.end(readFileSync(fixturePath));
-};
-
-test.describe("Zero Vault extension E2E", () => {
-  let context: BrowserContext;
-  let extensionId: string;
-  let bridge: Page;
-  let httpsOrigin: string;
-  let httpOrigin: string;
-  let certCleanup: () => void;
-  let httpsSrv: Server;
-  let httpSrv: Server;
-  let userDataCleanup: () => void;
-
-  const clearSessionStorage = async () => {
-    await bridge.evaluate(async () => {
-      await chrome.storage.session.clear();
-    });
-  };
-
-  const sendExternalMessageFromPage = async <T>(page: Page, message: unknown): Promise<T> =>
-    page.evaluate(
-      ({ extensionId, message }) =>
-        new Promise((resolve, reject) => {
-          const runtime = globalThis.chrome?.runtime;
-          if (!runtime?.sendMessage) {
-            reject(new Error("chrome.runtime.sendMessage is unavailable on the fixture page"));
-            return;
-          }
-
-          runtime.sendMessage(extensionId, message, (response) => {
-            const error = runtime.lastError?.message;
-            if (error) {
-              reject(new Error(error));
-              return;
-            }
-            resolve(response);
-          });
-        }),
-      { extensionId, message }
-    ) as Promise<T>;
-
-  const getPopupState = async (page: Page) => sendExternalMessageFromPage<PopupState>(page, { type: "GET_POPUP_STATE" });
-
-  const publishCredentialsFromPage = async (page: Page, origin: string, creds?: Array<{ id: string; title: string; origin: string; username: string; password: string }>) => {
-    const credentials = creds ?? [
-      {
-        id: "credential-1",
-        title: "Example",
-        origin,
-        username: "alice@example.com",
-        password
-      }
-    ];
-    const result = await sendExternalMessageFromPage(page, {
-      type: "ZERO_VAULT_SESSION_UPDATE",
-      credentials
-    });
-    expect(result).toEqual({ ok: true });
-  };
-
-  const clearCredentialsFromPage = async (page: Page) => {
-    const result = await sendExternalMessageFromPage(page, { type: "ZERO_VAULT_SESSION_CLEAR" });
-    expect(result).toEqual({ ok: true });
-  };
-
-  const openHttpsLogin = async () => {
-    const login = await context.newPage();
-    await login.goto(`${httpsOrigin}/login`);
-    await expect(login.locator("input[type='password']")).toBeVisible();
-    await expect(login.locator("input[type='password']")).toHaveAttribute("data-zero-vault-field-id", /.+/, {
-      timeout: 10_000
-    });
-    await expect(login.locator("input[autocomplete='username']")).toHaveAttribute("data-zero-vault-field-id", /.+/);
-    return login;
-  };
-
-  test.beforeAll(async () => {
-    const cert = createCertificate();
-    certCleanup = cert.cleanup;
-    httpsSrv = createHttpsServer({ key: cert.key, cert: cert.cert }, routeFixture);
-    httpSrv = createServer(routeFixture);
-    const [hp, tp] = await Promise.all([listen(httpsSrv), listen(httpSrv)]);
-    httpsOrigin = `https://localhost:${hp}`;
-    httpOrigin = `http://localhost:${tp}`;
-
-    const userDataDir = mkdtempSync(path.join(tmpdir(), "zero-vault-extension-e2e-"));
-    userDataCleanup = () => rmSync(userDataDir, { recursive: true, force: true });
-    context = await chromium.launchPersistentContext(userDataDir, {
-      channel: "chromium",
-      headless: true,
-      ignoreHTTPSErrors: true,
-      args: [
-        `--disable-extensions-except=${extensionPath}`,
-        `--load-extension=${extensionPath}`,
-        "--allow-insecure-localhost"
-      ]
-    });
-    const sw = context.serviceWorkers().find((w) => w.url().startsWith("chrome-extension://")) ??
-      (await context.waitForEvent("serviceworker"));
-    extensionId = new URL(sw.url()).host;
-
-    // Open bridge page for chrome API access (extension pages have chrome.* APIs)
-    bridge = await context.newPage();
-    await bridge.goto(`chrome-extension://${extensionId}/bridge.html`);
-    await bridge.waitForLoadState("domcontentloaded");
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  origin = 'https://vault-login.test:' + (server.address() as { port: number }).port;
+});
+test.afterAll(async () => {
+  await new Promise<void>(resolve => server.close(() => resolve()));
+  rmSync(certificateDirectory, { recursive: true, force: true });
+  for (const directory of profileDirectories) rmSync(directory, { recursive: true, force: true });
+});
+async function launch(browserName: string) {
+  const profile = mkdtempSync(path.join(tmpdir(), 'zero-vault-extension-profile-')); profileDirectories.push(profile);
+  const context = await chromium.launchPersistentContext(profile, {
+    executablePath: browserName === 'edge' ? process.env.ZERO_VAULT_EDGE_BINARY! : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    headless: true, ignoreDefaultArgs: ['--disable-extensions'],
+    args: ['--enable-unsafe-extension-debugging', '--ignore-certificate-errors', '--no-proxy-server', '--host-resolver-rules=MAP vault-login.test 127.0.0.1'],
+    ignoreHTTPSErrors: true
   });
-
-  test.beforeEach(async () => {
-    await clearSessionStorage();
-  });
-
-  test.afterAll(async () => {
-    await bridge?.close();
-    await context?.close();
-    await new Promise<void>((r) => httpsSrv?.close(() => r()));
-    await new Promise<void>((r) => httpSrv?.close(() => r()));
-    certCleanup?.();
-    userDataCleanup?.();
-  });
-
-  test("detects an HTTPS login form, withholds passwords from popup state, and fills only after confirmation", async () => {
-    expect(extensionId).toBeTruthy();
-
-    const login = await openHttpsLogin();
-    const passwordFieldId = await login.locator("input[type='password']").getAttribute("data-zero-vault-field-id");
-    expect(passwordFieldId).toMatch(/^[0-9a-f-]{36}$/);
-
-    await publishCredentialsFromPage(login, httpsOrigin);
-    await login.bringToFront();
-
-    const state = await getPopupState(login);
-    expect(state.origin).toBe(httpsOrigin);
-    expect(state.credentials).toHaveLength(1);
-    expect(state.credentials[0]).toMatchObject({
-      id: "credential-1",
-      title: "Example",
-      origin: httpsOrigin,
-      username: "alice@example.com",
-      matchType: "exact"
-    });
-    // Password must never appear in popup state
-    expect(JSON.stringify(state)).not.toContain(password);
-
-    const fillResult = await sendExternalMessageFromPage(login, {
-      type: "FILL_MATCHED_CREDENTIAL",
-      credentialId: "credential-1"
-    });
-    expect(fillResult).toEqual({ ok: true });
-
-    await expect(login.locator("input[autocomplete='username']")).toHaveValue("alice@example.com");
-    await expect(login.locator("input[type='password']")).toHaveValue(password);
-    await expect(login.locator("body")).not.toHaveAttribute("data-submitted", "true");
-
-    await login.close();
-  });
-
-  test("blocks stale candidates when another tab is active", async () => {
-    const login = await openHttpsLogin();
-    await publishCredentialsFromPage(login, httpsOrigin);
-    await login.bringToFront();
-    await expect.poll(() => getPopupState(login)).toMatchObject({ credentials: [{ id: "credential-1" }] });
-
-    const blank = await context.newPage();
-    await blank.goto(`${httpsOrigin}/blank`);
-    await blank.bringToFront();
-
-    const state = await getPopupState(blank);
-    expect(state).toEqual({
-      origin: httpsOrigin,
-      credentials: [],
-      blockedReason: "当前页面未检测到登录表单"
-    });
-
-    const fillResult = await sendExternalMessageFromPage(blank, {
-      type: "FILL_MATCHED_CREDENTIAL",
-      credentialId: "credential-1"
-    });
-    expect(fillResult).toEqual({ ok: false, error: "no_candidate" });
-    await expect(login.locator("input[autocomplete='username']")).toHaveValue("");
-    await expect(login.locator("input[type='password']")).toHaveValue("");
-
-    await blank.close();
-    await login.close();
-  });
-
-  test("blocks HTTP pages from detection and popup fill", async () => {
-    const httpLogin = await context.newPage();
-    await httpLogin.goto(`${httpOrigin}/login`);
-    await expect(httpLogin.locator("input[type='password']")).toBeVisible();
-
-    const hasFieldId = await httpLogin.locator("input[type='password']").getAttribute("data-zero-vault-field-id");
-    expect(hasFieldId).toBeNull();
-    await httpLogin.bringToFront();
-
-    const state = await getPopupState(httpLogin);
-    expect(state).toEqual({
-      credentials: [],
-      blockedReason: "Zero Vault 仅支持 HTTPS 页面"
-    });
-
-    const fillResult = await sendExternalMessageFromPage(httpLogin, {
-      type: "FILL_MATCHED_CREDENTIAL",
-      credentialId: "credential-1"
-    });
-    expect(fillResult).toEqual({ ok: false, error: "no_candidate" });
-    await expect(httpLogin.locator("input[name='email']")).toHaveValue("");
-    await expect(httpLogin.locator("input[type='password']")).toHaveValue("");
-
-    await httpLogin.close();
-  });
-
-  test("clears session credentials and candidates through the external vault clear message", async () => {
-    const login = await openHttpsLogin();
-    await publishCredentialsFromPage(login, httpsOrigin);
-    await login.bringToFront();
-    await expect.poll(() => getPopupState(login)).toMatchObject({ credentials: [{ id: "credential-1" }] });
-
-    await clearCredentialsFromPage(login);
-
-    const stored = await bridge.evaluate(async () => {
-      const result = await chrome.storage.session.get(["sessionCredentials", "lastCandidate"]);
-      return result;
-    });
-    expect(stored).toEqual({});
-
-    const state = await getPopupState(login);
-    expect(state).toEqual({
-      origin: httpsOrigin,
-      credentials: [],
-      blockedReason: "当前页面未检测到登录表单"
-    });
-
-    await login.close();
-  });
-
-  test("shows multiple credentials for same origin in popup state", async () => {
-    const login = await openHttpsLogin();
-    await publishCredentialsFromPage(login, httpsOrigin, [
-      { id: "cred-1", title: "Personal", origin: httpsOrigin, username: "alice@example.com", password: "pass1" },
-      { id: "cred-2", title: "Work", origin: httpsOrigin, username: "bob@company.com", password: "pass2" }
-    ]);
-    await login.bringToFront();
-
-    const state = await getPopupState(login);
-    expect(state.credentials).toHaveLength(2);
-    expect(state.credentials[0]).toMatchObject({ id: "cred-1", title: "Personal", username: "alice@example.com", matchType: "exact" });
-    expect(state.credentials[1]).toMatchObject({ id: "cred-2", title: "Work", username: "bob@company.com", matchType: "exact" });
-
-    // Verify password never appears in popup state
-    expect(JSON.stringify(state)).not.toContain("pass1");
-    expect(JSON.stringify(state)).not.toContain("pass2");
-
-    // Fill first credential
-    const fill1 = await sendExternalMessageFromPage(login, {
-      type: "FILL_MATCHED_CREDENTIAL",
-      credentialId: "cred-1"
-    });
-    expect(fill1).toEqual({ ok: true });
-    await expect(login.locator("input[autocomplete='username']")).toHaveValue("alice@example.com");
-    await expect(login.locator("input[type='password']")).toHaveValue("pass1");
-
-    // Fill second credential
-    const fill2 = await sendExternalMessageFromPage(login, {
-      type: "FILL_MATCHED_CREDENTIAL",
-      credentialId: "cred-2"
-    });
-    expect(fill2).toEqual({ ok: true });
-    await expect(login.locator("input[autocomplete='username']")).toHaveValue("bob@company.com");
-    await expect(login.locator("input[type='password']")).toHaveValue("pass2");
-
-    await login.close();
-  });
-
-  test("hidden password field is not detected", async () => {
-    const login = await context.newPage();
-    await login.goto(`${httpsOrigin}/hidden-field`);
-    // Wait a moment for content script to run
-    await login.waitForTimeout(500);
-
-    // The password field should NOT have a data-zero-vault-field-id (form not detected)
-    const hasFieldId = await login.locator("input[type='password']").getAttribute("data-zero-vault-field-id");
-    expect(hasFieldId).toBeNull();
-
-    await login.bringToFront();
-    const state = await getPopupState(login);
-    expect(state.blockedReason).toBeTruthy();
-    expect(state.credentials).toHaveLength(0);
-
-    await login.close();
-  });
-
-  test("readonly password field is not filled", async () => {
-    const login = await context.newPage();
-    await login.goto(`${httpsOrigin}/readonly-field`);
-    // The readonly password field should still be detected (isVisibleInput already handles readonly)
-    // But form-detection checks isVisibleInput which checks readOnly, so form should NOT be detected
-    await login.waitForTimeout(500);
-
-    const hasFieldId = await login.locator("input[type='password']").getAttribute("data-zero-vault-field-id");
-    // Since isVisibleInput rejects readonly, the form won't be detected
-    expect(hasFieldId).toBeNull();
-
-    await login.bringToFront();
-    const state = await getPopupState(login);
-    expect(state.blockedReason).toBeTruthy();
-
-    await login.close();
-  });
-
-  test("disabled password field is not filled", async () => {
-    const login = await context.newPage();
-    await login.goto(`${httpsOrigin}/disabled-field`);
-    await login.waitForTimeout(500);
-
-    const hasFieldId = await login.locator("input[type='password']").getAttribute("data-zero-vault-field-id");
-    expect(hasFieldId).toBeNull();
-
-    await login.bringToFront();
-    const state = await getPopupState(login);
-    expect(state.blockedReason).toBeTruthy();
-
-    await login.close();
-  });
-
-  test("cross-origin iframe form is not detected", async () => {
-    const login = await context.newPage();
-    await login.goto(`${httpsOrigin}/cross-origin-iframe`);
-
-    // Set the iframe src to a cross-origin page
-    // We use the HTTP origin as a different origin for the iframe
-    await login.evaluate(
-      ({ httpOrigin }) => {
-        const iframe = document.getElementById("cross-frame") as HTMLIFrameElement;
-        if (iframe) {
-          iframe.src = httpOrigin + "/login";
-        }
-      },
-      { httpOrigin }
-    );
-
-    // Wait for iframe to load
-    await login.waitForTimeout(1000);
-
-    await login.bringToFront();
-    const state = await getPopupState(login);
-
-    // The form inside the cross-origin iframe should NOT be detected
-    expect(state.blockedReason).toBeTruthy();
-
-    await login.close();
-  });
-
-  test("session clear removes all credentials", async () => {
-    const login = await openHttpsLogin();
-    await publishCredentialsFromPage(login, httpsOrigin, [
-      { id: "cred-1", title: "Personal", origin: httpsOrigin, username: "alice@example.com", password: "pass1" },
-      { id: "cred-2", title: "Work", origin: httpsOrigin, username: "bob@company.com", password: "pass2" }
-    ]);
-    await login.bringToFront();
-    await expect.poll(() => getPopupState(login)).toMatchObject({ credentials: expect.arrayContaining([expect.objectContaining({ id: "cred-1" })]) });
-
-    await clearCredentialsFromPage(login);
-
-    const state = await getPopupState(login);
-    expect(state.credentials).toHaveLength(0);
-
-    await login.close();
-  });
-
-  test("popup HTML never contains plaintext password", async () => {
-    const login = await openHttpsLogin();
-    await publishCredentialsFromPage(login, httpsOrigin);
-    await login.bringToFront();
-
-    const state = await getPopupState(login);
-    // Deep check: stringify the entire state and ensure password is absent
-    const stateStr = JSON.stringify(state);
-    expect(stateStr).not.toContain(password);
-    expect(stateStr).not.toContain("correct horse battery staple");
-
-    // Also verify no credential object has a password field
-    for (const cred of state.credentials) {
-      expect((cred as Record<string, unknown>).password).toBeUndefined();
-    }
-
-    await login.close();
-  });
-
-  test("GET_EXTENSION_STATUS returns installed status", async () => {
-    const status = await sendExternalMessageFromPage(bridge, { type: "GET_EXTENSION_STATUS" });
-    expect(status).toMatchObject({
-      installed: true,
-      version: "0.1.0"
-    });
-    expect(typeof status.credentialsLoaded).toBe("boolean");
-    expect(typeof status.matchedCredentials).toBe("number");
-  });
-
-  test("multi-credential picker: shows multiple exact credentials and fills selected one", async () => {
-    const login = await openHttpsLogin();
-    // sub.localhost shares eTLD+1 (localhost) with localhost, so it's classified as "similar"
-    const similarOrigin = httpsOrigin.replace("localhost", "sub.localhost");
-    await publishCredentialsFromPage(login, httpsOrigin, [
-      { id: "cred-personal", title: "Personal", origin: httpsOrigin, username: "alice@personal.com", password: "personal-pass" },
-      { id: "cred-work", title: "Work", origin: httpsOrigin, username: "bob@work.com", password: "work-pass" },
-      { id: "cred-similar", title: "Similar", origin: similarOrigin, username: "charlie@other.com", password: "similar-pass" }
-    ]);
-    await login.bringToFront();
-
-    const state = await getPopupState(login);
-    const exactCreds = state.credentials.filter((c) => c.matchType === "exact");
-    const similarCreds = state.credentials.filter((c) => c.matchType === "similar");
-    expect(exactCreds).toHaveLength(2);
-    expect(similarCreds).toHaveLength(1);
-    expect(exactCreds.map((c) => c.id)).toContain("cred-personal");
-    expect(exactCreds.map((c) => c.id)).toContain("cred-work");
-    expect(state.credentials.find((c) => c.id === "cred-similar")?.matchType).toBe("similar");
-
-    // Fill second credential (work)
-    const fill = await sendExternalMessageFromPage(login, {
-      type: "FILL_MATCHED_CREDENTIAL",
-      credentialId: "cred-work"
-    });
-    expect(fill).toEqual({ ok: true });
-    await expect(login.locator("input[autocomplete='username']")).toHaveValue("bob@work.com");
-    await expect(login.locator("input[type='password']")).toHaveValue("work-pass");
-
-    // Fill first credential (personal) to verify we can switch
-    const fill2 = await sendExternalMessageFromPage(login, {
-      type: "FILL_MATCHED_CREDENTIAL",
-      credentialId: "cred-personal"
-    });
-    expect(fill2).toEqual({ ok: true });
-    await expect(login.locator("input[autocomplete='username']")).toHaveValue("alice@personal.com");
-    await expect(login.locator("input[type='password']")).toHaveValue("personal-pass");
-
-    await login.close();
-  });
-
-  test("phishing warning: similar origin blocks fill until acknowledged, suspicious always blocked", async () => {
-    const login = await openHttpsLogin();
-    // sub.localhost shares eTLD+1 (localhost) with localhost, so classified as "similar"
-    const similarOrigin = httpsOrigin.replace("localhost", "sub.localhost");
-    await publishCredentialsFromPage(login, httpsOrigin, [
-      { id: "cred-exact", title: "Exact", origin: httpsOrigin, username: "alice", password: "exact-pass" },
-      { id: "cred-similar", title: "Similar", origin: similarOrigin, username: "bob", password: "similar-pass" },
-      { id: "cred-punycode", title: "Punycode", origin: "https://xn--googl-e4d.com", username: "victim", password: "stolen" }
-    ]);
-    await login.bringToFront();
-
-    // Verify match types in popup state
-    const state = await getPopupState(login);
-    expect(state.credentials.find((c) => c.id === "cred-exact")?.matchType).toBe("exact");
-    expect(state.credentials.find((c) => c.id === "cred-similar")?.matchType).toBe("similar");
-    expect(state.credentials.find((c) => c.id === "cred-punycode")?.matchType).toBe("suspicious");
-
-    // Fill is blocked for similar credential without acknowledgment
-    const blockedFill = await sendExternalMessageFromPage(login, {
-      type: "FILL_MATCHED_CREDENTIAL",
-      credentialId: "cred-similar"
-    });
-    expect(blockedFill).toEqual({ ok: false, error: "similar_origin_not_acknowledged" });
-    await expect(login.locator("input[autocomplete='username']")).toHaveValue("");
-
-    // Suspicious credentials are always blocked
-    const suspiciousFill = await sendExternalMessageFromPage(login, {
-      type: "FILL_MATCHED_CREDENTIAL",
-      credentialId: "cred-punycode"
-    });
-    expect(suspiciousFill).toEqual({ ok: false, error: "suspicious_origin" });
-
-    // Exact credential works without acknowledgment
-    const exactFill = await sendExternalMessageFromPage(login, {
-      type: "FILL_MATCHED_CREDENTIAL",
-      credentialId: "cred-exact"
-    });
-    expect(exactFill).toEqual({ ok: true });
-    await expect(login.locator("input[autocomplete='username']")).toHaveValue("alice");
-    await expect(login.locator("input[type='password']")).toHaveValue("exact-pass");
-
-    await login.close();
-  });
-
-  test("vault lock clears session credentials and candidate", async () => {
-    const login = await openHttpsLogin();
-    await publishCredentialsFromPage(login, httpsOrigin, [
-      { id: "cred-1", title: "Example", origin: httpsOrigin, username: "alice", password: "pass1" }
-    ]);
-    await login.bringToFront();
-
-    // Verify initial state has credentials
-    let state = await getPopupState(login);
-    expect(state.credentials).toHaveLength(1);
-
-    // Simulate vault lock (ZERO_VAULT_SESSION_CLEAR)
-    await clearCredentialsFromPage(login);
-
-    // Verify session storage keys are cleared
-    const stored = await bridge.evaluate(async () => {
-      const result = await chrome.storage.session.get([
-        "sessionCredentials",
-        "lastCandidate",
-        "acknowledgedOrigins"
-      ]);
-      return result;
-    });
-    expect(stored).toEqual({});
-
-    // Verify popup shows no credentials
-    state = await getPopupState(login);
-    expect(state.credentials).toHaveLength(0);
-    expect(state.blockedReason).toBeTruthy();
-
-    await login.close();
-  });
-
-  test("invisible (visibility:hidden) password field is not detected", async () => {
-    const login = await context.newPage();
-    await login.goto(`${httpsOrigin}/hidden-field`);
-    await login.waitForTimeout(500);
-
-    // Make the password field have zero dimensions by setting visibility:hidden
-    await login.evaluate(() => {
-      const pw = document.querySelector("input[type='password']") as HTMLInputElement;
-      if (pw) pw.style.visibility = "hidden";
-    });
-    await login.waitForTimeout(200);
-
-    // Reload to re-run content script with visibility:hidden applied
-    await login.reload();
-    await login.waitForTimeout(500);
-
-    const hasFieldId = await login.locator("input[type='password']").getAttribute("data-zero-vault-field-id");
-    expect(hasFieldId).toBeNull();
-
-    await login.bringToFront();
-    const state = await getPopupState(login);
-    expect(state.blockedReason).toBeTruthy();
-    expect(state.credentials).toHaveLength(0);
-
-    await login.close();
-  });
+  const cdp = await context.browser()!.newBrowserCDPSession();
+  const installed = await cdp.send('Extensions.loadUnpacked' as never, { path: path.join(output, 'chromium') } as never) as { id: string };
+  return { context, id: installed.id };
+}
+async function registerWeb(page: Page, email: string) {
+  await page.goto('http://localhost:3010');
+  await page.locator('#master-password').fill('SyntheticWebPassword123!');
+  await page.getByRole('button', { name: '开始生成' }).click();
+  await expect(page.locator('.app-main')).toBeVisible();
+  await page.getByRole('button', { name: /身份节点/ }).click();
+  await page.getByPlaceholder('输入邮箱地址').fill(email);
+  await page.getByPlaceholder('账户密码').fill(accountPassword);
+  await page.getByRole('button', { name: '注册', exact: true }).click();
+  const recovery = page.getByRole('dialog', { name: '离线恢复记录' });
+  await expect(recovery).toBeVisible();
+  await recovery.getByLabel('我已将这份备用恢复码保存在安全的离线位置').check();
+  await recovery.getByRole('button', { name: '完成' }).click();
+  await expect(page.getByText(/已同步 · 版本/).first()).toBeVisible();
+}
+async function approve(page: Page) {
+  await page.getByRole('button', { name: '设备同步', exact: true }).click();
+  await page.locator('[aria-controls="trusted-device-network"]').click();
+  await page.getByRole('button', { name: /批准加入同步 .*浏览器插件/ }).click();
+  const dialog = page.getByRole('dialog', { name: '批准加入同步' });
+  const completed = page.waitForResponse(response => response.url().includes('/approve') && response.status() === 200);
+  await dialog.getByRole('button', { name: '确认', exact: true }).click(); await completed;
+}
+async function changeOnWeb(page: Page, password: string) {
+  await page.getByRole('button', { name: /全部密码/ }).click();
+  await page.getByRole('button', { name: '编辑 vault-login.test', exact: true }).click();
+  const dialog = page.locator('[role="dialog"][aria-modal="true"]');
+  await dialog.locator('#credential-password').fill(password);
+  const pushed = page.waitForResponse(response => response.url().includes('/vault/item-sync') && response.request().method() === 'POST' && response.status() === 200);
+  await dialog.getByRole('button', { name: '保存修改' }).click(); await pushed;
+}
+test('independent device approval, site save/update, fill and Web synchronization', async ({}, info) => {
+  test.skip(info.project.name === 'firefox');
+  const { context, id } = await launch(info.project.name);
+  try {
+    const web = await context.newPage(); const email = 'extension-' + crypto.randomUUID() + '@example.com';
+    await registerWeb(web, email);
+    const popup = await context.newPage(); await popup.goto('chrome-extension://' + id + '/popup.html');
+    await popup.getByLabel('账户邮箱').fill(email);
+    await popup.getByLabel('账户密码', { exact: true }).fill(accountPassword);
+    await popup.getByRole('button', { name: '连接账户', exact: true }).click();
+    await expect(popup.getByText('批准此插件设备', { exact: true })).toBeVisible();
+    await popup.getByLabel('插件本地主密码（至少 12 位）').fill(localPassword);
+    await popup.getByLabel('再次输入本地主密码').fill(localPassword);
+    await popup.getByRole('button', { name: '已批准，完成连接' }).click();
+    await expect(popup.getByRole('status')).toContainText('批准此插件设备');
+    await approve(web);
+    await popup.getByLabel('插件本地主密码（至少 12 位）').fill(localPassword);
+    await popup.getByLabel('再次输入本地主密码').fill(localPassword);
+    await popup.getByRole('button', { name: '已批准，完成连接' }).click();
+    await expect(popup.getByRole('button', { name: '锁定', exact: true })).toBeVisible();
+    const errors: string[] = []; popup.on('pageerror', error => errors.push(error.message));
+    const site = await context.newPage(); await site.goto(origin + '/login');
+    await site.getByRole('textbox', { name: '用户名' }).fill('synthetic-user');
+    await site.getByLabel('密码', { exact: true }).fill(sitePassword);
+    await site.getByRole('button', { name: '登录' }).click();
+    await expect(site.locator('iframe[data-zero-vault-prompt]')).toBeVisible();
+    const prompt = site.frameLocator('iframe[data-zero-vault-prompt]');
+    await expect(prompt.getByText('保存刚才使用的登录信息？')).toBeVisible();
+    await expect(prompt.locator('#origin')).toHaveText(origin);
+    await prompt.getByRole('button', { name: '保存', exact: true }).click();
+    await expect(site.locator('iframe[data-zero-vault-prompt]')).toHaveCount(0);
+    await web.getByRole('button', { name: '立即同步', exact: true }).first().click();
+    await expect.poll(() => web.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('zero-vault.local.synced-timestamps.v1') ?? '{}')).length)).toBe(1);
+    await changeOnWeb(web, sitePassword + '-from-web');
+    await popup.evaluate(async () => { await chrome.runtime.sendMessage({ type: 'SYNC_NOW' }); });
+    await site.goto(origin + '/login');
+    await site.bringToFront();
+    await popup.evaluate(async () => { const response = await chrome.runtime.sendMessage({ type: 'GET_POPUP_STATE' }); if (!response.credentials[0]) throw new Error('credential_missing'); await chrome.runtime.sendMessage({ type: 'FILL_MATCHED_CREDENTIAL', credentialId: response.credentials[0].id }); });
+    await expect(site.getByLabel('密码', { exact: true })).toHaveValue(sitePassword + '-from-web');
+    await expect(site.getByRole('textbox', { name: '用户名' })).toHaveValue('synthetic-user');
+    await site.getByLabel('密码', { exact: true }).fill(sitePassword + '-changed');
+    await site.getByRole('button', { name: '登录' }).click();
+    await expect(site.locator('iframe[data-zero-vault-prompt]')).toBeVisible();
+    await site.frameLocator('iframe[data-zero-vault-prompt]').getByRole('button', { name: '更新密码' }).click();
+    await expect(site.locator('iframe[data-zero-vault-prompt]')).toHaveCount(0);
+    await web.close();
+    await popup.bringToFront(); await popup.getByRole('button', { name: '锁定', exact: true }).click();
+    await expect(popup.getByLabel('插件本地主密码', { exact: true })).toBeVisible();
+    await popup.getByLabel('插件本地主密码', { exact: true }).fill(localPassword);
+    await popup.getByRole('button', { name: '解锁', exact: true }).click();
+    await expect(popup.getByRole('button', { name: '锁定', exact: true })).toBeVisible();
+    await site.goto(origin + '/failed');
+    await site.getByRole('textbox', { name: '用户名' }).fill('synthetic-user');
+    await site.getByLabel('密码', { exact: true }).fill('synthetic-wrong-password');
+    await site.getByRole('button', { name: '登录' }).click();
+    await expect(site.locator('#result')).toContainText('登录失败');
+    await expect(site.locator('iframe[data-zero-vault-prompt]')).toHaveCount(0);
+    await popup.bringToFront(); await popup.reload();
+    await popup.locator('#generator').evaluate((element: HTMLDetailsElement) => { element.open = true; });
+    await popup.locator('#length').fill('32'); await popup.locator('#length').dispatchEvent('change');
+    await expect(popup.locator('#generated')).toHaveValue(/.{32}/);
+    const worker = context.serviceWorkers().find(worker => worker.url().includes(id))!;
+    expect(await worker.evaluate(async () => JSON.stringify(await chrome.storage.local.get(null)))).not.toContain(sitePassword);
+    await popup.locator('#generator').evaluate((element: HTMLDetailsElement) => { element.open = false; });
+    const screenshots = path.join(root, 'artifacts'); mkdirSync(screenshots, { recursive: true });
+    await popup.setViewportSize({ width: 360, height: 600 });
+    await popup.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await popup.screenshot({ path: path.join(screenshots, info.project.name + '-popup.png') });
+    await popup.setViewportSize({ width: 320, height: 600 });
+    await popup.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await popup.screenshot({ path: path.join(screenshots, info.project.name + '-narrow.png') });
+    expect(errors).toEqual([]);
+  } finally { await context.close(); }
+});
+
+test('Firefox independently connects, generates, saves, fills and synchronizes', async ({}, info) => {
+  test.skip(info.project.name !== 'firefox');
+  const trusted = await launch('chrome');
+  const driver = new FirefoxDriver(process.env.ZERO_VAULT_GECKODRIVER!);
+  const popupUrl = 'moz-extension://cc37f5da-e152-433c-a57a-6699c26cd3d7/popup.html';
+  try {
+    await driver.start();
+    console.log('Firefox: isolated browser started');
+    const temporary = mkdtempSync(path.join(tmpdir(), 'zero-vault-firefox-addon-')); profileDirectories.push(temporary);
+    const archive = path.join(temporary, 'extension.xpi');
+    execFileSync('zip', ['-qr', archive, '.'], { cwd: path.join(output, 'firefox') });
+    await driver.call('/moz/addon/install', { path: archive, temporary: true });
+    const web = await trusted.context.newPage(); const email = 'firefox-' + crypto.randomUUID() + '@example.com';
+    await registerWeb(web, email);
+    await driver.goto(popupUrl);
+    await expect.poll(() => driver.script('return !!document.getElementById("email")')).toBe(true);
+    await driver.fill('#email', email); await driver.fill('#account-password', accountPassword); await driver.click('#connect button');
+    await expect.poll(() => driver.script('return document.getElementById("connection").textContent')).toContain('批准此插件设备');
+    await approve(web);
+    await driver.fill('#local-password', localPassword); await driver.fill('#confirm-password', localPassword);
+    await driver.click('#connection form button');
+    await expect.poll(() => driver.script('return document.getElementById("connection").textContent')).toContain('已解锁');
+    console.log('Firefox: device approved and vault unlocked');
+    await driver.goto(origin + '/login');
+    await driver.fill('input[name=username]', 'synthetic-firefox-user'); await driver.fill('input[name=password]', sitePassword); await driver.click('button[type=submit]');
+    await expect.poll(() => driver.script('return !!document.querySelector("iframe[data-zero-vault-prompt]")')).toBe(true);
+    await driver.call('/frame', { id: await driver.call('/element', { using: 'css selector', value: 'iframe[data-zero-vault-prompt]' }) });
+    await expect.poll(() => driver.script('return document.getElementById("save")?.textContent')).toBe('保存');
+    await driver.click('#save'); await driver.call('/frame', { id: null });
+    await expect.poll(() => driver.script('return !!document.querySelector("iframe[data-zero-vault-prompt]")')).toBe(false);
+    console.log('Firefox: site login encrypted and saved');
+    await web.getByRole('button', { name: '立即同步', exact: true }).first().click();
+    await expect.poll(() => web.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('zero-vault.local.synced-timestamps.v1') ?? '{}')).length)).toBe(1);
+    await changeOnWeb(web, sitePassword + '-from-web');
+    console.log('Firefox: Web update synchronized');
+    await web.close();
+    await driver.goto(popupUrl); await expect.poll(() => driver.script('return document.getElementById("connection").textContent')).toContain('已解锁');
+    await driver.call('/execute/async', { script: 'const done=arguments[arguments.length-1];browser.runtime.sendMessage({type:"SYNC_NOW"}).then(done);', args: [] });
+    console.log('Firefox: extension pulled Web update');
+    await driver.script('document.getElementById("generator").open=true;');
+    await driver.fill('#length', '32'); await driver.click('#regenerate');
+    expect(await driver.script('return document.getElementById("generated").value.length')).toBe(32);
+    const popupHandle = await driver.call('/window', undefined, 'GET');
+    const tab = await driver.call('/window/new', { type: 'tab' }); await driver.call('/window', { handle: tab.handle });
+    await driver.goto(origin + '/login');
+    const handles = await driver.call('/window/handles', undefined, 'GET');
+    // Exercise the checked fill command from the trusted extension page.
+    await driver.call('/window', { handle: tab.handle });
+    await driver.call('/window', { handle: popupHandle });
+    const result = await driver.call('/execute/async', { script: 'const done=arguments[arguments.length-1],origin=arguments[0];browser.tabs.query({}).then(async tabs=>{const tab=tabs.find(t=>t.url&&new URL(t.url).origin===origin);if(!tab){done({error:"site_missing"});return;}await browser.tabs.update(tab.id,{active:true});const state=await browser.runtime.sendMessage({type:"GET_POPUP_STATE"});const credential=state.credentials.find(item=>item.matchType==="exact");if(!credential){done({error:"credential_missing",origin:state.origin});return;}const response=await browser.runtime.sendMessage({type:"FILL_MATCHED_CREDENTIAL",credentialId:credential.id});done(response);}).catch(error=>done({error:error.name}));', args: [origin] });
+    expect(result).toMatchObject({ ok: true });
+    console.log('Firefox: exact-origin fill completed');
+    await driver.call('/window', { handle: tab.handle }); expect(await driver.script('return document.querySelector("input[name=password]").value')).toBe(sitePassword + '-from-web');
+    await driver.call('/window', { handle: popupHandle });
+    expect(await driver.call('/execute/async', { script: 'const done=arguments[arguments.length-1];browser.storage.local.get(null).then(data=>done(JSON.stringify(data).includes(arguments[0])));', args: [sitePassword] })).toBe(false);
+    await driver.script('document.getElementById("generator").open=false;');
+    await driver.call('/window/rect', { width: 420, height: 750 });
+    const screenshots = path.join(root, 'artifacts'); mkdirSync(screenshots, { recursive: true });
+    const screenshot = await driver.call('/screenshot', undefined, 'GET');
+    const { writeFileSync } = await import('node:fs'); writeFileSync(path.join(screenshots, 'firefox-popup.png'), Buffer.from(screenshot, 'base64'));
+    expect(handles.length).toBeGreaterThan(0);
+  } finally { await driver.stop(); await trusted.context.close(); }
 });

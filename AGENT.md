@@ -83,6 +83,29 @@ When changing security-sensitive behavior, update all relevant docs and tests:
 - `packages/shared` owns DTOs and validation schemas.
 - `crates/crypto-core` owns KDF and AEAD primitives.
 
+## Mandatory Android Remote Development
+
+All Android/mobile build and verification work runs on the dedicated campus server. This is a hard project boundary, not a convenience:
+
+- Local work is limited to source/document editing, diff review, and the provided SSH/rsync wrappers.
+- Never install or run a local Android SDK, JDK, Gradle, NDK, Android Emulator, Android Rust target, Maestro, `expo run:android`, or mobile typecheck/test command.
+- Connect with `ssh root@campus-server` and use only the project container `zero-vault-android-dev` managed by `infra/android/compose.yml`.
+- Before every mobile compile or test, run the sync wrapper. If sync fails, stop; never verify an older remote copy.
+- Remote source is an ephemeral mirror at `/root/dev/zero-vault`. Local Git remains the source of truth.
+- Remote reports and binaries live outside the mirror at `/root/dev/zero-vault-artifacts`.
+- Never sync `.env*` or `*.env` (except committed `*.env.example` templates), tokens, signing keys, recovery codes, real vaults, production sessions, dependency folders, build output, Cargo targets, or emulator user data.
+- Rsync deletion is allowed only inside `/root/dev/zero-vault`; never reuse that command for another server path.
+- Never run `docker system prune` automatically. Report disk pressure and request approval before any destructive cleanup.
+- Starting with `0.1.1 (versionCode 18)`, every personal release APK that contains formal modifications and is distributed for inspection must increment both Expo `version` (Android `versionName`) and the remote `ZERO_VAULT_ANDROID_VERSION_CODE`. Never overwrite or rebuild a distributed version tuple with different source.
+- Do not edit the same source independently on local and remote. Copy back any intentional remote-generated source before continuing locally.
+- Run Android emulator and instrumented coverage only on the latest Android API supported by the pinned SDK (currently API 36). Do not run API 26, 29, 33, 34, or 35 compatibility matrices unless the user explicitly changes this rule; `minSdk 26` is an install-compatibility declaration, not a test requirement.
+- Android distribution targets the user's own devices through a long-lived personal release keystore and signed APK. Play service accounts, AAB, internal tracks, and store upload are not completion gates.
+- Keep the personal keystore outside Git and rsync, back it up encrypted offline, and reuse it for every upgrade. A debug APK cannot be upgraded in place to the differently signed personal APK; preserve a recovery code or another trusted approving device before uninstalling debug data.
+- Personal-device installation uses the Android system package installer from a transferred APK; never require a local Android toolchain or `adb`.
+
+Canonical commands are `pnpm mobile:remote:*`; see `docs/android-dev/remote-development.md`.
+Root `pnpm test` and `pnpm typecheck` deliberately exclude `@zero-vault/mobile`; use the remote commands for mobile coverage.
+
 ## Desktop Development Documentation
 
 macOS desktop development specs are in `docs/mac-dev/`:
@@ -109,6 +132,8 @@ macOS desktop development specs are in `docs/mac-dev/`:
 - Add comments only where they clarify a security boundary or non-obvious decision.
 
 ## Development Checks
+
+The commands below are the generic non-Android checks. For any Android/mobile change, do not run them locally as a substitute for coverage; use the `pnpm mobile:remote:*` sequence above, which also runs the required shared/Worker/Web/Rust regressions inside the campus-server container.
 
 Run before handing off changes:
 

@@ -1,0 +1,16 @@
+appId: com.zerovault.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn: "http://"
+- inputText: "127.0.0.1:8081"
+- hideKeyboard
+- tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+- tapOn: "Continue"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "创建新账户"
+    timeout: 30000

@@ -1,0 +1,102 @@
+apply plugin: 'com.android.library'
+
+group = 'com.zerovault.mobile'
+version = '0.1.0'
+
+def expoModulesCorePlugin = new File(project(':expo-modules-core').projectDir.absolutePath, 'ExpoModulesCorePlugin.gradle')
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+// Kapt must be applied after the Kotlin Android plugin installed above.
+apply plugin: 'kotlin-kapt'
+useCoreDependencies()
+useDefaultAndroidSdkVersions()
+
+android {
+  namespace 'expo.modules.zerovault'
+
+  defaultConfig {
+    minSdk 26
+    versionCode 1
+    versionName '0.1.0'
+    ndk {
+      abiFilters 'arm64-v8a', 'x86_64'
+    }
+    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    consumerProguardFiles 'consumer-rules.pro'
+  }
+
+  sourceSets {
+    main {
+      java.srcDir "$buildDir/generated/zero-vault/kotlin"
+      jniLibs.srcDir "$buildDir/generated/zero-vault/jniLibs"
+    }
+    androidTest.assets.srcDir "$projectDir/schemas"
+  }
+}
+
+kapt {
+  arguments {
+    arg('room.schemaLocation', "$projectDir/schemas")
+  }
+}
+
+dependencies {
+  def roomVersion = '2.8.4'
+  implementation 'androidx.autofill:autofill:1.3.0'
+  implementation 'androidx.biometric:biometric:1.1.0'
+  implementation 'androidx.credentials:credentials:1.6.0'
+  implementation 'androidx.fragment:fragment-ktx:1.8.9'
+  implementation 'androidx.lifecycle:lifecycle-process:2.9.1'
+  implementation "androidx.room:room-runtime:$roomVersion"
+  implementation "androidx.room:room-ktx:$roomVersion"
+  implementation 'net.java.dev.jna:jna:5.18.1@aar'
+  kapt "androidx.room:room-compiler:$roomVersion"
+  testImplementation 'junit:junit:4.13.2'
+  androidTestImplementation 'androidx.test:core:1.7.0'
+  androidTestImplementation 'androidx.test.ext:junit:1.3.0'
+  androidTestImplementation 'androidx.test:runner:1.7.0'
+  androidTestImplementation "androidx.room:room-testing:$roomVersion"
+}
+
+def cryptoCoreDir = file("$projectDir/../../../../../crates/crypto-core")
+def generatedRustDir = file("$buildDir/generated/zero-vault")
+def generatedJniDir = file("$generatedRustDir/jniLibs")
+def generatedKotlinDir = file("$generatedRustDir/kotlin")
+def cargoTargetDir = System.getenv('CARGO_TARGET_DIR') ?: file("$buildDir/rust-target").absolutePath
+
+tasks.register('buildZeroVaultRust', Exec) {
+  workingDir cryptoCoreDir
+  inputs.files(fileTree(cryptoCoreDir) {
+    include 'Cargo.toml', 'Cargo.lock', 'src/**'
+  })
+  outputs.files(
+    file("$generatedJniDir/arm64-v8a/libcrypto_core.so"),
+    file("$generatedJniDir/x86_64/libcrypto_core.so"),
+  )
+  environment 'CARGO_TARGET_DIR', cargoTargetDir
+  // NDK r27 does not opt Rust cdylibs into Android's 16 KiB page-size ABI by
+  // default. Keep the flags scoped to this Android build; the host UniFFI
+  // generator below must not inherit Android linker arguments.
+  environment 'RUSTFLAGS', '-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384'
+  environment 'CARGO_PROFILE_RELEASE_DEBUG', '1'
+  environment 'CARGO_PROFILE_RELEASE_STRIP', 'none'
+  doFirst { generatedJniDir.mkdirs() }
+  commandLine 'cargo', 'ndk', '-t', 'arm64-v8a', '-t', 'x86_64', '-o', generatedJniDir,
+    'build', '--release', '--locked', '--features', 'uniffi'
+}
+
+tasks.register('generateZeroVaultBindings', Exec) {
+  dependsOn 'buildZeroVaultRust'
+  workingDir cryptoCoreDir
+  inputs.file(file("$generatedJniDir/arm64-v8a/libcrypto_core.so"))
+  outputs.file(file("$generatedKotlinDir/uniffi/crypto_core/crypto_core.kt"))
+  environment 'CARGO_TARGET_DIR', cargoTargetDir
+  doFirst { generatedKotlinDir.mkdirs() }
+  commandLine 'cargo', 'run', '--locked', '--features', 'uniffi-cli', '--bin', 'uniffi-bindgen', '--',
+    'generate', '--library', file("$generatedJniDir/arm64-v8a/libcrypto_core.so"),
+    '--language', 'kotlin', '--out-dir', generatedKotlinDir
+}
+
+tasks.matching { it.name == 'preBuild' }.configureEach {
+  dependsOn 'generateZeroVaultBindings'
+}

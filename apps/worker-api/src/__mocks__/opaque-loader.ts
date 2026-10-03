@@ -9,7 +9,7 @@ export interface OpaqueServer {
   }): { registrationResponse: string };
   startLogin(params: {
     serverSetup: string;
-    registrationRecord: string;
+    registrationRecord: string | null | undefined;
     startLoginRequest: string;
     userIdentifier: string;
     identifiers: { client: string; server: string };
@@ -27,9 +27,9 @@ const mockOpaqueServer: OpaqueServer = {
   createRegistrationResponse: (params) => ({
     registrationResponse: `mock-registration-response-for-${params.userIdentifier}`,
   }),
-  startLogin: (params) => ({
-    serverLoginState: `mock-server-login-state-${Date.now()}`,
-    loginResponse: `mock-login-response-for-${params.userIdentifier}`,
+  startLogin: () => ({
+    serverLoginState: "bW9jay1zZXJ2ZXItbG9naW4tc3RhdGU",
+    loginResponse: "bW9jay1sb2dpbi1yZXNwb25zZQ",
   }),
   finishLogin: () => {},
   getPublicKey: (data) => `mock-public-key-for-${data}`,

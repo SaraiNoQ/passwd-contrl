@@ -1,0 +1,6 @@
+*
+!infra/
+!infra/android/
+!infra/android/Dockerfile
+!scripts/
+!scripts/mobile-sign-play-aab.sh

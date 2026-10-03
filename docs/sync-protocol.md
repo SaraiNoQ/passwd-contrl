@@ -1,6 +1,22 @@
 # Sync Protocol
 
-Last updated: 2026-06-04
+## Browser extension client (2026-10-03)
+
+Web and the standalone extension reuse the same `packages/browser-vault` item encryption, search tokens, sync plan and receipt/cursor engine. Extension storage commits encrypted snapshot and metadata in one storage.local record before cursor advancement. Exact pending encrypted mutations survive offline failures and response loss. Push conflicts suspend the item until the user chooses local, remote or a copy; cloud deletions remove the local baseline. The extension synchronizes on unlock/save, on manual request and every minute while unlocked. Device-bound bearer auth plus CSRF use existing Worker schemas; `/auth/extension/login/finish` aliases the same OPAQUE/device validation as native bearer login. No sync schema or database migration is added. Web–extension browser tests exercise data changes in both directions; Android native acceptance remains separately constrained by the campus-server workflow.
+
+Last updated: 2026-10-03
+
+## Web / Android interoperability
+
+Rust/WASM Web vaults use Android's strict `item_level_v1` push and cursor-based pull protocol. Web pushes local edits/deletions before pulling, persists exact ciphertext/mutation IDs before transport, validates complete receipts, batches at 100 operations, and advances a cursor only after persisting its encrypted snapshot. Synced item timestamps prevent uploads of unchanged records. Remote deletions remove data and its sync baseline, preventing resurrection.
+
+Pending work and unresolved conflicts are preserved while independent changes continue. Keep-local uses the latest item/tombstone revision; accept-remote applies the item or deletion; create-copy preserves all fields and accepts the original remote state; skip suspends the conflict. Rust vaults never silently fall back to whole-vault overwrite on network/protocol failure. Legacy WebCrypto remains a compatibility path and needs migration before Android use.
+
+Web defaults to 60-second polling and schedules sync after unlock/data changes and reconnect. Mobile retains foreground/unlock sync and its durable Room queue. Shared keys come from trusted-device approval rather than being independently recreated from the same password.
+
+Web tests cover shared-key unlock, bidirectional edits/deletions, lost-response replay and conflicts. Worker tests cover device-bound browser cookies, pending restrictions and revocation. Real browser E2E covers approval/key sharing and changes in both directions. Native Android acceptance still requires campus-server and physical-device checks; browser evidence does not replace them.
+
+> Android now has Room queue/conflict entities, native bridge operations, Worker cursor/mutation routes and RN sync/conflict code. The current snapshot has not passed remote compile, offline restart, replay or multi-device conflict E2E; this remains a partial implementation.
 
 ## Overview
 
@@ -76,6 +92,10 @@ Each item is encrypted independently:
 ## Server Boundary
 
 The server never sees plaintext. It stores:
+
+## Android Offline Queue
+
+In the Android implementation, Room is the ciphertext/revision source of truth. Local-write/enqueue, pull, ack and conflict transactions have native implementations; a historical 2026-07-16 snapshot produced remote evidence for generated v2 schema JSON and the API 33–36 transaction/migration matrix. Current and future automated Android validation runs only on API 36, while `minSdk 26` remains an install-compatibility declaration. Conflicts retain encrypted local and remote references and use keep-local, accept-remote, create-copy or skip decisions. Mobile OPAQUE finish returns a device-bound bearer session; Web cookie behavior remains unchanged. Full offline guarantees remain open until the current APK survives force-stop/restart and replays idempotently in multi-device business E2E.
 
 - Ciphertext envelopes (whole-envelope or per-item).
 - Revision numbers and item IDs.

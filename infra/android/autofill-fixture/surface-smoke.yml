@@ -1,0 +1,13 @@
+appId: com.zerovault.autofillfixture
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: fixture_username
+- assertVisible:
+    id: fixture_password
+- assertVisible:
+    id: fixture_autofill_button
+- assertVisible:
+    id: fixture_credential_button
+- assertVisible: "No credential received"

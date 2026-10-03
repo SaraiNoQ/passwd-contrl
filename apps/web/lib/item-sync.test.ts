@@ -49,7 +49,9 @@ describe("item-level sync plan", () => {
         withItem,
         "user-id-123",
         {},
-        new Set()
+        new Set(),
+        0,
+        {}
       );
 
       expect(plan.protocol).toBe("item_level_v1");
@@ -80,7 +82,10 @@ describe("item-level sync plan", () => {
       withItem,
       "user-id",
       { [itemId]: 5 },
-      new Set()
+      new Set(),
+      0,
+      {},
+      { [itemId]: withItem.snapshot.items[0]!.updatedAt }
     );
 
     expect(itemInfos[0]!.status).toBe("synced");
@@ -103,7 +108,8 @@ describe("item-level sync plan", () => {
       "user-id",
       { [itemId]: 1 },
       new Set(),
-      1
+      1,
+      {}
     );
 
     expect(plan.baseRevision).toBe(1);
@@ -124,11 +130,39 @@ describe("item-level sync plan", () => {
       withItem,
       "user-id",
       {},
-      new Set([itemId])
+      new Set([itemId]),
+      0,
+      {}
     );
 
     expect(plan.upserts).toHaveLength(0);
     expect(itemInfos[0]!.status).toBe("conflict");
+  });
+
+  it("reuses a caller-persisted mutation id after a lost response", async () => {
+    const created = await createEmptyLocalVault("idempotency-test-password", "webcrypto-mvp");
+    const withItem = addCredential(created.unlocked, {
+      title: "Retry Item",
+      origin: "https://retry.example.com",
+      username: "user",
+      password: "pass",
+      notes: ""
+    });
+    const first = await buildItemLevelSyncPlan(withItem, "user-id", {}, new Set(), 0, {});
+    const second = await buildItemLevelSyncPlan(
+      withItem,
+      "user-id",
+      {},
+      new Set(),
+      0,
+      first.pendingMutations
+    );
+
+    expect(second.plan.upserts[0]!.clientMutationId).toBe(
+      first.plan.upserts[0]!.clientMutationId
+    );
+    expect(second.plan.upserts[0]!.updatedAt).toBe(first.plan.upserts[0]!.updatedAt);
+    expect(second.plan.upserts[0]).toEqual(first.plan.upserts[0]);
   });
 });
 

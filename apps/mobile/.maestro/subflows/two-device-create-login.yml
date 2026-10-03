@@ -1,0 +1,32 @@
+appId: com.zerovault.mobile
+---
+- tapOn:
+    id: "vault-add-item"
+- tapOn:
+    id: "editor-title"
+- inputText: ${ITEM_TITLE}
+- tapOn:
+    id: "editor-username"
+- inputText: ${ITEM_USERNAME}
+- scrollUntilVisible:
+    element:
+      id: "editor-password"
+    direction: DOWN
+- tapOn:
+    id: "editor-password"
+- inputText: "TwoDeviceBaseline!36"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible: ${ITEM_USERNAME}
+    timeout: 15000
+- pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 15000

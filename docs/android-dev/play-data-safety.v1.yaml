@@ -1,0 +1,193 @@
+schema_version: 1
+document_status: source_inventory_draft
+last_updated: "2026-07-26"
+scope:
+  product: Zero Vault
+  android_package: com.zerovault.mobile
+  purpose: >
+    Versioned repository evidence for preparing the Google Play Data safety
+    form. This file is not a submitted form, privacy policy, or legal claim.
+
+evidence:
+  - apps/mobile/package.json
+  - apps/mobile/modules/zero-vault-native/android/src/main/AndroidManifest.xml
+  - apps/mobile/src/lib/api/mobile-api-client.ts
+  - apps/mobile/src/lib/sync/mobile-sync-service.ts
+  - apps/mobile/modules/zero-vault-native/android/src/main/java/expo/modules/zerovault/VaultRepository.kt
+  - apps/worker-api/src/index.ts
+  - apps/worker-api/src/routes/auth.ts
+  - apps/worker-api/src/routes/devices.ts
+  - apps/worker-api/src/routes/exports.ts
+  - apps/worker-api/src/routes/vault.ts
+  - apps/worker-api/src/store/d1-store.ts
+  - docs/android-dev/data-auth-sync.md
+  - docs/android-dev/security.md
+
+data_inventory:
+  - id: account_email
+    play_category_candidate: personal_info_email_address
+    repository_fact: >
+      The account email is sent to the service for account registration,
+      authentication lookup, recovery, and account management.
+    server_visibility: plaintext
+    purposes_observed_in_source:
+      - app_functionality
+      - account_management
+    sharing_with_third_parties: not_evidenced_in_repository
+    retention: open_question
+    deletion_path:
+      in_app: implemented
+      public_web_source: /account-deletion
+      public_deployment: not_verified
+
+  - id: encrypted_vault_content
+    play_category_candidate: app_activity_other_user_generated_content
+    repository_fact: >
+      Login items, secure notes, cards, Android associations, and sync
+      metadata are sent to the service as crypto-core ciphertext envelopes.
+      Item plaintext is intended to remain in short-lived unlocked client
+      memory.
+    server_visibility: ciphertext_and_sync_metadata
+    purposes_observed_in_source:
+      - app_functionality
+      - cloud_sync
+    sharing_with_third_parties: not_evidenced_in_repository
+    retention: open_question
+    deletion_path:
+      in_app: implemented
+      public_web_source: /account-deletion
+      public_deployment: not_verified
+
+  - id: encrypted_payment_card_content
+    play_category_candidate: financial_info_payment_info
+    repository_fact: >
+      Cardholder name, card number, expiration, security code, brand, title,
+      folder, and custom fields may be entered by the user. They are encrypted
+      as vault-item content before sync; the service receives ciphertext plus
+      item-level sync metadata.
+    server_visibility: ciphertext_and_sync_metadata
+    purposes_observed_in_source:
+      - app_functionality
+      - cloud_sync
+    collection_requirement: optional_user_content
+    sharing_with_third_parties: not_evidenced_in_repository
+    retention: open_question
+
+  - id: authentication_material
+    play_category_candidate: app_info_and_performance_other
+    repository_fact: >
+      The service stores an OPAQUE registration record and issues revocable
+      sessions. The master password participates in client-side OPAQUE
+      computation and is not intentionally sent to the service as plaintext.
+    server_visibility: opaque_record_and_session_metadata
+    purposes_observed_in_source:
+      - app_functionality
+      - account_security
+    sharing_with_third_parties: not_evidenced_in_repository
+    retention: open_question
+
+  - id: app_generated_device_identity
+    play_category_candidate: device_or_other_identifiers
+    repository_fact: >
+      Device registration sends an app-generated device id, public key,
+      fingerprint, and device label to support approval, revocation, and
+      encrypted vault-key distribution.
+    server_visibility: plaintext_metadata_and_public_key
+    purposes_observed_in_source:
+      - app_functionality
+      - account_security
+    sharing_with_third_parties: not_evidenced_in_repository
+    retention: open_question
+    hardware_advertising_id_collected: false_in_first_party_source
+
+  - id: network_and_coarse_device_location_metadata
+    play_category_candidate:
+      - device_or_other_identifiers
+      - approximate_location
+    repository_fact: >
+      Device registration and activity endpoints read the connecting IP and
+      Cloudflare country/city/region/colo metadata. D1 device records retain
+      the last-seen IP and a coarse display location for device security.
+    server_visibility: plaintext_metadata
+    purposes_observed_in_source:
+      - account_security
+      - fraud_prevention_security_compliance
+    collection_requirement: automatic_when_using_network_features
+    sharing_with_third_parties: open_question_cloudflare_role
+    retention: open_question
+
+  - id: vault_and_device_activity_metadata
+    play_category_candidate: app_activity_app_interactions
+    repository_fact: >
+      The service processes item revisions, sync cursors, tombstones,
+      conflicts, device approval/revocation, and encrypted-backup metadata
+      such as identifier, size, algorithm, and timestamps.
+    server_visibility: plaintext_metadata_without_vault_item_plaintext
+    purposes_observed_in_source:
+      - app_functionality
+      - account_security
+    sharing_with_third_parties: not_evidenced_in_repository
+    retention: open_question
+
+  - id: request_diagnostics
+    play_category_candidate: app_info_and_performance_diagnostics
+    repository_fact: >
+      Worker source logs request method, path, response status, and duration,
+      and logs selected server errors. It does not intentionally log request
+      bodies. Production log destinations and retention are not defined by
+      repository source.
+    server_visibility: operational_logs
+    purposes_observed_in_source:
+      - app_functionality
+      - account_security
+    collection_status: open_question_production_configuration
+    sharing_with_third_parties: open_question_cloudflare_role
+    retention: open_question
+
+  - id: local_backup_file
+    play_category_candidate: user_files
+    repository_fact: >
+      Backup import and export use a user-selected file. Repository source does
+      not show the app uploading that selected backup file as a separate
+      analytics or third-party storage event.
+    collection_status: local_user_directed_flow
+    play_form_treatment: open_question
+
+source_negative_findings:
+  - >
+    The first-party Android manifest requests USE_BIOMETRIC and declares
+    Autofill/Credential Provider services; it does not request location,
+    contacts, camera, microphone, or broad package visibility permissions.
+  - >
+    The mobile package manifest has no explicit advertising, analytics,
+    Firebase, or crash-reporting SDK dependency. Transitive dependency and
+    final merged-manifest/SBOM review remains required for each release.
+  - >
+    No first-party source path intentionally records master passwords,
+    recovery codes, vault keys, bearer tokens, or decrypted vault items in
+    logs; release evidence must still verify this rule.
+
+security_practices_from_source:
+  encrypted_in_transit:
+    intended: true
+    production_endpoint_verification: open_question
+  end_to_end_encryption:
+    vault_item_content: intended
+    account_email_and_device_metadata: false
+  deletion_request:
+    requires_recent_authentication: true
+    local_cleanup_only_after_server_success: true
+  independently_reviewed_security:
+    status: not_claimed
+
+open_questions:
+  - Confirm the production legal publisher name, privacy contact, and support contact.
+  - Define and approve retention periods for accounts, ciphertext, backups, sessions, audit records, and deletion tombstones.
+  - Identify every production infrastructure provider and decide whether each transfer is a service-provider disclosure or Play "sharing".
+  - Audit the final AAB SBOM, merged manifest, network destinations, and runtime SDK behavior before completing the form.
+  - Confirm whether cloud sync is mandatory or optional for the distributed build and map each data type to Play required/optional collection.
+  - Confirm production TLS endpoints and whether users can request deletion without installing the app.
+  - Deploy and smoke-test the public account-deletion URL, then enter the exact HTTPS URL in Play Console.
+  - Reconcile Play taxonomy for encrypted vault content, OPAQUE records, device labels, diagnostics, and user-selected backup files.
+  - Confirm whether operational security logs collect IP addresses, user agents, coarse location inference, or crash diagnostics outside this repository.
+  - Complete the Play form in Console and obtain publisher/legal review; do not treat this YAML as that approval.

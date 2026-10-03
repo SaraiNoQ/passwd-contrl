@@ -1,6 +1,12 @@
 # Threat Model
 
-Last updated: 2026-06-04
+## Extension capture and independent sessions (2026-10-03)
+
+Treat content-script messages and captured form values as untrusted. Privileged vault operations require the extension's sender ID and exact top-level popup URL; save-prompt operations additionally bind to the original tab, HTTPS origin and expiring candidate ID. UI strings use textContent rather than interpolated vault HTML. Website messages cannot unlock, export, fill or replace a session. Similar-origin filling is blocked without an override, and visibility/navigation are rechecked before explicit filling. Capturing a submission cannot prove login success; a separate user save decision is required. Parent websites can remove or reposition an embedded prompt, so its placement is not a trusted browser security indicator. Users must verify the displayed original origin and account before saving. Persistent identity and vault contents are encrypted; offline data already cached on a revoked device cannot be remotely erased. Online authorization failure clears volatile access and blocks further sync. No claim is made to prevent malware or another privileged extension from reading an already-unlocked browser process.
+
+Last updated: 2026-10-03
+
+> Android mitigations in this document are required controls. Unless explicitly listed as verified, they must not be read as completed implementation.
 
 ## In Scope
 
@@ -14,6 +20,7 @@ Last updated: 2026-06-04
 - Recovery code compromise.
 - Device trust compromise.
 - Extension permission escalation.
+- Malicious Android Autofill/Credential Provider requests, package impersonation, signing-certificate changes, backup leakage, screenshots, clipboard history, process death, and Keystore invalidation.
 
 ## Mitigations
 
@@ -58,6 +65,16 @@ Last updated: 2026-06-04
 - Extension declares `permissions: ["activeTab", "scripting", "storage"]` and `host_permissions: ["https://*/*"]` in `manifest.json`. The `host_permissions` grant is required for the content script to run on all HTTPS pages, but it is broader than a per-site approach. Chrome's `activeTab` permission limits API access until the user interacts with the extension.
 - Credentials cached in session storage only while Web Vault is unlocked.
 - Locking Web Vault clears extension session cache.
+
+### Android
+
+A historical 2026-07-16 snapshot produced remote evidence for native OPAQUE interoperability, Room v2 schema/migration and API 33–36 native security tests. Current and future automated Android validation runs only on API 36, while `minSdk 26` remains an install-compatibility declaration. Remaining gaps include the personal-release browser allowlist and real system-fill business validation, plus Recovery v2 trust rebuilding across total device loss.
+
+- Match native apps by package plus signing-certificate SHA-256 and Web forms by normalized HTTPS origin.
+- Keep keys and OPAQUE state behind Kotlin/Rust boundaries; JS receives only an expiring session handle.
+- Store ciphertext only in Room; exclude database, wrapped keys, sessions, caches, and logs from Android backup.
+- Lock on background/timeout/device lock; use `FLAG_SECURE`, sensitive clipboard metadata, and fail closed on Keystore invalidation.
+- Autofill and Credential Provider use native `VaultRepository` and remain secure when the RN process is absent.
 
 ## Threats
 
@@ -152,9 +169,10 @@ When deploying to Cloudflare Workers, D1, and R2, the following additional threa
 ## Open Risks
 
 - OPAQUE is implemented with a TypeScript package; this should be reviewed before production release.
-- New Web Vaults use generated Rust `crypto-core` WASM. Legacy WebCrypto vaults remain compatible and are not automatically migrated.
+- New Web Vaults use generated Rust `crypto-core` WASM. Legacy WebCrypto vaults are not automatically migrated; an explicit rollback-safe Web migration is an Android production prerequisite because Android rejects the legacy format.
 - API persistence uses D1 (SQLite) for all storage.
 - Extension integrates with Web Vault unlock state through the session bridge, but `NEXT_PUBLIC_EXTENSION_ID` is still manually configured from the unpacked Chrome/Edge extension id.
 - Browser extension now has an MVP picker/fill path, but browser-specific autofill restrictions still require manual compatibility testing in Chrome/Edge.
-- Android, iOS, and macOS clients have not started, so mobile autofill and shared-client crypto behavior remain unimplemented.
-- Item-level sync backend (push/pull/conflict detection) is implemented. Conflict resolution UI and device trust ECDH key distribution in the Web Vault are not yet complete.
+- Android implementation is in progress but not production-ready; code presence must not be confused with remote APK/API-matrix evidence. iOS remains out of scope and the desktop client is tracked separately.
+- Recovery v2 now binds a fresh approved device, new OPAQUE record, new recovery material and old recovery authorization in one atomic epoch rotation. Until its remote replay/expiry/crash and total-device-loss E2E pass, this remains an unverified mitigation rather than a supported production promise.
+- Rust Web vaults use cursor-based item sync, explicit conflict resolution and trusted-device key distribution. Joining browsers use device-bound HttpOnly cookies; pending/revoked devices cannot sync. Legacy unbound cookies remain compatible with existing Web accounts. Native acceptance still requires campus-server and physical-device checks.

@@ -1,0 +1,72 @@
+# Rename to autofill.yml only in a dedicated API 36 fixture run. The runner must
+# first install a release-signed browser/test-form APK, enable Zero Vault as the
+# Autofill provider and build Zero Vault with that exact package/cert allowlist.
+appId: com.zerovault.autofillfixture
+name: Autofill exact-target fill and locked cancellation
+tags:
+  - autofill
+  - external-fixture
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: "fixture-username"
+- extendedWaitUntil:
+    visible: "Maestro Login"
+    timeout: 15000
+- tapOn: "Maestro Login"
+- assertVisible:
+    id: "fixture-username"
+- assertVisible:
+    id: "fixture-password"
+- tapOn:
+    id: "fixture-submit"
+- assertVisible: "filled:after@example.invalid"
+
+# A non-associated target must never receive a dataset.
+- tapOn:
+    id: "fixture-untrusted-target"
+- tapOn:
+    id: "fixture-username"
+- assertNotVisible: "Maestro Login"
+
+# A visually similar origin and a package whose signing certificate changed
+# are separate deny cases. Neither may receive a dataset or partial fill.
+- tapOn:
+    id: "fixture-similar-origin-target"
+- tapOn:
+    id: "fixture-username"
+- assertNotVisible: "Maestro Login"
+- assertVisible: "username:"
+- assertVisible: "password:"
+- tapOn:
+    id: "fixture-signature-changed-target"
+- tapOn:
+    id: "fixture-username"
+- assertNotVisible: "Maestro Login"
+- assertVisible: "username:"
+- assertVisible: "password:"
+
+# User cancellation from a locked vault leaves both fields empty.
+- tapOn:
+    id: "fixture-lock-vault"
+- tapOn:
+    id: "fixture-trusted-target"
+- tapOn:
+    id: "fixture-username"
+- assertVisible: "解锁 Zero Vault"
+- back
+- assertVisible: "username:"
+- assertVisible: "password:"
+
+# Cancelling an unlocked chooser is also non-mutating.
+- tapOn:
+    id: "fixture-unlock-vault"
+- tapOn:
+    id: "fixture-trusted-target"
+- tapOn:
+    id: "fixture-username"
+- assertVisible: "Maestro Login"
+- back
+- assertVisible: "username:"
+- assertVisible: "password:"

@@ -45,7 +45,7 @@ const createMockIndexedDB = (): any => {
         transaction: (storeName: string, _mode: string) => {
           const store = stores.get(storeName) ?? new Map();
           stores.set(storeName, store);
-          return {
+          const transaction: any = {
             objectStore: () => ({
               put: (value: unknown, key: string) => {
                 store.set(key, value);
@@ -54,7 +54,10 @@ const createMockIndexedDB = (): any => {
               get: (key: string) => makeRequest(store.get(key))
             })
           };
+          setTimeout(() => transaction.oncomplete?.(), 1);
+          return transaction;
         }
+        , close: vi.fn()
       };
 
       const req: any = {
@@ -215,6 +218,56 @@ describe("device-trust ECDH keypair", () => {
 
     const result = await encryptVaultKeyForDevice(devicePk, vaultKey);
     expect(result).toBe(toBase64Url(mockEncrypted));
+  });
+
+  it("round-trips the legacy Rust blob through the structured API packet", async () => {
+    const { toBase64Url, fromBase64Url } = await import("./crypto-utils");
+    const {
+      createDeviceVaultKeyPacket,
+      deviceVaultKeyPacketToBlob
+    } = await import("./device-trust");
+    const deviceId = "77777777-7777-4777-8777-777777777777";
+    const recipientPublicKey = toBase64Url(new Uint8Array(32).fill(7));
+    const rawBlob = Uint8Array.from(Array.from({ length: 104 }, (_, index) => index));
+    const encodedBlob = toBase64Url(rawBlob);
+
+    const packet = createDeviceVaultKeyPacket(deviceId, recipientPublicKey, encodedBlob);
+    expect(packet).toMatchObject({
+      version: 1,
+      recipientDeviceId: deviceId,
+      recipientPublicKey,
+      encryptedVaultKey: { alg: "XCHACHA20_POLY1305" }
+    });
+    expect(fromBase64Url(packet.encryptedVaultKey.nonce)).toHaveLength(24);
+    expect(fromBase64Url(packet.ephemeralPublicKey)).toHaveLength(32);
+    expect(deviceVaultKeyPacketToBlob(packet)).toBe(encodedBlob);
+  });
+
+  it("sends and reads structured device key packets without changing the crypto blob", async () => {
+    const { toBase64Url } = await import("./crypto-utils");
+    const {
+      approveDevice,
+      createDeviceVaultKeyPacket,
+      fetchDeviceVaultKey
+    } = await import("./device-trust");
+    const deviceId = "77777777-7777-4777-8777-777777777777";
+    const recipientPublicKey = toBase64Url(new Uint8Array(32).fill(9));
+    const encodedBlob = toBase64Url(
+      Uint8Array.from(Array.from({ length: 104 }, (_, index) => 255 - index))
+    );
+    const packet = createDeviceVaultKeyPacket(deviceId, recipientPublicKey, encodedBlob);
+    const fetchSpy = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ encryptedVaultKeyPacket: packet })
+      });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    expect(await approveDevice("csrf", deviceId, packet)).toEqual({ ok: true });
+    const approveBody = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
+    expect(approveBody).toEqual({ encryptedVaultKeyPacket: packet });
+    expect(await fetchDeviceVaultKey("csrf", deviceId)).toBe(encodedBlob);
   });
 
   it("decryptVaultKeyOnDevice reads private key from IndexedDB and calls WASM", async () => {

@@ -1,0 +1,39 @@
+appId: com.zerovault.mobile
+name: Two-device B session is invalidated after revocation
+tags:
+  - api36
+  - two-device
+  - device-revocation
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "(unlock-password|vault-sync|login-email)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: "unlock-password"
+    commands:
+      - tapOn:
+          id: "unlock-password"
+      - inputText: ${E2E_PASSWORD}
+      - hideKeyboard
+      - tapOn:
+          id: "unlock-submit"
+- extendedWaitUntil:
+    visible:
+      id: "(vault-sync|login-email)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: "vault-sync"
+    commands:
+      - tapOn:
+          id: "vault-sync"
+- extendedWaitUntil:
+    visible:
+      id: "login-email"
+    timeout: 30000

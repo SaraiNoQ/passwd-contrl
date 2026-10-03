@@ -2,13 +2,26 @@ import type { CiphertextEnvelope, ItemLevelSyncResponse, SyncPushRequest, VaultI
 import type { EncryptedLocalVault, UnlockedVault } from "./local-vault";
 import { decryptItemFromSync } from "./local-vault";
 import { decodeJsonFromEnvelope, encodeJsonForEnvelope } from "./api-client";
-import { buildItemLevelSyncPlan, extractConflicts, type ItemSyncInfo } from "./item-sync";
+import {
+  buildItemLevelSyncPlan,
+  extractConflicts,
+  type ItemSyncInfo,
+  type PendingItemMutation
+} from "./item-sync";
 
 const LOCAL_VAULT_SYNC_ITEM_ID = "00000000-0000-4000-8000-000000000001";
 const LOCAL_SYNC_REVISION_KEY = "zero-vault.local.sync-revision.v1";
 const LOCAL_ITEM_REVISIONS_KEY = "zero-vault.local.item-revisions.v1";
 const LOCAL_LAST_SYNCED_AT_KEY = "zero-vault.local.last-synced-at.v1";
 const LOCAL_CONFLICT_IDS_KEY = "zero-vault.local.conflict-ids.v1";
+const LOCAL_PENDING_MUTATIONS_KEY = "zero-vault.local.pending-item-mutations.v1";
+const LOCAL_SYNCED_TIMESTAMPS_KEY = "zero-vault.local.synced-timestamps.v1";
+const LOCAL_CURSOR_KEY = "zero-vault.local.sync-cursor.v1";
+
+export const loadSyncedTimestamps = (): Record<string, string> => JSON.parse(window.localStorage.getItem(LOCAL_SYNCED_TIMESTAMPS_KEY) ?? "{}");
+export const saveSyncedTimestamps = (timestamps: Record<string, string>): void => window.localStorage.setItem(LOCAL_SYNCED_TIMESTAMPS_KEY, JSON.stringify(timestamps));
+export const loadSyncCursor = (): number => Number(window.localStorage.getItem(LOCAL_CURSOR_KEY) ?? 0);
+export const saveSyncCursor = (cursor: number): void => window.localStorage.setItem(LOCAL_CURSOR_KEY, String(cursor));
 
 // ---------------------------------------------------------------------------
 // Legacy whole-envelope helpers (kept as fallback)
@@ -78,17 +91,35 @@ export const saveItemRevisionMap = (map: Record<string, number>) => {
 
 export const updateItemRevisionMap = (
   current: Record<string, number>,
-  applied: { upsertedItemIds: string[]; deletedItemIds: string[] },
+  applied: ItemLevelSyncResponse["applied"],
   serverRevision: number
 ): Record<string, number> => {
   const next = { ...current };
   for (const id of applied.upsertedItemIds) {
-    next[id] = serverRevision;
+    const receipt = applied.mutationReceipts?.find(
+      (candidate) => candidate.operation === "upsert" && candidate.itemId === id
+    );
+    next[id] = receipt?.appliedItemRevision ?? serverRevision;
   }
   for (const id of applied.deletedItemIds) {
     delete next[id];
   }
   return next;
+};
+
+export const loadPendingItemMutations = (): Record<string, PendingItemMutation> => {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_PENDING_MUTATIONS_KEY);
+    return raw ? JSON.parse(raw) as Record<string, PendingItemMutation> : {};
+  } catch {
+    return {};
+  }
+};
+
+export const savePendingItemMutations = (
+  mutations: Record<string, PendingItemMutation>
+): void => {
+  window.localStorage.setItem(LOCAL_PENDING_MUTATIONS_KEY, JSON.stringify(mutations));
 };
 
 // ---------------------------------------------------------------------------
@@ -186,9 +217,31 @@ export const performItemLevelSync = async (
 ): Promise<SyncResult> => {
   const revisionMap = loadItemRevisionMap();
   const conflictIds = loadConflictIds();
-  const { plan, itemInfos } = await buildItemLevelSyncPlan(vault, userId, revisionMap, conflictIds, loadLocalServerRevision());
+  const built = await buildItemLevelSyncPlan(
+    vault,
+    userId,
+    revisionMap,
+    conflictIds,
+    loadLocalServerRevision(),
+    loadPendingItemMutations()
+  );
+  const { plan, itemInfos } = built;
+  // Persist before the network call so a timeout/restart reuses the same
+  // mutation ids. Only encrypted payloads travel in the request; this local
+  // record contains ids and timestamps, never vault plaintext.
+  savePendingItemMutations(built.pendingMutations);
   const response = await pushItemLevel(plan);
   const conflicts = response.conflicts ?? [];
+  const updatedMap = updateItemRevisionMap(revisionMap, response.applied, response.serverRevision);
+  saveItemRevisionMap(updatedMap);
+  const remainingMutations = { ...built.pendingMutations };
+  for (const itemId of [
+    ...response.applied.upsertedItemIds,
+    ...response.applied.deletedItemIds
+  ]) {
+    delete remainingMutations[itemId];
+  }
+  savePendingItemMutations(remainingMutations);
 
   if (conflicts.length > 0) {
     const newConflictIds = new Set(conflicts.map((c) => c.itemId));
@@ -201,21 +254,23 @@ export const performItemLevelSync = async (
       response,
       mergedVault: vault,
       itemInfos: itemInfos.map((info) =>
-        newConflictIds.has(info.itemId) ? { ...info, status: "conflict" as const } : info
+        newConflictIds.has(info.itemId)
+          ? { ...info, status: "conflict" as const }
+          : response.applied.upsertedItemIds.includes(info.itemId)
+            ? { ...info, status: "synced" as const, revision: updatedMap[info.itemId] }
+            : info
       ),
       hasConflicts: true
     };
   }
 
-  const updatedMap = updateItemRevisionMap(revisionMap, response.applied, response.serverRevision);
-  saveItemRevisionMap(updatedMap);
   saveLocalServerRevision(response.serverRevision);
   saveConflictIds(new Set());
   saveLastSyncedAt(new Date().toISOString());
 
   const updatedInfos = itemInfos.map((info) =>
     response.applied.upsertedItemIds.includes(info.itemId)
-      ? { ...info, status: "synced" as const, revision: response.serverRevision }
+      ? { ...info, status: "synced" as const, revision: updatedMap[info.itemId] }
       : info
   );
 

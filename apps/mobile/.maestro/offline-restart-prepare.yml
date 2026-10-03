@@ -1,0 +1,60 @@
+appId: com.zerovault.mobile
+name: Offline queue survives process death - prepare
+tags:
+  - business
+  - destructive
+  - offline
+  - offline-prepare
+---
+- extendedWaitUntil:
+    visible:
+      id: "vault-add-item"
+    timeout: 30000
+
+# The host-side E2E proxy is armed before this flow. Persist one mutation in
+# Room, prove its first upload is dropped, then kill the process while it is
+# still pending.
+- tapOn:
+    id: "vault-add-item"
+- tapOn:
+    id: "editor-title"
+- inputText: "Maestro Offline Queue"
+- tapOn:
+    id: "editor-origin"
+- inputText: "https://offline.example.invalid"
+- tapOn:
+    id: "editor-username"
+- inputText: "offline@example.invalid"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-password"
+    direction: DOWN
+- tapOn:
+    id: "editor-password"
+- inputText: "Synthetic-Offline!63"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- assertVisible: "Maestro Offline Queue"
+- pressKey: Back
+- assertVisible: "待同步 1 项"
+
+- tapOn:
+    id: "vault-sync"
+- extendedWaitUntil:
+    visible: "同步失败"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: "网络连接失败，离线变更仍安全保存在本机"
+    timeout: 15000
+- assertVisible: "待同步 1 项"
+
+# Process death after the injected transport failure must retain the protected
+# account bundle, ciphertext and pending mutation. The vault must lock.
+- pressKey: Home
+- killApp

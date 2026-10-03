@@ -1,0 +1,32 @@
+appId: com.zerovault.mobile
+name: Two-device A revokes device B
+tags:
+  - api36
+  - two-device
+  - device-revocation
+---
+- launchApp:
+    clearState: false
+- runFlow:
+    file: subflows/two-device-unlock-if-needed.yml
+    env:
+      E2E_PASSWORD: ${E2E_PASSWORD}
+- tapOn: "设置"
+- scrollUntilVisible:
+    element: "管理可信设备"
+    direction: DOWN
+- tapOn: "管理可信设备"
+- extendedWaitUntil:
+    visible: "撤销设备 Zero Vault Android"
+    timeout: 30000
+- scrollUntilVisible:
+    element: "撤销设备 Zero Vault Android"
+    direction: DOWN
+- tapOn: "撤销设备 Zero Vault Android"
+- extendedWaitUntil:
+    visible: "确认撤销"
+    timeout: 10000
+- tapOn: "确认撤销"
+- extendedWaitUntil:
+    visible: "已撤销"
+    timeout: 30000

@@ -4,6 +4,7 @@ import { parsePasswordCsv } from "./csv-import";
 import {
   addCredential,
   createEmptyLocalVault,
+  createLocalVaultWithSharedKey,
   persistUnlockedVault,
   unlockLocalVault,
   unlockLocalVaultWithRecoveredKey,
@@ -50,6 +51,18 @@ const tamperBase64Url = (value: string): string => {
 };
 
 describe("local vault encryption", () => {
+  it("keeps the shared cloud key across local passwords and rejects wrong passwords and wrapping tampering", async () => {
+    const key = crypto.getRandomValues(new Uint8Array(32));
+    const first = await createLocalVaultWithSharedKey("browser-local-password", key);
+    const unlocked = await unlockLocalVault("browser-local-password", first.encrypted);
+    expect(unlocked.key).toEqual(key);
+    const second = await createLocalVaultWithSharedKey("different-local-password", key, unlocked.snapshot);
+    expect((await unlockLocalVault("different-local-password", second.encrypted)).key).toEqual(key);
+    await expect(unlockLocalVault("incorrect-password", first.encrypted)).rejects.toThrow();
+    if (first.encrypted.runtime !== "crypto-core-wasm") throw new Error("wrong runtime");
+    first.encrypted.kdf.wrappedVaultKey = tamperBase64Url(first.encrypted.kdf.wrappedVaultKey!);
+    await expect(unlockLocalVault("browser-local-password", first.encrypted)).rejects.toThrow();
+  });
   it("creates, seals, and unlocks a crypto-core WASM vault by default", async () => {
     const created = await createEmptyLocalVault("long master password");
     const withItem = addCredential(created.unlocked, {

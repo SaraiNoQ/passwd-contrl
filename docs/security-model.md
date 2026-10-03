@@ -1,6 +1,18 @@
 # Security Model
 
-Last updated: 2026-06-04
+## Independent extension devices (2026-10-03)
+
+The browser extension derives a local protection key through the same Rust/WASM Argon2id core as Web. It encrypts device private key, device credential and bearer/CSRF session material under that local key with the `zero-vault:extension-identity:v1` AAD; the shared vault key remains wrapped using the existing local-key-wrap AAD. Master/account passwords are never persisted. Only an approved device can fetch its recipient-bound vault key packet. Volatile unlock access lives in restricted storage.session, expires after five minutes of inactivity and clears at restart. The extension accepts privileged operations only from its own top-level popup; isolated save prompts are limited to a tab/origin-bound candidate. External Web plaintext publishing is disabled. Website-origin permissions do not grant pages access to the encrypted vault or volatile keys.
+
+Last updated: 2026-10-03
+
+## Shared keys in Web
+
+An approved joining browser receives the account vault key through an X25519 device packet. Argon2id derives its local password protection key, and XChaCha20-Poly1305 (`zero-vault:local-key-wrap:v1` AAD) wraps the shared key. Only the wrapped value and encrypted snapshot are persisted. Changing the browser-local password rewraps the same key without rekeying other devices. Existing password-derived Web vaults remain readable and can share their current key with Android.
+
+New joining browsers use device-bound HttpOnly cookies with pending/revocation restrictions. Pages forwards only `/api/*` to the fixed Worker origin and disables API response caching. A local vault is pinned to its account before sync to prevent another account's revisions or mutation queue from being reused.
+
+> Android key custody and Recovery v2 trust-rebuild code now exist in the working tree, but current-snapshot remote APK/instrumented verification is pending. Native OPAQUE is intentionally disabled until cross-implementation verification, and the generated Room v2 schema JSON is still missing. See `docs/android-dev/overview.md`.
 
 ## Goals
 
@@ -33,7 +45,13 @@ The project supports two crypto runtimes:
 - Cipher: AES-256-GCM with random 96-bit nonce and authenticated associated data.
 - Source: Web Crypto API.
 
-New vaults always use `crypto-core-wasm`. Legacy `webcrypto-mvp` vaults can be unlocked and are re-sealed in their original format. There is no automatic migration. If migration becomes a product requirement, it must be explicit, user-confirmed, and covered by rollback and tamper tests.
+New vaults always use `crypto-core-wasm`. Legacy `webcrypto-mvp` vaults can be unlocked and are re-sealed in their original format. There is no automatic migration. Android production now makes migration a required Web-side flow; it must be explicit, user-confirmed, and covered by rollback and tamper tests.
+
+Android does not implement the legacy `webcrypto-mvp` AES/PBKDF2 runtime. A legacy vault must be explicitly migrated in Web, including item ciphertext and recovery-packet rotation to the Rust format, before Android accepts it.
+
+## Android Key Custody
+
+The Android target uses the same Rust crypto formats through UniFFI. Kotlin `VaultRepository` owns native sessions, Room, Keystore and system-service access in the current implementation, pending remote verification. JavaScript must never receive vault keys, device private keys, OPAQUE state or the Keystore wrapping key. Room stores only ciphertext and sync metadata; biometric authentication authorizes a Keystore operation and is not a replacement for the master password or recovery code.
 
 ## Local Vault Runtime
 
@@ -68,6 +86,8 @@ The KDF and cipher match the dual-runtime model: `crypto-core-wasm` uses Argon2i
 
 The recovery code must be stored offline (written on paper, stored in a safe). The server cannot decrypt the recovery packet without the code.
 
+Decrypting a recovery packet alone is not server authentication. Android Recovery v2 additionally signs a one-time, field-bound transcript with a key derived inside the encrypted packet; the Worker atomically rotates the account epoch and recovery material, revokes old trust, and installs one approved replacement device before the client performs normal OPAQUE login. This source implementation remains fail closed and is not a production guarantee until the current remote interoperability, D1, replay/expiry, crash-continuation and total-device-loss E2E gates pass. See `docs/recovery.md`.
+
 ## Device Trust Crypto
 
 Device trust allows multiple devices to access the same vault:
@@ -83,7 +103,7 @@ Revoking a device removes its encrypted vault key from the server, preventing fu
 
 ## Authentication
 
-The API uses OPAQUE registration and login flows through `@serenity-kit/opaque`. The server stores the OPAQUE registration record and never receives the master password. Login success creates an opaque random session token stored as an `HttpOnly` cookie; only its SHA-256 hash is stored server-side.
+The API uses OPAQUE registration and login flows. The server stores the OPAQUE registration record and never receives the master password. Web login returns an opaque random session token as an `HttpOnly` cookie. Android's separate mobile finish route returns the same class of random token as a bearer credential to native secure storage. Only the token SHA-256 is stored server-side.
 
 Non-GET authenticated write requests require a CSRF token in `x-zero-vault-csrf`. The token is returned in the login response and bound to the server-side session record.
 
@@ -99,7 +119,7 @@ The server may store:
 - Per-device encrypted vault keys (device trust).
 - Revision and deletion metadata.
 
-Session cookies are `HttpOnly`, `SameSite=Lax`, and `Secure` in production. Local HTTP development disables `Secure` so localhost testing works.
+Web session cookies are `HttpOnly`, `SameSite=Lax`, and `Secure` in production. Local HTTP development disables `Secure` so localhost testing works. Android bearer tokens must never enter URLs or logs and must use platform secure storage at rest; current implementation and invalidation behavior still require remote instrumented evidence.
 
 The server must not store:
 
@@ -134,7 +154,7 @@ During local development, Web Vault can only publish to the extension when `NEXT
 
 ## Transport
 
-Production traffic requires HTTPS, HSTS, secure cookies or bearer tokens with strict expiry, and CSRF protection where cookies are used. TLS does not replace end-to-end encryption.
+Production traffic requires HTTPS, HSTS, secure cookies or bearer tokens with strict expiry. Zero Vault currently requires the session-bound CSRF header for authenticated writes from both Web and Android as defense in depth. TLS does not replace end-to-end encryption.
 
 ## Cloudflare-Specific Security Notes
 

@@ -13,6 +13,7 @@
  */
 
 import { Hono } from "hono";
+import { cloudExportAlgorithmSchema } from "@zero-vault/shared";
 import type { Env } from "../env";
 import { R2Storage } from "../storage/r2-helpers";
 import {
@@ -21,6 +22,8 @@ import {
 } from "../storage/r2-integration";
 
 export const exportRoutes = new Hono<{ Bindings: Env }>();
+const DEFAULT_EXPORT_ALGORITHM = "XCHACHA20_POLY1305";
+const EXPORT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 /**
  * Helper: extract userId from context via session middleware.
@@ -70,8 +73,17 @@ exportRoutes.post("/exports/create", async (c) => {
   if (!exportId) {
     return c.json({ error: "export_id_required" }, 400);
   }
+  if (!EXPORT_ID.test(exportId)) {
+    return c.json({ error: "export_id_invalid" }, 400);
+  }
 
-  const algorithm = c.req.header("x-export-algorithm") ?? "XCHACHA20_POLY1305";
+  const algorithmResult = cloudExportAlgorithmSchema.safeParse(
+    c.req.header("x-export-algorithm") ?? DEFAULT_EXPORT_ALGORITHM,
+  );
+  if (!algorithmResult.success) {
+    return c.json({ error: "export_algorithm_unsupported" }, 400);
+  }
+  const algorithm = algorithmResult.data;
 
   const body = await c.req.arrayBuffer();
   if (body.byteLength === 0) {
@@ -79,15 +91,17 @@ exportRoutes.post("/exports/create", async (c) => {
   }
 
   const storage = getStorage(c);
-  const result = await exportVaultToR2(
-    storage,
-    userId,
-    exportId,
-    body,
-    algorithm
-  );
+  let result;
+  try {
+    result = await exportVaultToR2(storage, userId, exportId, body, algorithm);
+  } catch (error) {
+    if (error instanceof Error && error.message === "export_exists") {
+      return c.json({ error: "export_exists" }, 409);
+    }
+    throw error;
+  }
 
-  return c.json({ ok: true, key: result.key, size: result.size }, 201);
+  return c.json({ ok: true, size: result.size }, 201);
 });
 
 // ── GET /exports/:id ─────────────────────────────────────────────────────────
@@ -108,6 +122,7 @@ exportRoutes.get("/exports/:id", async (c) => {
   }
 
   const exportId = c.req.param("id");
+  if (!EXPORT_ID.test(exportId)) return c.json({ error: "export_id_invalid" }, 400);
   const storage = getStorage(c);
   const result = await importVaultFromR2(storage, userId, exportId);
 
@@ -119,7 +134,7 @@ exportRoutes.get("/exports/:id", async (c) => {
   return new Response(result.data, {
     headers: {
       "Content-Type": "application/octet-stream",
-      "X-Export-Algorithm": result.metadata.alg ?? "unknown",
+      "X-Export-Algorithm": result.metadata.alg ?? DEFAULT_EXPORT_ALGORITHM,
       "X-Export-Timestamp": result.metadata.ts ?? "unknown"
     }
   });
@@ -149,7 +164,7 @@ exportRoutes.get("/exports", async (c) => {
     return {
       id: segments[2],
       size: obj.size,
-      algorithm: obj.customMetadata?.alg ?? "unknown",
+      algorithm: obj.customMetadata?.alg ?? DEFAULT_EXPORT_ALGORITHM,
       createdAt: getExportCreatedAt(obj)
     };
   });
@@ -173,6 +188,7 @@ exportRoutes.delete("/exports/:id", async (c) => {
   }
 
   const exportId = c.req.param("id");
+  if (!EXPORT_ID.test(exportId)) return c.json({ error: "export_id_invalid" }, 400);
   const storage = getStorage(c);
   const deleted = await storage.deleteExport(userId, exportId);
 

@@ -1,0 +1,30 @@
+appId: com.zerovault.autofillfixture
+name: API 36 Autofill after Zero Vault process death
+tags:
+  - api36
+  - autofill
+  - process-death
+  - sensitive-credential
+---
+# The host harness has already launched the freshly installed fixture and then
+# killed only the Zero Vault RN process. Do not call launchApp here: Maestro
+# force-stops the fixture even with clearState=false, briefly revealing and
+# relaunching the RN task that this flow is specifically verifying as dead.
+# API 36 may suppress a passive focus-triggered dropdown when the active IME
+# reports inline suggestions as unsupported. Exercise the app's explicit
+# AutofillManager.requestAutofill() control so the system must issue one request.
+- tapOn:
+    id: "fixture_autofill_button"
+- assertVisible: "Android Autofill request sent"
+- extendedWaitUntil:
+    visible: "^(解锁 Zero Vault|Unlock Zero Vault)(,.*)?$"
+    timeout: 30000
+- tapOn: "^(解锁 Zero Vault|Unlock Zero Vault)(,.*)?$"
+- extendedWaitUntil:
+    visible: "Maestro Fixture Login"
+    timeout: 30000
+- tapOn: "Maestro Fixture Login"
+- extendedWaitUntil:
+    visible: "Username and password fields received a credential"
+    timeout: 30000
+- assertVisible: "fixture-user@example.invalid"

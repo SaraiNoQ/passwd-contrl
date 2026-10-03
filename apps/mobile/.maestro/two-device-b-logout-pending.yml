@@ -1,0 +1,17 @@
+appId: com.zerovault.mobile
+name: Two-device B preserves identity while ending pending session
+tags:
+  - api36
+  - two-device
+  - device-approval
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "device-approval-fingerprint"
+    timeout: 30000
+- tapOn: "退出登录"
+- extendedWaitUntil:
+    visible: "创建新账户"
+    timeout: 30000

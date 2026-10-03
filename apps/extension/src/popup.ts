@@ -1,381 +1,135 @@
-import type { MatchedCredentialDisplay, PopupStateResponse } from "./messages";
-import { generateTotpCode } from "./totp";
-
-const root = document.getElementById("root");
-const scan = document.getElementById("scan");
-const versionEl = document.getElementById("version");
-const connectionStatusEl = document.getElementById("connection-status");
-const originDisplayEl = document.getElementById("origin-display");
-const footerEl = document.getElementById("footer");
-const openVaultLink = document.getElementById("open-vault") as HTMLAnchorElement | null;
-
-let selectedIndex = 0;
-let credentialElements: HTMLButtonElement[] = [];
-let currentCredentials: MatchedCredentialDisplay[] = [];
-let vaultCredentialsLoaded = false;
-let vaultStatusChecked = false;
-
-const EXTENSION_VERSION = "0.1.0";
-
-// Map internal fill-error codes to Chinese messages
-const errorMessageMap: Record<string, string> = {
-  no_candidate: "未检测到表单",
-  origin_mismatch: "域名不匹配",
-  suspicious_origin: "检测到可疑域名，已阻止填充",
-  similar_origin_not_acknowledged: "请先确认此站点后再填充",
-};
-
-// Show extension version in header badge
-if (versionEl) {
-  versionEl.textContent = `v${EXTENSION_VERSION}`;
+import { api } from './browser-api';
+import { generatePassword } from '@zero-vault/browser-vault/password-generator';
+type State = { origin: string; connected: boolean; unlocked: boolean; fingerprint: string; email: string; credentials: Array<{ id: string; title: string; username: string; matchType: string; hasTotp?: boolean }>; pending: Array<{ id: string; origin: string; username: string }>; conflicts: Array<{ id: string; title: string }>; lastSync: string; syncError: string };
+type Candidate = { id: string; origin: string; username: string; locked: boolean; matches: Array<{ id: string; title: string }>; identical: boolean };
+const feedback = document.getElementById('feedback')!;
+const connection = document.getElementById('connection')!;
+const credentials = document.getElementById('credentials')!;
+const pending = document.getElementById('pending')!;
+const conflicts = document.getElementById('conflicts')!;
+const generated = document.getElementById('generated') as HTMLInputElement;
+function text(value: string, tag = 'p', className = '') { const node = document.createElement(tag); node.textContent = value; node.className = className; return node; }
+function status(value: string, error = false) { feedback.textContent = value; feedback.classList.toggle('error', error); }
+async function request(type: string, fields: Record<string, unknown> = {}) {
+  const reply = await api.runtime.sendMessage({ type, ...fields });
+  if (reply?.ok === false) throw new Error(reply.error || '操作未完成，请重试。');
+  if (!reply) throw new Error('插件后台未响应，请重新打开插件。');
+  return reply;
 }
-
-// Footer
-if (footerEl) {
-  footerEl.textContent = `Zero Vault · 零知识密码管理器 v${EXTENSION_VERSION}`;
+function action(label: string, work: () => Promise<void>, primary = false) {
+  const button = document.createElement('button'); button.type = 'button'; button.textContent = label; if (primary) button.className = 'primary';
+  button.addEventListener('click', async event => {
+    if (!event.isTrusted) return;
+    button.disabled = true;
+    try { await work(); } catch (error) { status(error instanceof Error ? error.message : '操作未完成，请重试。', true); }
+    finally { button.disabled = false; }
+  });
+  return button;
 }
-
-// Open vault link
-if (openVaultLink) {
-  openVaultLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL("bridge.html") });
+function input(form: HTMLFormElement, id: string) { return form.elements.namedItem(id) as HTMLInputElement; }
+function submit(form: HTMLFormElement, work: () => Promise<void>) {
+  form.addEventListener('submit', async event => {
+    event.preventDefault(); if (!event.isTrusted || !form.reportValidity()) return;
+    const button = form.querySelector('button')!; button.disabled = true; status('处理中…');
+    try { await work(); await refresh(); }
+    catch (error) { status(error instanceof Error ? error.message : '操作未完成，请重试。', true); }
+    finally { form.querySelectorAll<HTMLInputElement>('input[type=password]').forEach(field => { field.value = ''; }); button.disabled = false; }
   });
 }
-
-// Check connection / vault status, then refresh popup state
-chrome.runtime.sendMessage({ type: "GET_EXTENSION_STATUS" }, (response) => {
-  if (chrome.runtime.lastError || !response?.installed) {
-    if (connectionStatusEl) {
-      connectionStatusEl.innerHTML = '<span class="dot disconnected"></span> 未连接到 Web Vault';
+async function renderPending(entries: State['pending']) {
+  pending.replaceChildren();
+  const queryId = new URLSearchParams(location.search).get('candidate');
+  const ids = [...new Set([...entries.map(entry => entry.id), ...(queryId ? [queryId] : [])])];
+  if (!ids.length) return;
+  pending.append(text('待保存的登录信息', 'h2'));
+  for (const id of ids) {
+    let item: Candidate;
+    try { item = await request('GET_SAVE_PROMPT', { id }); } catch { continue; }
+    if (item.identical) continue;
+    const row = document.createElement('div'); row.className = 'credential';
+    row.append(text(item.origin, 'strong'), text(item.username || '未检测到用户名', 'small'), text('密码：••••••••••••', 'small'));
+    let select: HTMLSelectElement | undefined;
+    if (item.matches.length > 1) {
+      select = document.createElement('select'); select.setAttribute('aria-label', '选择更新的记录');
+      for (const match of item.matches) { const option = document.createElement('option'); option.value = match.id; option.textContent = match.title; select.append(option); } row.append(select);
     }
+    const controls = document.createElement('div'); controls.className = 'actions';
+    if (!item.locked) controls.append(action(item.matches.length ? '更新密码' : '保存', async () => {
+      await request('CONFIRM_SAVE', { id, ...(item.matches.length ? { itemId: select?.value ?? item.matches[0]!.id } : {}) }); status('已加密保存。'); await refresh();
+    }, true));
+    else row.append(text('先在上方解锁，再确认保存。', 'small'));
+    controls.append(action('暂不保存', async () => { await request('DISMISS_SAVE', { id }); await refresh(); }));
+    row.append(controls); pending.append(row);
+  }
+}
+async function refresh() {
+  const state: State = await request('GET_POPUP_STATE');
+  document.getElementById('origin')!.textContent = state.origin.startsWith('https:') ? state.origin : '当前页面无法填充';
+  connection.replaceChildren(); credentials.replaceChildren(); conflicts.replaceChildren();
+  if (!state.connected && !state.fingerprint) {
+    connection.innerHTML = '<h2>连接已有账户</h2><p class="muted">由网页或手机批准插件设备后，即可独立使用。</p><form id="connect"><label for="email">账户邮箱</label><input id="email" name="email" type="email" autocomplete="username" required><label for="account-password">账户密码</label><input id="account-password" name="account-password" type="password" autocomplete="current-password" required><div class="actions"><button class="primary" type="submit">连接账户</button></div></form>';
+    const form = document.getElementById('connect') as HTMLFormElement;
+    submit(form, async () => { await request('CONNECT_ACCOUNT', { email: input(form, 'email').value, password: input(form, 'account-password').value }); status('请核对指纹，在网页或手机批准此设备。'); });
+    (document.getElementById('generator') as HTMLDetailsElement).open = true;
+  } else if (!state.connected) {
+    connection.append(text('批准此插件设备', 'h2'), text('在网页或手机的设备管理中核对以下指纹。', 'p', 'muted'), text(state.fingerprint, 'p', 'fingerprint'));
+    const form = document.createElement('form');
+    form.innerHTML = '<label for="local-password">插件本地主密码（至少 12 位）</label><input id="local-password" name="local-password" type="password" autocomplete="new-password" minlength="12" required><label for="confirm-password">再次输入本地主密码</label><input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" minlength="12" required><div class="actions"><button class="primary" type="submit">已批准，完成连接</button></div>';
+    connection.append(form, text('连接完成前请不要重启浏览器。', 'small'));
+    submit(form, async () => {
+      if (input(form, 'local-password').value !== input(form, 'confirm-password').value) throw new Error('两次输入的本地主密码不一致。');
+      await request('FINISH_CONNECT', { password: input(form, 'local-password').value }); status('设备已连接，密码库已解锁。');
+    });
+  } else if (!state.unlocked) {
+    connection.innerHTML = '<h2>解锁插件密码库</h2><form id="unlock"><label for="local-password">插件本地主密码</label><input id="local-password" name="local-password" type="password" autocomplete="current-password" required><label for="renew-password">账户密码（云端会话过期时填写）</label><input id="renew-password" name="renew-password" type="password" autocomplete="off"><div class="actions"><button class="primary" type="submit">解锁</button></div></form>';
+    const form = document.getElementById('unlock') as HTMLFormElement;
+    submit(form, async () => { await request('UNLOCK_VAULT', { password: input(form, 'local-password').value, accountPassword: input(form, 'renew-password').value }); status('密码库已解锁。'); });
   } else {
-    vaultCredentialsLoaded = response.credentialsLoaded;
-    vaultStatusChecked = true;
-
-    if (connectionStatusEl) {
-      if (vaultCredentialsLoaded) {
-        const credsText = `${response.matchedCredentials} 个凭据`;
-        connectionStatusEl.innerHTML = `<span class="dot connected"></span> 已解锁 · ${credsText}`;
-      } else {
-        connectionStatusEl.innerHTML = '<span class="dot disconnected"></span> 已锁定';
+    connection.append(text('已解锁 · ' + state.email, 'p', 'muted'));
+    const controls = document.createElement('div'); controls.className = 'actions';
+    controls.append(action('立即同步', async () => { await request('SYNC_NOW'); status('同步完成。'); await refresh(); }), action('锁定', async () => { await request('LOCK_VAULT'); status('密码库已锁定。'); await refresh(); }));
+    connection.append(controls);
+    if (state.lastSync) connection.append(text('上次同步：' + new Date(state.lastSync).toLocaleTimeString(), 'small'));
+    if (state.syncError) connection.append(text(state.syncError, 'p', 'error'));
+    credentials.append(text('当前网站', 'h2'));
+    if (!state.credentials.length) credentials.append(text('没有匹配的登录信息。', 'p', 'muted'));
+    for (const item of state.credentials) {
+      const row = document.createElement('div'); row.className = 'credential';
+      row.append(text(item.title, 'strong'), text(item.username || '无用户名', 'small'));
+      if (item.matchType === 'exact') { row.append(text('精确匹配 · HTTPS', 'small'), action('填充', async () => { await request('FILL_MATCHED_CREDENTIAL', { credentialId: item.id }); status('已填充，尚未提交登录。'); })); }
+      else row.append(text(item.matchType === 'similar' ? '相似域名，已阻止填充。' : '可疑域名，已阻止填充。', 'p', 'error'));
+      if (item.matchType === 'exact' && item.hasTotp) row.append(action('复制验证码', async () => { const result = await request('GET_TOTP_CODE', { credentialId: item.id }); await navigator.clipboard.writeText(result.code); status('验证码已复制。'); }));
+      credentials.append(row);
+    }
+    if (state.conflicts.length) {
+      conflicts.append(text('需要处理的同步冲突', 'h2'));
+      for (const item of state.conflicts) {
+        const row = document.createElement('div'); row.className = 'credential'; row.append(text(item.title, 'strong'));
+        const controls = document.createElement('div'); controls.className = 'actions';
+        for (const [label, choice] of [['保留本地', 'local'], ['采用云端', 'remote'], ['另存副本', 'copy']] as const) controls.append(action(label, async () => { await request('RESOLVE_CONFLICT', { itemId: item.id, choice }); status('冲突已处理。'); await refresh(); }));
+        row.append(controls); conflicts.append(row);
       }
     }
   }
-
-  // Once we know vault status, fetch popup state
-  refresh();
+  await renderPending(state.pending);
+}
+function regenerate() {
+  try {
+    generated.value = generatePassword({ length: Number((document.getElementById('length') as HTMLInputElement).value), includeUpper: (document.getElementById('upper') as HTMLInputElement).checked, includeLower: (document.getElementById('lower') as HTMLInputElement).checked, includeDigits: (document.getElementById('digits') as HTMLInputElement).checked, includeSymbols: (document.getElementById('symbols') as HTMLInputElement).checked });
+    status('密码已生成。');
+  } catch { generated.value = ''; status('请选择至少一种字符，长度需要为 8–128 位。', true); }
+}
+document.getElementById('regenerate')!.addEventListener('click', regenerate);
+for (const id of ['length', 'upper', 'lower', 'digits', 'symbols']) document.getElementById(id)!.addEventListener('change', regenerate);
+document.getElementById('copy')!.addEventListener('click', async () => {
+  try { if (!generated.value) return; await navigator.clipboard.writeText(generated.value); status('密码已复制。'); }
+  catch { generated.focus(); generated.select(); status('无法访问剪贴板，请手动复制所选密码。', true); }
 });
-
-const renderSimilarOriginWarning = (credential: MatchedCredentialDisplay): string => `
-  <div class="credential" data-credential-id="${credential.id}" data-match-type="similar" tabindex="0" role="button" aria-label="填充凭据 ${credential.title}">
-    <span class="cred-title">${credential.title} <span class="badge similar">相似域名</span></span>
-    <span class="cred-username">${credential.username || "无用户名"}</span>
-  </div>
-  <div class="status-section similar-warning">
-    <span class="status-icon">⚠</span>
-    <span>检测到相似域名，请手动确认</span>
-  </div>
-  <button class="acknowledge-btn" data-ack-credential-id="${credential.id}" type="button">
-    确认填充
-  </button>
-`;
-
-const renderSuspiciousCredential = (credential: MatchedCredentialDisplay): string => `
-  <div class="credential-blocked">
-    <span class="blocked-title">${credential.title} <span class="badge suspicious">可疑域名</span></span>
-    <span class="blocked-reason">潜在钓鱼站点，已阻止填充</span>
-  </div>
-`;
-
-const render = (state: PopupStateResponse) => {
-  if (!root) {
-    return;
-  }
-
-  currentCredentials = state.credentials;
-  selectedIndex = 0;
-
-  // Show origin
-  if (originDisplayEl && state.origin) {
-    originDisplayEl.textContent = state.origin;
-  } else if (originDisplayEl) {
-    originDisplayEl.textContent = "";
-  }
-
-  // Priority 0: Vault locked
-  if (vaultStatusChecked && !vaultCredentialsLoaded) {
-    root.innerHTML = `
-      <div class="status-section vault-locked">
-        <span class="status-icon">🔒</span>
-        <span>密码库已锁定，请在 Web Vault 中解锁</span>
-      </div>
-    `;
-    credentialElements = [];
-    return;
-  }
-
-  // Separate credentials by match type
-  const exactCreds = state.credentials.filter((c) => c.matchType === "exact");
-  const similarCreds = state.credentials.filter((c) => c.matchType === "similar");
-  const suspiciousCreds = state.credentials.filter((c) => c.matchType === "suspicious");
-
-  // Priority 1: Non-HTTPS page — origin is set but doesn't start with https://
-  if (state.blockedReason && state.credentials.length === 0) {
-    if (state.origin && !state.origin.startsWith("https://")) {
-      root.innerHTML = `
-        <div class="status-section http-blocked">
-          <span class="status-icon">🔒</span>
-          <span>Zero Vault 仅支持 HTTPS 页面</span>
-        </div>
-      `;
-      credentialElements = [];
-      return;
-    }
-  }
-
-  // Priority 2: No form detected — use blockedReason text directly
-  if (state.blockedReason && state.blockedReason === "当前页面未检测到登录表单" && state.credentials.length === 0) {
-    root.innerHTML = `
-      <div class="status-section no-form">
-        <span class="status-icon">○</span>
-        <span>当前页面未检测到登录表单</span>
-      </div>
-    `;
-    credentialElements = [];
-    return;
-  }
-
-  // Priority 3: No matching credentials
-  if (state.blockedReason && state.credentials.length === 0) {
-    root.innerHTML = `
-      <div class="status-section no-matches">
-        <span class="status-icon">○</span>
-        <span>没有匹配的凭据</span>
-      </div>
-    `;
-    credentialElements = [];
-    return;
-  }
-
-  // Fallback: No credentials and no blocked reason
-  if (state.credentials.length === 0) {
-    root.innerHTML = `
-      <div class="state-empty">
-        <p>没有匹配的凭据</p>
-      </div>
-    `;
-    credentialElements = [];
-    return;
-  }
-
-  let html = "";
-
-  // Section header
-  html += `<div class="section-header">匹配凭据</div>`;
-
-  // Exact match credential list
-  const exactButtons = exactCreds
-    .map(
-      (credential) => `
-        <div class="credential" data-credential-id="${credential.id}" data-match-type="exact" data-totp="${credential.totp ?? ""}" tabindex="0" role="button" aria-label="填充凭据 ${credential.title}">
-          <span class="cred-title">${credential.title} <span class="badge exact">精确匹配</span></span>
-          <span class="cred-username">${credential.username || "无用户名"}</span>
-          ${credential.totp ? `<span class="totp-code" data-totp-secret="${credential.totp}" aria-label="验证码">------</span>` : ""}
-          <button class="fill-btn" data-fill-credential-id="${credential.id}" type="button" aria-label="填充此凭据">填充</button>
-        </div>
-      `
-    )
-    .join("");
-
-  if (exactButtons) {
-    html += `<div class="credentials">${exactButtons}</div>`;
-  }
-
-  // Similar origin credentials with acknowledge buttons
-  for (const credential of similarCreds) {
-    html += `<div class="credentials">${renderSimilarOriginWarning(credential)}</div>`;
-  }
-
-  // Suspicious (blocked) credentials
-  for (const credential of suspiciousCreds) {
-    html += `<div class="credentials">${renderSuspiciousCredential(credential)}</div>`;
-  }
-
-  // Filling indicator placeholder
-  html += '<div class="filling-indicator" id="filling-indicator"></div>';
-
-  root.innerHTML = html;
-
-  // Gather focusable credential buttons for keyboard nav
-  credentialElements = Array.from(root.querySelectorAll<HTMLButtonElement>(".credential[data-credential-id]"));
-
-  // Add click handlers for exact credentials (click on credential row)
-  for (const button of credentialElements) {
-    const matchType = button.dataset.matchType;
-    if (matchType === "exact") {
-      button.addEventListener("click", (e) => {
-        // Don't fill if the click was on the fill button itself (it has its own handler)
-        if ((e.target as HTMLElement).closest(".fill-btn")) return;
-        fillCredential(button.dataset.credentialId!, button);
-      });
-    }
-  }
-
-  // Add click handlers for explicit fill buttons
-  for (const fillBtn of Array.from(root.querySelectorAll<HTMLButtonElement>(".fill-btn"))) {
-    fillBtn.addEventListener("click", () => {
-      const credId = fillBtn.dataset.fillCredentialId;
-      if (!credId) return;
-      const credButton = root.querySelector<HTMLButtonElement>(`.credential[data-credential-id="${credId}"]`);
-      fillCredential(credId, credButton || fillBtn);
-    });
-  }
-
-  // Initialize TOTP code display and refresh
-  const totpElements = root.querySelectorAll<HTMLElement>(".totp-code[data-totp-secret]");
-  if (totpElements.length > 0) {
-    const updateTotpCodes = async () => {
-      for (const el of totpElements) {
-        const secret = el.dataset.totpSecret;
-        if (!secret) continue;
-        try {
-          const { code, remaining } = await generateTotpCode(secret);
-          el.textContent = `${code.slice(0, 3)} ${code.slice(3)}`;
-          el.title = `${remaining}秒后刷新`;
-          if (remaining <= 5) el.style.color = "var(--color-error, #ef4444)";
-          else el.style.color = "";
-        } catch {
-          el.textContent = "错误";
-        }
-      }
-    };
-    void updateTotpCodes();
-    setInterval(() => void updateTotpCodes(), 1000);
-
-    // Click to copy TOTP code
-    for (const el of totpElements) {
-      el.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const text = el.textContent?.replace(/\s/gu, "") ?? "";
-        if (text && text !== "------" && text !== "错误") {
-          await navigator.clipboard.writeText(text);
-          el.textContent = "已复制!";
-          setTimeout(() => void updateTotpCodes(), 1000);
-        }
-      });
-      el.style.cursor = "pointer";
-    }
-  }
-
-  // Add click handlers for acknowledged similar credentials
-  for (const ackBtn of Array.from(root.querySelectorAll<HTMLButtonElement>(".acknowledge-btn"))) {
-    ackBtn.addEventListener("click", () => {
-      const credId = ackBtn.dataset.ackCredentialId;
-      if (!credId) return;
-      chrome.runtime.sendMessage({ type: "ACKNOWLEDGE_SIMILAR_ORIGIN", credentialId: credId }, (response) => {
-        if (response?.ok) {
-          // After acknowledgment, allow filling
-          const credButton = root.querySelector<HTMLButtonElement>(`.credential[data-credential-id="${credId}"]`);
-          if (credButton) {
-            credButton.dataset.matchType = "acknowledged";
-            credButton.addEventListener("click", () => fillCredential(credId, credButton));
-            // Remove warning section and acknowledge button
-            const warningSection = ackBtn.previousElementSibling;
-            if (warningSection?.classList.contains("similar-warning")) warningSection.remove();
-            ackBtn.remove();
-            const badge = credButton.querySelector(".badge.similar");
-            if (badge) {
-              badge.textContent = "已确认";
-              badge.classList.remove("similar");
-              badge.classList.add("exact");
-            }
-          }
-        }
-      });
-    });
-  }
-
-  // Update selection highlight
-  updateSelection();
-};
-
-const updateSelection = () => {
-  credentialElements.forEach((el, i) => {
-    el.classList.toggle("selected", i === selectedIndex);
-  });
-};
-
-const fillCredential = (credentialId: string | undefined, button: HTMLElement) => {
-  if (!credentialId) return;
-  const indicator = document.getElementById("filling-indicator");
-  if (indicator) indicator.textContent = "填充中…";
-
-  // Disable fill button if it exists
-  const fillBtn = root?.querySelector<HTMLButtonElement>(`[data-fill-credential-id="${credentialId}"]`);
-  if (fillBtn) fillBtn.disabled = true;
-
-  chrome.runtime.sendMessage({ type: "FILL_MATCHED_CREDENTIAL", credentialId }, (response) => {
-    if (indicator) {
-      if (response?.ok) {
-        indicator.textContent = "填充成功";
-        indicator.style.color = "#34d399";
-      } else {
-        const errMsg = errorMessageMap[response?.error] || response?.error || "未知错误";
-        indicator.textContent = `填充失败: ${errMsg}`;
-        indicator.style.color = "#f87171";
-        if (fillBtn) fillBtn.disabled = false;
-      }
-    }
-  });
-};
-
-const refresh = () => {
-  chrome.runtime.sendMessage({ type: "GET_POPUP_STATE" }, (state: PopupStateResponse) => {
-    render(state);
-  });
-};
-
-// Keyboard navigation
-document.addEventListener("keydown", (e) => {
-  if (credentialElements.length === 0) return;
-
-  if (e.key === "ArrowDown" || e.key === "ArrowRight") {
-    e.preventDefault();
-    selectedIndex = (selectedIndex + 1) % credentialElements.length;
-    updateSelection();
-    credentialElements[selectedIndex]?.focus();
-  } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-    e.preventDefault();
-    selectedIndex = (selectedIndex - 1 + credentialElements.length) % credentialElements.length;
-    updateSelection();
-    credentialElements[selectedIndex]?.focus();
-  } else if (e.key === "Enter") {
-    e.preventDefault();
-    const selected = credentialElements[selectedIndex];
-    if (selected) {
-      const matchType = selected.dataset.matchType;
-      if (matchType === "exact" || matchType === "acknowledged") {
-        fillCredential(selected.dataset.credentialId!, selected);
-      }
-    }
-  }
+document.getElementById('use-generated')!.addEventListener('click', async event => {
+  if (!event.isTrusted || !generated.value) return;
+  try { await request('FILL_GENERATED_PASSWORD', { password: generated.value }); status('已填入密码，尚未提交。'); }
+  catch (error) { status(error instanceof Error ? error.message : '无法填充，请复制后手动输入。', true); }
 });
-
-scan?.addEventListener("click", async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) {
-    return;
-  }
-
-  await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    files: ["dist/content-script.js"],
-  });
-  window.setTimeout(refresh, 120);
-});
-
-// Initial refresh — the GET_EXTENSION_STATUS callback also calls refresh() once
-// vault status is known; this module-scope call ensures the popup renders even
-// before the status check completes.
-refresh();
+regenerate();
+void refresh().catch(error => status(error instanceof Error ? error.message : '插件加载失败。', true));
+api.storage.onChanged.addListener((_changes, area) => { if (area === 'local') void refresh().catch(() => undefined); });

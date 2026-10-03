@@ -1,6 +1,10 @@
 # Password Import
 
-Last updated: 2026-06-04
+## Extension integration (2026-10-03)
+
+Imported Web login records reach the independent extension through the same encrypted item-level sync as other clients. The extension does not read browser CSV exports or implement a separate bulk importer. Saving a submitted website login adds or explicitly updates one login item using the existing shared schema; it never sends plaintext credentials to the sync API. Existing import validation and duplicate handling remain in the Web Vault.
+
+Last updated: 2026-10-03
 
 ## Supported Sources
 

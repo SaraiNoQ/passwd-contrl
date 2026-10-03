@@ -13,6 +13,8 @@ vi.mock("./sync-vault", () => ({
   saveLocalServerRevision: vi.fn(),
   loadItemRevisionMap: vi.fn(() => ({})),
   saveItemRevisionMap: vi.fn(),
+  loadPendingItemMutations: vi.fn(() => ({})),
+  savePendingItemMutations: vi.fn(),
   loadConflictIds: vi.fn(() => new Set()),
   saveConflictIds: vi.fn(),
   loadLastSyncedAt: vi.fn(() => null),
@@ -28,13 +30,14 @@ vi.mock("./item-sync", () => ({
   buildItemLevelSyncPlan: vi.fn(async () => ({
     plan: { protocol: "item_level_v1", baseRevision: 0, upserts: [], deletes: [] },
     itemInfos: [],
+    pendingMutations: {},
   })),
   extractConflicts: vi.fn((response) => response.conflicts ?? []),
 }));
 
 const { performSync, handleResolveKeepLocal } = await import("./vault-sync");
 const { pullVault, pushVault, pushItemLevelSync } = await import("./api-client");
-const { mergeRemoteItems, performItemLevelSync, encryptedVaultToSyncRequest, saveLocalServerRevision, loadItemRevisionMap, loadLocalServerRevision } = await import("./sync-vault");
+const { mergeRemoteItems, performItemLevelSync, encryptedVaultToSyncRequest, saveLocalServerRevision, loadItemRevisionMap, loadLocalServerRevision, loadPendingItemMutations, savePendingItemMutations } = await import("./sync-vault");
 const { buildItemLevelSyncPlan } = await import("./item-sync");
 
 const mockEncryptedVault = {
@@ -47,7 +50,7 @@ const mockEncryptedVault = {
 } as unknown as EncryptedLocalVault;
 
 const mockUnlockedVault = {
-  runtime: "crypto-core-wasm",
+  runtime: "webcrypto-mvp",
   key: new Uint8Array(32),
   kdf: { alg: "ARGON2ID_V13", memoryKib: 19456, iterations: 2, parallelism: 1, salt: "" },
   snapshot: {
@@ -61,6 +64,7 @@ const mockUnlockedVault = {
 describe("performSync", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(loadPendingItemMutations).mockReturnValue({});
   });
 
   it("returns no-local-vault when encryptedVault is null", async () => {
@@ -175,6 +179,7 @@ describe("performSync", () => {
           clientBaseRevision: 1,
           serverRevision: 2,
           serverItemRevision: 3,
+          serverState: { kind: "missing" },
         }],
       },
       mergedVault: mockUnlockedVault,
@@ -279,6 +284,22 @@ describe("performSync", () => {
       applied: { upsertedItemIds: [itemId], deletedItemIds: [] },
       conflicts: [],
     });
+    vi.mocked(loadPendingItemMutations).mockReturnValue({
+      [itemId]: {
+        itemUpdatedAt: localItem.updatedAt,
+        clientMutationId: "10000000-0000-4000-8000-000000000099",
+      },
+    });
+    vi.mocked(buildItemLevelSyncPlan).mockResolvedValueOnce({
+      plan: { protocol: "item_level_v1", baseRevision: 9, upserts: [], deletes: [] },
+      itemInfos: [],
+      pendingMutations: {
+        [itemId]: {
+          itemUpdatedAt: localItem.updatedAt,
+          clientMutationId: "10000000-0000-4000-8000-000000000099",
+        },
+      },
+    });
 
     const result = await handleResolveKeepLocal({
       unlockedVault: vaultWithItem,
@@ -296,8 +317,14 @@ describe("performSync", () => {
       { [itemId]: 8 },
       new Set(),
       9,
+      expect.objectContaining({
+        [itemId]: expect.objectContaining({
+          clientMutationId: "10000000-0000-4000-8000-000000000099",
+        }),
+      }),
     );
     expect(saveLocalServerRevision).toHaveBeenCalledWith(10);
+    expect(savePendingItemMutations).toHaveBeenLastCalledWith({});
   });
 
   it("succeeds with item-sync revision when legacy pushVault fails", async () => {
@@ -382,6 +409,7 @@ describe("performSync", () => {
       { [itemId]: 7 },
       new Set(),
       12,
+      {},
     );
     expect(saveLocalServerRevision).toHaveBeenCalledWith(13);
   });

@@ -1,0 +1,26 @@
+appId: com.zerovault.mobile
+name: Two-device B verifies the exact resolved item value
+tags:
+  - api36
+  - two-device
+  - conflict
+---
+- launchApp:
+    clearState: false
+- runFlow:
+    file: subflows/two-device-unlock-if-needed.yml
+    env:
+      E2E_PASSWORD: ${E2E_PASSWORD}
+- scrollUntilVisible:
+    element: "打开条目 ${ITEM_TITLE}"
+    direction: DOWN
+- tapOn: "打开条目 ${ITEM_TITLE}"
+- extendedWaitUntil:
+    visible: ${EXPECTED_USERNAME}
+    timeout: 15000
+- assertNotVisible: ${REJECTED_USERNAME}
+- pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 15000

@@ -1,0 +1,35 @@
+appId: com.zerovault.mobile
+name: Two-device A verifies fingerprint and approves B
+tags:
+  - api36
+  - two-device
+  - device-approval
+---
+- launchApp:
+    clearState: false
+- runFlow:
+    file: subflows/two-device-unlock-if-needed.yml
+    env:
+      E2E_PASSWORD: ${E2E_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: "vault-add-item"
+    timeout: 30000
+- tapOn: "设置"
+- scrollUntilVisible:
+    element: "管理可信设备"
+    direction: DOWN
+- tapOn: "管理可信设备"
+- extendedWaitUntil:
+    visible: "指纹：${PENDING_FINGERPRINT}"
+    timeout: 30000
+- tapOn: "批准设备 Zero Vault Android"
+- extendedWaitUntil:
+    visible: "批准并共享密钥"
+    timeout: 10000
+- assertVisible: "(?s).*${PENDING_FINGERPRINT}.*"
+- tapOn: "批准并共享密钥"
+- extendedWaitUntil:
+    notVisible: "批准设备 Zero Vault Android"
+    timeout: 30000
+- assertVisible: "已信任"

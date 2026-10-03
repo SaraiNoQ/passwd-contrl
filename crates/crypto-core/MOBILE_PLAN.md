@@ -1,143 +1,29 @@
-# Mobile Reuse Plan for crypto-core
+# crypto-core Android / UniFFI Plan
 
-This document describes how to build and integrate `crypto-core` for Android and iOS clients.
+Last updated: 2026-07-16
 
-## Build Targets
+Android is the current mobile target. All Rust Android-target installation, binding generation, native compilation and tests run inside `zero-vault-android-dev` on `root@campus-server`; never run them locally.
 
-### Android
+> **Current status:** Gradle cargo-ndk/binding tasks, UniFFI Kotlin adapter, Expo Module and Kotlin Repository are wired. A historical 2026-07-16 snapshot passed the two Android ABIs, generated Kotlin bindings, debug APK, API 33–36 instrumented matrix and real Rust client to Worker Serenity OPAQUE interoperability; `OPAQUE_INTEROP_VERIFIED` is enabled. Current and future automated Android validation runs only on API 36, while `minSdk 26` remains an install-compatibility declaration. Later source changes still require a fresh fingerprint-matched run, and device/recovery business flows still require end-to-end evidence.
 
-**Recommended approach: UniFFI (Mozilla)**
+## Target supported output
 
-UniFFI generates Kotlin bindings from a Rust UDL (UniFFI Definition Language) file or proc-macros.
+- UniFFI Kotlin bindings consumed by the local Expo Module.
+- `arm64-v8a` and `x86_64` shared libraries built with NDK `27.1.12297006` and cargo-ndk.
+- No 32-bit ABI and no iOS artifact in the current scope.
 
-1. Add `uniffi` crate to `Cargo.toml` and annotate exported functions with `#[uniffi::export]`.
-2. Create `src/crypto.udl` describing the public API surface.
-3. Build for Android targets:
-   - `aarch64-linux-android` (arm64-v8a)
-   - `x86_64-linux-android` (for emulator)
-   - Optionally `armv7-linux-androideabi` (armeabi-v7a)
-4. Use `cargo-ndk` or the Android NDK toolchain directly.
-5. UniFFI generates a Kotlin JAR that loads the `.so` via `System.loadLibrary`.
+## Export surface
 
-**Alternative: Direct JNI**
+Expose product operations, not raw key material: initialize device, OPAQUE start/finish, unlock/lock, item encrypt/decrypt, device packet encrypt/decrypt and recovery packet operations. Kotlin must keep key-bearing types opaque; the Expo Module returns only a short-lived session handle and sanitized DTOs.
 
-Write JNI wrappers manually with `jni` crate. More control, more boilerplate.
+Rust errors cross FFI as stable codes. Panic must not cross FFI. Password/key/plaintext buffers are zeroized after use, and cancellation/lock invalidates all outstanding handles.
 
-**Build command sketch:**
+## Compatibility gate
 
-```sh
-# Install targets
-rustup target add aarch64-linux-android x86_64-linux-android
+Native and WASM must share versioned envelopes, KDF parameters, AAD and device/recovery packet formats. Fixed synthetic vectors cover success, wrong key, tamper, truncation and unknown version. Android does not implement legacy `webcrypto-mvp`; users migrate those vaults in Web first.
 
-# Build
-cargo ndk -t arm64-v8a -t x86_64 -o app/src/main/jniLibs build --release
-```
+Builds are driven by the remote scripts and copied into the Expo native module's generated `jniLibs` only during remote prebuild. Generated bindings are versioned if required for reproducibility; compiled `.so`, Cargo target and Gradle outputs are never committed.
 
-### iOS
+The gate is an APK-level call, not merely `cargo ndk`: both ABIs must be present, `getStatus()` must report the expected protocol, and session/encrypt/decrypt/tamper behavior must run through Expo Module → Kotlin → UniFFI. OPAQUE can be enabled only after a remote compatibility report against the Worker implementation is archived with a non-stale source fingerprint.
 
-**Recommended approach: XCFramework via `cargo-xcode` or `swift-bridge`**
-
-1. Build for iOS targets:
-   - `aarch64-apple-ios` (device)
-   - `x86_64-apple-ios` (simulator, Intel)
-   - `aarch64-apple-ios-sim` (simulator, Apple Silicon)
-2. Create a universal static library or XCFramework.
-3. Use `swift-bridge` or `cbindgen` to generate a C header, then wrap in a Swift module.
-
-**Alternative: UniFFI for iOS**
-
-UniFFI also generates Swift bindings. Same UDL file serves both platforms.
-
-**Build command sketch:**
-
-```sh
-# Install targets
-rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
-
-# Build static libs
-cargo build --release --target aarch64-apple-ios
-cargo build --release --target x86_64-apple-ios
-cargo build --release --target aarch64-apple-ios-sim
-
-# Create XCFramework
-xcodebuild -create-xcframework \
-  -library target/aarch64-apple-ios/release/libcrypto_core.a -headers include/ \
-  -library target/x86_64-apple-ios/release/libcrypto_core.a -headers include/ \
-  -library target/aarch64-apple-ios-sim/release/libcrypto_core.a -headers include/ \
-  -output CryptoCore.xcframework
-```
-
-## Functions to Expose
-
-All public functions in `lib.rs` should be exposed to mobile:
-
-| Function | Purpose | Mobile use case |
-|---|---|---|
-| `derive_vault_key` | Argon2id KDF | Unlock vault on login |
-| `encrypt_xchacha20` | Encrypt vault snapshot | Save vault locally |
-| `decrypt_xchacha20` | Decrypt vault snapshot | Load vault |
-| `derive_item_key` | HKDF per-item key derivation | Item-level sync encryption |
-| `encrypt_item` | Encrypt single credential | Sync to server |
-| `decrypt_item` | Decrypt single credential | Receive from sync |
-| `derive_recovery_key` | Argon2id from recovery code | Recovery flow |
-| `encrypt_recovery_packet` | Wrap vault key for recovery | Create recovery |
-| `decrypt_recovery_packet` | Unwrap vault key from recovery | Recover vault |
-| `generate_device_keypair` | X25519 keypair | Device trust enrollment |
-| `encrypt_for_device` | ECDH + encrypt vault key | Share vault to new device |
-| `decrypt_on_device` | ECDH + decrypt vault key | Receive vault on device |
-| `generate_salt` | Random 16-byte salt | KDF salt generation |
-| `generate_key` | Random 32-byte key | Random key generation |
-
-## Security Considerations for Mobile Key Storage
-
-### Android
-
-- Use `AndroidKeyStore` to protect the vault key at rest.
-- Wrap the vault key with a key stored in the hardware-backed keystore (TEE/StrongBox).
-- Require biometric or device credential authentication before unwrapping.
-- Never log the master password, derived keys, or plaintext vault contents.
-- Clear keys from memory when the app is backgrounded or the vault is locked.
-
-### iOS
-
-- Use the iOS Keychain with `kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`.
-- Enable `SecAccessControl` with biometric requirement for vault key access.
-- Use `kSecAttrSynchronizable = false` to prevent vault keys from syncing via iCloud Keychain.
-- Clear sensitive memory on `applicationDidEnterBackground`.
-- Consider using the Secure Enclave for key wrapping if available.
-
-### Both Platforms
-
-- The Rust `generate_key()` function uses `OsRng` which maps to the platform CSPRNG on both Android and iOS.
-- Argon2id memory parameters may need to be reduced on mobile devices with limited RAM. Consider `memory_kib: 65536` for desktop and `memory_kib: 19456` for mobile, with a runtime negotiation.
-- Never store the master password in SharedPreferences/UserDefaults. Store only the encrypted vault blob and the KDF salt.
-
-## Recommended Mobile Crypto Flow
-
-```
-1. User enters master password
-2. Mobile calls derive_vault_key(password, salt, params) -> vault_key
-3. Mobile stores vault_key in platform keystore (wrapped by hardware key)
-4. Mobile calls decrypt_xchacha20(vault_key, encrypted_snapshot, aad) -> plaintext
-5. Parse plaintext as VaultSnapshot JSON
-
-For sync:
-6. For each item: derive_item_key(vault_key, item_id) -> item_key
-7. encrypt_item(item_key, item_json, item_id) -> encrypted_blob
-8. Upload encrypted_blob to sync API
-
-For device trust (adding new device):
-9. New device: generate_device_keypair() -> (private, public)
-10. Old device: encrypt_for_device(new_device_public, vault_key) -> blob
-11. Transfer blob to new device (via QR code or server relay)
-12. New device: decrypt_on_device(private_key, blob) -> vault_key
-
-For recovery:
-13. derive_recovery_key(recovery_code) -> recovery_key
-14. encrypt_recovery_packet(recovery_key, vault_key) -> packet
-15. Store packet on server (it's opaque to the server)
-
-Recovery unlock:
-16. derive_recovery_key(user_enters_code) -> recovery_key
-17. decrypt_recovery_packet(recovery_key, packet) -> vault_key
-```
+See `docs/android-dev/native-bridge.md` and `docs/android-dev/security.md`.

@@ -5,14 +5,17 @@
  */
 import {
   pullVault,
+  pullItemLevelSync,
   pushItemLevelSync,
   pushVault
 } from "./api-client";
 import {
   addCredential,
+  deleteItem,
   persistUnlockedVault,
   saveEncryptedLocalVault,
   unlockLocalVaultWithRecoveredKey,
+  decryptItemFromSync,
   type EncryptedLocalVault,
   type UnlockedVault,
   type VaultItem
@@ -28,8 +31,11 @@ import {
   performItemLevelSync,
   loadItemRevisionMap,
   saveItemRevisionMap,
+  loadPendingItemMutations,
+  savePendingItemMutations,
   loadConflictIds,
-  saveConflictIds
+  saveConflictIds,
+  loadSyncedTimestamps, saveSyncedTimestamps, loadSyncCursor, saveSyncCursor
 } from "./sync-vault";
 import {
   buildItemLevelSyncPlan,
@@ -61,6 +67,7 @@ export type SyncResult =
       serverRevision: number;
       itemInfos: ItemSyncInfo[];
       appliedCount: number;
+      mergedVault?: { encrypted: EncryptedLocalVault; unlocked: UnlockedVault };
     }
   | {
       status: "restored-from-cloud";
@@ -71,6 +78,7 @@ export type SyncResult =
       status: "conflicts";
       conflicts: ItemConflict[];
       itemInfos: ItemSyncInfo[];
+      mergedVault?: { encrypted: EncryptedLocalVault; unlocked: UnlockedVault };
     }
   | {
       status: "version-conflict";
@@ -138,6 +146,9 @@ export async function performSync(deps: {
   }
 
   try {
+    if (unlockedVault?.runtime === "crypto-core-wasm") {
+      return await performIncrementalSync(unlockedVault, user.id, csrfToken);
+    }
     const remote = await pullVault();
     const syncedLocalVaultItem = getSyncedLocalVaultItem(remote.items);
     const baseRevision = loadLocalServerRevision();
@@ -266,6 +277,32 @@ export async function performSync(deps: {
   }
 }
 
+/** Push durable local operations before pulling, so remote changes never erase edits. */
+export async function performIncrementalSync(vault: UnlockedVault, userId: string, csrfToken: string): Promise<SyncResult> {
+  const owner = window.localStorage.getItem("zero-vault.local.owner.v1");
+  if (owner && owner !== userId) throw new Error("此浏览器密码库属于另一个账户，请使用另一个浏览器登录。");
+  window.localStorage.setItem("zero-vault.local.owner.v1", userId);
+  const { syncVault } = await import("@zero-vault/browser-vault/sync");
+  const result = await syncVault(vault, userId, {
+    cursor: loadSyncCursor(), serverRevision: loadLocalServerRevision(), revisions: loadItemRevisionMap(),
+    timestamps: loadSyncedTimestamps(), pending: loadPendingItemMutations(), conflicts: [...loadConflictIds()]
+  }, {
+    push: plan => pushItemLevelSync(csrfToken, plan),
+    pull: pullItemLevelSync,
+    async commit(state, nextVault) {
+      if (nextVault) await persistUnlockedVault(nextVault);
+      saveItemRevisionMap(state.revisions); saveSyncedTimestamps(state.timestamps);
+      savePendingItemMutations(state.pending); saveConflictIds(new Set(state.conflicts));
+      saveLocalServerRevision(state.serverRevision); saveSyncCursor(state.cursor);
+    }
+  });
+  const persisted = await persistUnlockedVault(result.vault);
+  const itemInfos = result.vault.snapshot.items.map((item): ItemSyncInfo => ({ itemId: item.id, status: result.state.conflicts.includes(item.id) ? "conflict" : "synced", revision: result.state.revisions[item.id] }));
+  if (result.conflicts.length) return { status: "conflicts", conflicts: result.conflicts, itemInfos, mergedVault: persisted };
+  window.localStorage.setItem("zero-vault.local.last-synced-at.v1", new Date().toISOString());
+  return { status: "item-synced", serverRevision: result.state.serverRevision, appliedCount: result.appliedCount, itemInfos, mergedVault: persisted };
+}
+
 // ---------------------------------------------------------------------------
 // Restore from cloud
 // ---------------------------------------------------------------------------
@@ -319,6 +356,47 @@ export async function handleResolveKeepLocal(deps: {
 }): Promise<ConflictResolutionResult> {
   const { unlockedVault, user, csrfToken, itemId } = deps;
 
+  if (unlockedVault.runtime === "crypto-core-wasm") {
+    try {
+      const remote = await readRemoteItemState(itemId);
+      const item = unlockedVault.snapshot.items.find((candidate) => candidate.id === itemId);
+      const pending = loadPendingItemMutations();
+      const baseItemRevision = remote.revision;
+      let plan;
+      if (!item) {
+        if (!pending[itemId]?.delete) return { status: "error", message: "条目未找到。" };
+        const deletion = { ...pending[itemId]!.delete!, baseItemRevision, clientMutationId: crypto.randomUUID() };
+        pending[itemId] = { itemUpdatedAt: deletion.deletedAt, clientMutationId: deletion.clientMutationId, baseItemRevision, delete: deletion };
+        plan = { protocol: "item_level_v1" as const, baseRevision: remote.serverRevision, upserts: [], deletes: [deletion] };
+      } else {
+        delete pending[itemId];
+        const built = await buildItemLevelSyncPlan({ ...unlockedVault, snapshot: { ...unlockedVault.snapshot, items: [item] } }, user.id, { [itemId]: baseItemRevision }, new Set(), remote.serverRevision, {});
+        Object.assign(pending, built.pendingMutations);
+        plan = built.plan;
+      }
+      savePendingItemMutations(pending);
+      const response = await pushItemLevelSync(csrfToken, plan);
+      if (response.conflicts.length > 0) return { status: "still-conflicting", message: "远端版本再次变化，请刷新后重试。" };
+      const receipt = response.applied.mutationReceipts?.find((entry) => entry.clientMutationId === pending[itemId]!.clientMutationId && entry.itemId === itemId);
+      if (!receipt) throw new Error("sync_receipt_missing");
+      const revisions = loadItemRevisionMap();
+      const timestamps = loadSyncedTimestamps();
+      if (item) { revisions[itemId] = receipt.appliedItemRevision; timestamps[itemId] = item.updatedAt; }
+      else { delete revisions[itemId]; delete timestamps[itemId]; }
+      saveItemRevisionMap(revisions);
+      saveSyncedTimestamps(timestamps);
+      delete pending[itemId];
+      savePendingItemMutations(pending);
+      const conflictIds = loadConflictIds();
+      conflictIds.delete(itemId);
+      saveConflictIds(conflictIds);
+      saveLocalServerRevision(response.serverRevision);
+      return { status: "ok" };
+    } catch (caught) {
+      return { status: "error", message: caught instanceof Error ? caught.message : "同步失败。" };
+    }
+  }
+
   const item = unlockedVault.snapshot.items.find((i) => i.id === itemId);
   if (!item) return { status: "error", message: "条目未找到。" };
 
@@ -335,8 +413,9 @@ export async function handleResolveKeepLocal(deps: {
       baseServerRevision = loadLocalServerRevision();
     }
     const revisionMap = loadItemRevisionMap();
+    const pendingMutations = loadPendingItemMutations();
     const baseItemRevision = remoteItemRevision ?? revisionMap[itemId] ?? 0;
-    const { plan } = await buildItemLevelSyncPlan(
+    const built = await buildItemLevelSyncPlan(
       {
         ...unlockedVault,
         snapshot: { ...unlockedVault.snapshot, items: [item] }
@@ -344,14 +423,23 @@ export async function handleResolveKeepLocal(deps: {
       user.id,
       { [itemId]: baseItemRevision },
       new Set(),
-      baseServerRevision
+      baseServerRevision,
+      pendingMutations
     );
+    savePendingItemMutations(built.pendingMutations);
+    const { plan } = built;
     const response = await pushItemLevelSync(csrfToken, plan);
     const conflicts = response.conflicts ?? [];
     if (conflicts.length === 0) {
-      const updatedMap = { ...revisionMap, [itemId]: response.serverRevision };
+      const appliedRevision = response.applied.mutationReceipts?.find(
+        (receipt) => receipt.operation === "upsert" && receipt.itemId === itemId
+      )?.appliedItemRevision ?? response.serverRevision;
+      const updatedMap = { ...revisionMap, [itemId]: appliedRevision };
       saveItemRevisionMap(updatedMap);
       saveLocalServerRevision(response.serverRevision);
+      const remainingMutations = { ...built.pendingMutations };
+      delete remainingMutations[itemId];
+      savePendingItemMutations(remainingMutations);
       const conflictIds = loadConflictIds();
       conflictIds.delete(itemId);
       saveConflictIds(conflictIds);
@@ -382,6 +470,31 @@ export async function handleResolveAcceptRemote(deps: {
   const { unlockedVault, csrfToken, itemId } = deps;
 
   try {
+    if (unlockedVault.runtime === "crypto-core-wasm") {
+      const remote = await readRemoteItemState(itemId);
+      let next = deleteItem(unlockedVault, itemId);
+      const revisions = loadItemRevisionMap();
+      const timestamps = loadSyncedTimestamps();
+      if (remote.item) {
+        const item = await decryptItemFromSync(unlockedVault, remote.item.encryptedItemKey, remote.item.encryptedPayload, itemId);
+        next = { ...next, snapshot: { ...next.snapshot, items: [...next.snapshot.items, item] } };
+        revisions[itemId] = remote.revision;
+        timestamps[itemId] = item.updatedAt;
+      } else {
+        delete revisions[itemId];
+        delete timestamps[itemId];
+      }
+      const persisted = await persistUnlockedVault(next);
+      saveItemRevisionMap(revisions);
+      saveSyncedTimestamps(timestamps);
+      const pending = loadPendingItemMutations();
+      delete pending[itemId];
+      savePendingItemMutations(pending);
+      const conflictIds = loadConflictIds();
+      conflictIds.delete(itemId);
+      saveConflictIds(conflictIds);
+      return { status: "ok", mergedVault: persisted };
+    }
     const remote = await pullVault();
     const remoteItem = remote.items.find((i) => i.id === itemId);
     if (!remoteItem) {
@@ -424,16 +537,16 @@ export async function handleResolveCreateCopy(deps: {
   const { unlockedVault, itemId } = deps;
 
   const item = unlockedVault.snapshot.items.find((i) => i.id === itemId);
-  if (!item || !isLogin(item)) return { status: "error", message: "条目未找到。" };
+  if (!item) return { status: "error", message: "条目未找到。" };
 
   try {
-    const copy = addCredential(unlockedVault, {
-      title: `${item.title} (副本)`,
-      origin: item.origin,
-      username: item.username,
-      password: item.password,
-      notes: item.notes
-    });
+    const now = new Date().toISOString();
+    let copy = { ...unlockedVault, snapshot: { ...unlockedVault.snapshot, items: [...unlockedVault.snapshot.items, { ...item, id: crypto.randomUUID(), title: `${item.title} (副本)`, createdAt: now, updatedAt: now }] } };
+    if (unlockedVault.runtime === "crypto-core-wasm") {
+      const accepted = await handleResolveAcceptRemote({ unlockedVault: copy, csrfToken: "", itemId });
+      if (accepted.status !== "ok") throw new Error("无法读取远端版本，请稍后重试。");
+      copy = accepted.mergedVault.unlocked;
+    }
     const persisted = await persistUnlockedVault(copy);
 
     const conflictIds = loadConflictIds();
@@ -452,11 +565,30 @@ export async function handleResolveCreateCopy(deps: {
   }
 }
 
+async function readRemoteItemState(itemId: string) {
+  let cursor = 0;
+  let revision = 0;
+  let serverRevision = 0;
+  let item: import("@zero-vault/shared").VaultItemCiphertext | null = null;
+  for (let page = 0; page < 1000; page += 1) {
+    const remote = await pullItemLevelSync(cursor);
+    serverRevision = remote.serverRevision;
+    for (const change of remote.changes) {
+      if (change.operation === "upsert" && change.item.id === itemId) { item = change.item; revision = change.item.revision; }
+      if (change.operation === "delete" && change.itemId === itemId) { item = null; revision = change.revision; }
+    }
+    if (!remote.hasMore) return { item, revision, serverRevision };
+    if (remote.cursor <= cursor) throw new Error("sync_cursor_invalid");
+    cursor = remote.cursor;
+  }
+  throw new Error("sync_page_limit");
+}
+
 /**
  * Skip a conflict — remove it from the conflict list.
  */
 export function handleResolveSkip(itemId: string): void {
   const conflictIds = loadConflictIds();
-  conflictIds.delete(itemId);
+  conflictIds.add(itemId);
   saveConflictIds(conflictIds);
 }

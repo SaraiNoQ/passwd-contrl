@@ -1,6 +1,16 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { InMemoryCiphertextStore } from "../lib/storage/mobile-ciphertext-store";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { VaultItemCiphertext } from "@zero-vault/shared";
+import { InMemoryCiphertextStore } from "../lib/storage/mobile-ciphertext-store";
+import {
+  CREATED_AT,
+  ITEM_ID_A,
+  ITEM_ID_B,
+  MUTATION_ID_A,
+  MUTATION_ID_B,
+  UPDATED_AT,
+  makeCiphertext,
+  makeStoredItem,
+} from "./fixtures";
 
 describe("InMemoryCiphertextStore", () => {
   let store: InMemoryCiphertextStore;
@@ -9,106 +19,204 @@ describe("InMemoryCiphertextStore", () => {
     store = new InMemoryCiphertextStore();
   });
 
-  const makeItem = (id: string, revision: number): VaultItemCiphertext => ({
-    id,
-    ownerUserId: "user-1",
-    revision,
-    createdAt: "2026-01-01T00:00:00Z",
-    updatedAt: "2026-01-01T00:00:00Z",
-    encryptedItemKey: { alg: "XCHACHA20_POLY1305", nonce: "AA", ciphertext: "AA" },
-    encryptedPayload: { alg: "XCHACHA20_POLY1305", nonce: "AA", ciphertext: "AA" },
-    encryptedSearchTokens: [],
+  it("atomically stores a local ciphertext and its durable upsert mutation", async () => {
+    const item = makeStoredItem(ITEM_ID_A, 3);
+    await store.enqueueUpsert(item, 3, MUTATION_ID_A);
+
+    expect(await store.getById(ITEM_ID_A)).toEqual(item);
+    expect(await store.listPendingMutations()).toEqual([{
+      clientMutationId: MUTATION_ID_A,
+      itemId: ITEM_ID_A,
+      operation: "upsert",
+      baseItemRevision: 3,
+      ciphertextEnvelopeJson: JSON.stringify(item.ciphertext),
+      createdAt: CREATED_AT,
+      attemptCount: 0,
+      lastErrorCode: null,
+    }]);
   });
 
-  it("should store and retrieve items", async () => {
-    const item = makeItem("item-1", 1);
-    await store.upsert({
-      itemId: "item-1",
-      ciphertext: item,
-      itemRevision: 1,
-      lastSyncedAt: "2026-01-01T00:00:00Z",
-      hasConflict: false,
+  it("compacts consecutive edits while preserving the original server base revision", async () => {
+    const first = makeStoredItem(ITEM_ID_A, 3);
+    const second = {
+      ...makeStoredItem(ITEM_ID_A, 3, UPDATED_AT),
+      ciphertext: { ...makeCiphertext(ITEM_ID_A, 3), updatedAt: "2026-01-03T00:00:00.000Z" },
+    };
+    await store.enqueueUpsert(first, 3, MUTATION_ID_A);
+    await store.enqueueUpsert(second, 99, MUTATION_ID_B);
+
+    const pending = await store.listPendingMutations();
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({
+      clientMutationId: MUTATION_ID_B,
+      operation: "upsert",
+      baseItemRevision: 3,
+      createdAt: CREATED_AT,
     });
-
-    const retrieved = await store.getById("item-1");
-    expect(retrieved).not.toBeNull();
-    expect(retrieved!.itemId).toBe("item-1");
+    expect(JSON.parse(pending[0]?.ciphertextEnvelopeJson ?? "null")).toEqual(second.ciphertext);
+    expect((await store.getById(ITEM_ID_A))?.ciphertext.updatedAt).toBe("2026-01-03T00:00:00.000Z");
   });
 
-  it("should return all items", async () => {
-    await store.upsert({
-      itemId: "item-1",
-      ciphertext: makeItem("item-1", 1),
-      itemRevision: 1,
-      lastSyncedAt: "2026-01-01T00:00:00Z",
-      hasConflict: false,
+  it("coalesces create then delete to no local item and no network mutation", async () => {
+    await store.enqueueUpsert(makeStoredItem(ITEM_ID_A, 0), 0, MUTATION_ID_A);
+    await store.enqueueDelete(ITEM_ID_A, 0, MUTATION_ID_B, UPDATED_AT);
+
+    expect(await store.getById(ITEM_ID_A)).toBeNull();
+    expect(await store.listPendingMutations()).toEqual([]);
+  });
+
+  it("compacts edit then delete using the edit's original base revision", async () => {
+    await store.enqueueUpsert(makeStoredItem(ITEM_ID_A, 8), 8, MUTATION_ID_A);
+    await store.enqueueDelete(ITEM_ID_A, 100, MUTATION_ID_B, UPDATED_AT);
+
+    expect(await store.getById(ITEM_ID_A)).toBeNull();
+    expect(await store.listPendingMutations()).toEqual([{
+      clientMutationId: MUTATION_ID_B,
+      itemId: ITEM_ID_A,
+      operation: "delete",
+      baseItemRevision: 8,
+      ciphertextEnvelopeJson: null,
+      createdAt: UPDATED_AT,
+      attemptCount: 0,
+      lastErrorCode: null,
+    }]);
+  });
+
+  it("acknowledges a mutation by updating both ciphertext revisions before removing the queue row", async () => {
+    await store.enqueueUpsert(makeStoredItem(ITEM_ID_A, 3), 3, MUTATION_ID_A);
+    await store.acknowledgeMutations(
+      [{ clientMutationId: MUTATION_ID_A, appliedItemRevision: 4 }],
+      12,
+      UPDATED_AT,
+    );
+
+    const stored = await store.getById(ITEM_ID_A);
+    expect(stored).toMatchObject({ itemRevision: 4, lastSyncedAt: UPDATED_AT });
+    expect(stored?.ciphertext.revision).toBe(4);
+    expect(await store.listPendingMutations()).toEqual([]);
+    expect(await store.getSyncMetadata()).toEqual({
+      serverRevision: 12,
+      serverCursor: 0,
+      lastSyncedAt: UPDATED_AT,
     });
-    await store.upsert({
-      itemId: "item-2",
-      ciphertext: makeItem("item-2", 2),
-      itemRevision: 2,
-      lastSyncedAt: "2026-01-01T00:00:00Z",
-      hasConflict: false,
+  });
+
+  it("rolls back the entire acknowledgement batch when any receipt is invalid", async () => {
+    await store.enqueueUpsert(makeStoredItem(ITEM_ID_A, 1), 1, MUTATION_ID_A);
+    await store.enqueueUpsert(makeStoredItem(ITEM_ID_B, 2), 2, MUTATION_ID_B);
+
+    await expect(store.acknowledgeMutations([
+      { clientMutationId: MUTATION_ID_A, appliedItemRevision: 2 },
+      {
+        clientMutationId: "99999999-9999-4999-8999-999999999999",
+        appliedItemRevision: 3,
+      },
+    ], 9, UPDATED_AT)).rejects.toThrow("MUTATION_NOT_FOUND");
+
+    expect((await store.getById(ITEM_ID_A))?.itemRevision).toBe(1);
+    expect(await store.listPendingMutations()).toHaveLength(2);
+    expect(await store.getSyncMetadata()).toEqual({
+      serverRevision: 0,
+      serverCursor: 0,
+      lastSyncedAt: null,
     });
-
-    const all = await store.getAll();
-    expect(all.length).toBe(2);
   });
 
-  it("should delete items", async () => {
-    await store.upsert({
-      itemId: "item-1",
-      ciphertext: makeItem("item-1", 1),
-      itemRevision: 1,
-      lastSyncedAt: "2026-01-01T00:00:00Z",
-      hasConflict: false,
+  it("applies a pull page and cursor atomically while preserving a conflicting local mutation", async () => {
+    await store.enqueueUpsert(makeStoredItem(ITEM_ID_A, 1), 1, MUTATION_ID_A);
+    await store.applyPullPage(
+      [makeCiphertext(ITEM_ID_A, 2), makeCiphertext(ITEM_ID_B, 5)],
+      [],
+      14,
+      27,
+      UPDATED_AT,
+    );
+
+    const local = await store.getById(ITEM_ID_A);
+    expect(local?.itemRevision).toBe(1);
+    expect(local?.hasConflict).toBe(true);
+    expect((await store.getById(ITEM_ID_B))?.itemRevision).toBe(5);
+    expect(await store.listPendingMutations()).toHaveLength(1);
+    expect(await store.listConflicts()).toEqual([
+      expect.objectContaining({
+        itemId: ITEM_ID_A,
+        reason: "item_revision_advanced",
+        serverRevision: 14,
+        serverItemRevision: 2,
+        status: "UNRESOLVED",
+      }),
+    ]);
+    expect(await store.getSyncMetadata()).toEqual({
+      serverRevision: 14,
+      serverCursor: 27,
+      lastSyncedAt: UPDATED_AT,
     });
-    await store.delete("item-1");
-    const retrieved = await store.getById("item-1");
-    expect(retrieved).toBeNull();
   });
 
-  it("should return null for unknown items", async () => {
-    const retrieved = await store.getById("nonexistent");
-    expect(retrieved).toBeNull();
-  });
+  it("rolls back a pull page when any ciphertext fails the strict shared schema", async () => {
+    const invalid = {
+      ...makeCiphertext(ITEM_ID_B, 2),
+      encryptedPayload: {
+        alg: "XCHACHA20_POLY1305",
+        nonce: "AA",
+        ciphertext: "AA",
+      },
+    } as unknown as VaultItemCiphertext;
 
-  it("should track server revision", async () => {
-    await store.setServerRevision(42);
-    const rev = await store.getServerRevision();
-    expect(rev).toBe(42);
-  });
+    await expect(store.applyPullPage(
+      [makeCiphertext(ITEM_ID_A, 1), invalid],
+      [],
+      2,
+      2,
+      UPDATED_AT,
+    )).rejects.toThrow();
 
-  it("should track last synced at", async () => {
-    await store.setLastSyncedAt("2026-06-01T12:00:00Z");
-    const ts = await store.getLastSyncedAt();
-    expect(ts).toBe("2026-06-01T12:00:00Z");
-  });
-
-  it("should track conflict IDs", async () => {
-    const ids = new Set(["c1", "c2"]);
-    await store.setConflictIds(ids);
-    const retrieved = await store.getConflictIds();
-    expect(retrieved.size).toBe(2);
-    expect(retrieved.has("c1")).toBe(true);
-  });
-
-  it("should clear all data", async () => {
-    await store.upsert({
-      itemId: "item-1",
-      ciphertext: makeItem("item-1", 1),
-      itemRevision: 1,
-      lastSyncedAt: "2026-01-01T00:00:00Z",
-      hasConflict: false,
+    expect(await store.getAll()).toEqual([]);
+    expect(await store.getSyncMetadata()).toEqual({
+      serverRevision: 0,
+      serverCursor: 0,
+      lastSyncedAt: null,
     });
-    await store.setServerRevision(42);
+  });
+
+  it("uses the remote tombstone revision for a pending conflict and deletes independent items", async () => {
+    await store.applyPullPage(
+      [makeCiphertext(ITEM_ID_A, 1), makeCiphertext(ITEM_ID_B, 1)],
+      [],
+      1,
+      2,
+      CREATED_AT,
+    );
+    await store.enqueueUpsert(makeStoredItem(ITEM_ID_A, 1), 1, MUTATION_ID_A);
+    await store.applyPullPage([], [
+      { id: ITEM_ID_A, revision: 8, deletedAt: UPDATED_AT },
+      { id: ITEM_ID_B, revision: 5, deletedAt: UPDATED_AT },
+    ], 2, 4, UPDATED_AT);
+
+    expect(await store.getById(ITEM_ID_A)).not.toBeNull();
+    expect(await store.getById(ITEM_ID_B)).toBeNull();
+    expect(await store.listConflicts()).toEqual([
+      expect.objectContaining({
+        itemId: ITEM_ID_A,
+        remoteCiphertextEnvelopeJson: null,
+        serverRevision: 2,
+        serverItemRevision: 8,
+      }),
+    ]);
+  });
+
+  it("clears ciphertexts, queue, conflicts and sync metadata", async () => {
+    await store.enqueueUpsert(makeStoredItem(ITEM_ID_A, 1), 1, MUTATION_ID_A);
+    await store.applyPullPage([makeCiphertext(ITEM_ID_A, 2)], [], 2, 2, UPDATED_AT);
     await store.clear();
 
-    const all = await store.getAll();
-    expect(all.length).toBe(0);
-    const rev = await store.getServerRevision();
-    expect(rev).toBe(0);
-    const ts = await store.getLastSyncedAt();
-    expect(ts).toBeNull();
+    expect(await store.getAll()).toEqual([]);
+    expect(await store.listPendingMutations()).toEqual([]);
+    expect(await store.listConflicts()).toEqual([]);
+    expect(await store.getSyncMetadata()).toEqual({
+      serverRevision: 0,
+      serverCursor: 0,
+      lastSyncedAt: null,
+    });
   });
 });

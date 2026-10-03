@@ -3,27 +3,57 @@
  * Must be called once before any React components render.
  */
 
-import { configureApiClient } from "../state/auth-state";
+import { configureApiClient, configureAuthDependencies } from "../state/auth-state";
 import { configureVaultDependencies } from "../state/vault-state";
-import { TestDoubleCryptoAdapter } from "./crypto/mobile-crypto-adapter";
-import { InMemoryCiphertextStore } from "./storage/mobile-ciphertext-store";
-import { InMemorySecureStore } from "./storage/mobile-secure-store";
+import { NativeMobileOpaqueAuthAdapter } from "./auth/native-mobile-auth-adapter";
+import { installLocalizedAlerts } from "../i18n/alert";
+import {
+  NativeCryptoUnavailableAdapter,
+  NativeMobileCryptoAdapter,
+  type MobileCryptoAdapter,
+} from "./crypto/mobile-crypto-adapter";
+import { NativeRoomCiphertextStore } from "./storage/mobile-ciphertext-store";
+import { ExpoSecureStoreAdapter } from "./storage/mobile-secure-store";
 
 // Default API URL — override via environment or settings
-const DEFAULT_API_URL = "http://localhost:8787";
+const DEFAULT_API_URL = process.env.EXPO_PUBLIC_ZERO_VAULT_API_URL ?? "https://zero-vault.invalid";
+
+function reportNativeInitializationFailure(caught: unknown): void {
+  if (!__DEV__) return;
+  const error = caught instanceof Error ? caught : null;
+  const code = typeof caught === "object" && caught !== null && "code" in caught
+    ? String((caught as { code: unknown }).code)
+    : "UNKNOWN";
+  // This runs before authentication and deliberately omits stack traces and
+  // application state. It must never include passwords, keys or session data.
+  console.error("[zero-vault] native security bridge initialization failed", {
+    code,
+    name: error?.name ?? typeof caught,
+    message: error?.message ?? "Non-Error native initialization failure",
+  });
+}
 
 export function initializeApp(options?: { apiUrl?: string }) {
+  installLocalizedAlerts();
   const baseUrl = options?.apiUrl ?? DEFAULT_API_URL;
 
-  // Configure API client
+  const secureStore = new ExpoSecureStoreAdapter();
   configureApiClient({ baseUrl });
 
-  // Configure vault dependencies
-  // MVP: uses test doubles and in-memory stores.
-  // Production: replace with real crypto adapter (UniFFI) and persistent stores.
+  let crypto: MobileCryptoAdapter = new NativeCryptoUnavailableAdapter();
+  let opaqueAuth: NativeMobileOpaqueAuthAdapter | undefined;
+  try {
+    crypto = new NativeMobileCryptoAdapter();
+    opaqueAuth = new NativeMobileOpaqueAuthAdapter();
+  } catch (caught: unknown) {
+    // Production fails closed; the auth state surfaces the unavailable gate.
+    reportNativeInitializationFailure(caught);
+  }
+  configureAuthDependencies(opaqueAuth ? { secureStore, opaqueAuth } : { secureStore });
+
   configureVaultDependencies({
-    crypto: new TestDoubleCryptoAdapter(),
-    ciphertextStore: new InMemoryCiphertextStore(),
-    secureStore: new InMemorySecureStore(),
+    crypto,
+    ciphertextStoreFactory: (accountId) => new NativeRoomCiphertextStore(accountId),
+    secureStore,
   });
 }

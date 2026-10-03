@@ -52,19 +52,44 @@
   margin: 0;
 }
 
-.description {
-  color: var(--color-text-muted, #6b7280);
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 0;
-}
-
 .error {
   background: var(--color-error-bg, #fef2f2);
   border-radius: 8px;
   color: var(--color-error, #ef4444);
   font-size: 13px;
   padding: var(--space-2, 8px);
+}
+
+.status {
+  background: color-mix(in srgb, var(--color-cloud-mist, #e3f1fe) 56%, white);
+  border-radius: 8px;
+  color: var(--color-text-primary, #111827);
+  font-size: 13px;
+  padding: var(--space-2, 8px);
+}
+
+.callout {
+  background:
+    linear-gradient(90deg, rgba(255, 94, 36, 0.1) 0 4px, transparent 4px),
+    color-mix(in srgb, var(--color-cloud-mist, #e3f1fe) 34%, var(--color-paper-white, #ffffff));
+  border: 1px solid var(--color-cloud-mist, #e3f1fe);
+  border-radius: 12px;
+  display: grid;
+  gap: 6px;
+  padding: var(--space-4, 16px);
+}
+
+.callout strong {
+  color: var(--color-text-primary, #111827);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.callout span {
+  color: var(--color-text-muted, #6b7280);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .actions {
@@ -82,18 +107,23 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2, 8px);
+  max-height: calc(332px + var(--space-2, 8px));
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .item {
-  align-items: center;
+  align-items: flex-start;
   background: var(--color-bg-secondary, #f9fafb);
   border: 1px solid var(--color-border, #e5e7eb);
   border-radius: 8px;
   display: flex;
   gap: var(--space-2, 8px);
   justify-content: space-between;
+  min-height: 166px;
   min-width: 0;
   padding: var(--space-3, 12px);
+  flex: 0 0 auto;
 }
 
 .itemMeta {
@@ -114,6 +144,19 @@
   color: var(--color-text-muted, #6b7280);
   font-family: var(--font-mono, monospace);
   overflow-wrap: anywhere;
+}
+
+.itemHint {
+  color: var(--color-text-muted, #6b7280);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.itemActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 164px;
 }
 
 .empty {
@@ -141,7 +184,11 @@
   }
 
   .actions :global(button),
-  .item :global(button) {
+  .itemActions :global(button) {
     width: 100%;
+  }
+
+  .itemActions {
+    min-width: 0;
   }
 }

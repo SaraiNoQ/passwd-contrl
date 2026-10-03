@@ -2,9 +2,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { D1VaultStore } from "./d1-store";
 import type {
-  CiphertextEnvelope,
+  DeviceVaultKeyPacket,
   ItemLevelEncryptedUpsert,
   ItemLevelSyncPlan,
+  RecoveryPacketEnvelope,
   SyncPushRequest,
   TrustedDevice
 } from "@zero-vault/shared";
@@ -80,12 +81,8 @@ class MockD1Database {
     return new MockD1PreparedStatement(this, sql);
   }
 
-  async batch(stmts: MockD1PreparedStatement[]): Promise<void> {
-    this.sqlite.transaction(() => {
-      for (const stmt of stmts) {
-        stmt.runSync();
-      }
-    })();
+  async batch(stmts: MockD1PreparedStatement[]): Promise<MockD1Result[]> {
+    return this.sqlite.transaction(() => stmts.map((stmt) => stmt.runSync()))();
   }
 }
 
@@ -107,6 +104,7 @@ function runMigration(db: MockD1Database): void {
       public_key_bundle TEXT NOT NULL,
       encrypted_recovery_packet TEXT NOT NULL,
       server_revision INTEGER NOT NULL DEFAULT 0,
+      auth_epoch INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -126,17 +124,30 @@ function runMigration(db: MockD1Database): void {
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       server_login_state TEXT NOT NULL,
+      auth_epoch INTEGER NOT NULL DEFAULT 0,
       expires_at TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_login_sessions_user ON login_sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_login_sessions_expires ON login_sessions(expires_at);
 
+    CREATE TABLE IF NOT EXISTS fake_login_sessions (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      server_login_state TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_fake_login_sessions_expires
+      ON fake_login_sessions(expires_at);
+
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       token_hash TEXT UNIQUE NOT NULL,
       csrf_token TEXT NOT NULL,
+      device_id TEXT,
+      auth_epoch INTEGER NOT NULL DEFAULT 0,
       expires_at TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -168,9 +179,38 @@ function runMigration(db: MockD1Database): void {
     CREATE INDEX IF NOT EXISTS idx_history_item ON vault_item_history(item_id);
     CREATE INDEX IF NOT EXISTS idx_history_user_item ON vault_item_history(user_id, item_id);
 
+    CREATE TABLE IF NOT EXISTS item_sync_changes (
+      cursor INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      operation TEXT NOT NULL,
+      item_revision INTEGER NOT NULL,
+      change_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS item_sync_mutations (
+      user_id TEXT NOT NULL,
+      client_mutation_id TEXT NOT NULL,
+      request_fingerprint TEXT NOT NULL,
+      result_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, client_mutation_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS item_sync_revision_claims (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      revision INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, revision)
+    );
+
     CREATE TABLE IF NOT EXISTS recovery_packets (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       encrypted_recovery_packet TEXT NOT NULL,
+      protocol_version INTEGER NOT NULL DEFAULT 1,
+      signing_public_key TEXT,
+      generation INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -182,6 +222,7 @@ function runMigration(db: MockD1Database): void {
     fingerprint TEXT,
     public_key TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
+    credential_hash TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     last_seen_ip TEXT,
@@ -203,23 +244,40 @@ function runMigration(db: MockD1Database): void {
       PRIMARY KEY (key, timestamp)
     );
     CREATE INDEX IF NOT EXISTS idx_rate_limits_key_ts ON rate_limits (key, timestamp);
+
+    CREATE TABLE IF NOT EXISTS recovery_challenges (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      auth_epoch INTEGER,
+      recovery_generation INTEGER,
+      nonce TEXT NOT NULL,
+      registration_session_id TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS recovery_claims (
+      challenge_id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT NOT NULL,
+      claimed_at TEXT NOT NULL
+    );
   `;
 
   db.sqlite.exec(migration);
 }
 
-function createStore(): D1VaultStore {
+function createStoreWithDb(): { store: D1VaultStore; db: MockD1Database } {
   const db = createTestDB();
   runMigration(db);
-  return new D1VaultStore(db as unknown as D1Database);
+  return { store: new D1VaultStore(db as unknown as D1Database), db };
 }
 
 // ── Test Fixtures ────────────────────────────────────────────────────────────
 
-const mockEnvelope: CiphertextEnvelope = {
+const mockEnvelope: ItemLevelEncryptedUpsert["encryptedItemKey"] = {
   alg: "XCHACHA20_POLY1305",
-  nonce: "dGVzdA",
-  ciphertext: "dGVzdA"
+  nonce: "N".repeat(32),
+  ciphertext: "A".repeat(22)
 };
 
 function makeItem(overrides: Partial<ItemLevelEncryptedUpsert> = {}): ItemLevelEncryptedUpsert {
@@ -232,6 +290,8 @@ function makeItem(overrides: Partial<ItemLevelEncryptedUpsert> = {}): ItemLevelE
     encryptedItemKey: mockEnvelope,
     encryptedPayload: mockEnvelope,
     encryptedSearchTokens: [],
+    baseItemRevision: 0,
+    clientMutationId: crypto.randomUUID(),
     ...overrides
   };
 }
@@ -240,9 +300,12 @@ function makeItem(overrides: Partial<ItemLevelEncryptedUpsert> = {}): ItemLevelE
 
 describe("D1VaultStore", () => {
   let store: D1VaultStore;
+  let testDb: MockD1Database;
 
   beforeEach(() => {
-    store = createStore();
+    const created = createStoreWithDb();
+    store = created.store;
+    testDb = created.db;
   });
 
   // ── User CRUD ──────────────────────────────────────────────────────────────
@@ -335,6 +398,19 @@ describe("D1VaultStore", () => {
     it("returns null for unknown session", async () => {
       expect(await store.consumeRegistrationSession("nonexistent")).toBeNull();
     });
+
+    it("atomically allows only one concurrent registration finish consumer", async () => {
+      const session = await store.createRegistrationSession({
+        email: "concurrent-register@example.com",
+        registrationResponse: "resp",
+        expiresAt: new Date(Date.now() + 60_000)
+      });
+      const results = await Promise.all([
+        store.consumeRegistrationSession(session.id),
+        store.consumeRegistrationSession(session.id)
+      ]);
+      expect(results.filter(Boolean)).toHaveLength(1);
+    });
   });
 
   // ── Login Sessions ─────────────────────────────────────────────────────────
@@ -375,6 +451,49 @@ describe("D1VaultStore", () => {
         expiresAt: new Date(Date.now() - 1000)
       });
       expect(await store.consumeLoginSession(session.id)).toBeNull();
+    });
+
+    it("atomically allows only one concurrent login finish consumer", async () => {
+      const session = await store.createLoginSession({
+        userId,
+        serverLoginState: "state",
+        expiresAt: new Date(Date.now() + 60_000)
+      });
+      const results = await Promise.all([
+        store.consumeLoginSession(session.id),
+        store.consumeLoginSession(session.id)
+      ]);
+      expect(results.filter(Boolean)).toHaveLength(1);
+    });
+
+    it("binds an OPAQUE login state to the user's current auth epoch", async () => {
+      const session = await store.createLoginSession({
+        userId,
+        serverLoginState: "epoch-bound-state",
+        authEpoch: 0,
+        expiresAt: new Date(Date.now() + 60_000)
+      });
+      testDb.sqlite.prepare("UPDATE users SET auth_epoch = 1 WHERE id = ?").run(userId);
+      const consumed = await store.consumeLoginSession(session.id);
+      expect(consumed?.authEpoch).toBe(0);
+      expect((await store.findUserById(userId))?.authEpoch).toBe(1);
+    });
+
+    it("creates and atomically consumes a fake OPAQUE login state once", async () => {
+      const session = await store.createFakeLoginSession({
+        email: "missing@example.com",
+        serverLoginState: "fake-state",
+        expiresAt: new Date(Date.now() + 60_000)
+      });
+      const consumed = await Promise.all([
+        store.consumeFakeLoginSession(session.id),
+        store.consumeFakeLoginSession(session.id)
+      ]);
+      expect(consumed.filter(Boolean)).toHaveLength(1);
+      expect(consumed.find(Boolean)).toMatchObject({
+        email: "missing@example.com",
+        serverLoginState: "fake-state"
+      });
     });
   });
 
@@ -439,19 +558,115 @@ describe("D1VaultStore", () => {
         serverLoginState: "state",
         expiresAt: new Date(Date.now() - 1000)
       });
+      await store.createFakeLoginSession({
+        email: "expired-fake@example.com",
+        serverLoginState: "fake-state",
+        expiresAt: new Date(Date.now() - 1000)
+      });
       await store.createRegistrationSession({
         email: "expired-reg@example.com",
         registrationResponse: "resp",
         expiresAt: new Date(Date.now() - 1000)
       });
+      const expiredRecovery = await store.createRecoveryChallenge({
+        userId: null,
+        authEpoch: null,
+        recoveryGeneration: null,
+        nonce: "R".repeat(43),
+        registrationSessionId: crypto.randomUUID(),
+        expiresAt: new Date(Date.now() - 1000)
+      });
+      const validRecovery = await store.createRecoveryChallenge({
+        userId: null,
+        authEpoch: null,
+        recoveryGeneration: null,
+        nonce: "V".repeat(43),
+        registrationSessionId: crypto.randomUUID(),
+        expiresAt: new Date(Date.now() + 60_000)
+      });
 
       const result = await store.cleanupExpiredSessions();
       expect(result.sessions).toBe(1);
       expect(result.loginSessions).toBe(1);
+      expect(result.fakeLoginSessions).toBe(1);
       expect(result.registrationSessions).toBe(1);
+      expect(result.recoveryChallenges).toBe(1);
 
       // Valid session still exists
       expect(await store.findSessionByTokenHash("valid1")).not.toBeNull();
+      expect(await store.getRecoveryChallenge(expiredRecovery.id)).toBeNull();
+      expect(await store.getRecoveryChallenge(validRecovery.id)).not.toBeNull();
+    });
+
+    it("atomically replaces prior bearer sessions for one native device", async () => {
+      const deviceId = "auth-device-rotation";
+      await store.registerDevice(userId, {
+        id: deviceId,
+        name: "Android",
+        publicKey: "device-key",
+        status: "approved",
+        createdAt: "2026-07-16T00:00:00.000Z",
+        updatedAt: "2026-07-16T00:00:00.000Z"
+      });
+      await store.createSession({
+        userId,
+        tokenHash: "old-device-session-1",
+        csrfToken: "old-csrf-1",
+        deviceId,
+        expiresAt: new Date(Date.now() + 60_000)
+      });
+      await store.createSession({
+        userId,
+        tokenHash: "old-device-session-2",
+        csrfToken: "old-csrf-2",
+        deviceId,
+        expiresAt: new Date(Date.now() + 60_000)
+      });
+
+      const rotated = await store.rotateDeviceSession({
+        userId,
+        tokenHash: "new-device-session",
+        csrfToken: "new-csrf",
+        deviceId,
+        expiresAt: new Date(Date.now() + 60_000)
+      });
+
+      expect(rotated.deviceId).toBe(deviceId);
+      expect(await store.findSessionByTokenHash("old-device-session-1")).toBeNull();
+      expect(await store.findSessionByTokenHash("old-device-session-2")).toBeNull();
+      expect(await store.findSessionByTokenHash("new-device-session")).not.toBeNull();
+    });
+
+    it("does not let a stale epoch rotation delete a newer device session", async () => {
+      const deviceId = "epoch-rotation-device";
+      await store.registerDevice(userId, {
+        id: deviceId,
+        name: "Recovery Android",
+        publicKey: "epoch-device-key",
+        status: "approved",
+        createdAt: "2026-07-16T00:00:00.000Z",
+        updatedAt: "2026-07-16T00:00:00.000Z"
+      });
+      testDb.sqlite.prepare("UPDATE users SET auth_epoch = 1 WHERE id = ?").run(userId);
+      await store.createSession({
+        userId,
+        tokenHash: "new-epoch-session",
+        csrfToken: "new-epoch-csrf",
+        deviceId,
+        authEpoch: 1,
+        expiresAt: new Date(Date.now() + 60_000)
+      });
+
+      await expect(store.rotateDeviceSession({
+        userId,
+        tokenHash: "stale-epoch-session",
+        csrfToken: "stale-epoch-csrf",
+        deviceId,
+        authEpoch: 0,
+        expiresAt: new Date(Date.now() + 60_000)
+      })).rejects.toThrow("auth_epoch_changed");
+      expect(await store.findSessionByTokenHash("new-epoch-session")).not.toBeNull();
+      expect(await store.findSessionByTokenHash("stale-epoch-session")).toBeNull();
     });
   });
 
@@ -496,6 +711,37 @@ describe("D1VaultStore", () => {
       expect(pullResult.items).toHaveLength(1);
       expect(pullResult.items[0]!.id).toBe(item.id);
       expect(pullResult.items[0]!.revision).toBe(1);
+    });
+
+    it("publishes legacy upserts and tombstones to the item cursor", async () => {
+      const item = makeItem({ ownerUserId: userId });
+      await store.pushVault(userId, { baseRevision: 0, upserts: [item], deletes: [] });
+
+      const afterUpsert = await store.pullItemLevelSync(userId, 0);
+      expect(afterUpsert.items).toHaveLength(1);
+      expect(afterUpsert.items[0]!.id).toBe(item.id);
+
+      await store.pushVault(userId, { baseRevision: 1, upserts: [], deletes: [item.id] });
+      const afterDelete = await store.pullItemLevelSync(userId, afterUpsert.cursor);
+      expect(afterDelete.deletedItemIds).toEqual([item.id]);
+      expect(afterDelete.deletedItems[0]).toMatchObject({ id: item.id, revision: 2 });
+    });
+
+    it("advances past a legacy whole-vault envelope that is invalid for item-level clients", async () => {
+      const legacyItem = makeItem({
+        ownerUserId: userId,
+        encryptedPayload: {
+          alg: "XCHACHA20_POLY1305",
+          nonce: "AA",
+          ciphertext: "AA"
+        }
+      });
+      await store.pushVault(userId, { baseRevision: 0, upserts: [legacyItem], deletes: [] });
+
+      const pull = await store.pullItemLevelSync(userId, 0);
+      expect(pull.cursor).toBeGreaterThan(0);
+      expect(pull.changes).toEqual([]);
+      expect(pull.items).toEqual([]);
     });
 
     it("returns sync_conflict on revision mismatch", async () => {
@@ -577,18 +823,18 @@ describe("D1VaultStore", () => {
       expect(result.applied.upsertedItemIds).toContain(item.id);
       expect(result.conflicts).toHaveLength(0);
 
-      const pull = await store.pullItemLevelSync(userId);
+      const pull = await store.pullItemLevelSync(userId, 0);
       expect(pull.serverRevision).toBe(1);
       expect(pull.items).toHaveLength(1);
       expect(pull.deletedItemIds).toHaveLength(0);
     });
 
-    it("returns server_revision_advanced on server revision mismatch", async () => {
+    it("returns encrypted conflict state for a stale item revision", async () => {
       const item = makeItem({ ownerUserId: userId });
       await store.pushItemLevelSync(userId, {
         protocol: "item_level_v1",
         baseRevision: 0,
-        upserts: [item],
+        upserts: [{ ...item, clientMutationId: crypto.randomUUID() }],
         deletes: []
       });
 
@@ -602,7 +848,8 @@ describe("D1VaultStore", () => {
       expect(result.serverRevision).toBe(1);
       expect(result.applied.upsertedItemIds).toHaveLength(0);
       expect(result.conflicts).toHaveLength(1);
-      expect(result.conflicts[0]!.reason).toBe("server_revision_advanced");
+      expect(result.conflicts[0]!.reason).toBe("item_revision_advanced");
+      expect(result.conflicts[0]!.serverState.kind).toBe("item");
       expect(result.conflicts[0]!.operation).toBe("upsert");
     });
 
@@ -611,7 +858,7 @@ describe("D1VaultStore", () => {
       await store.pushItemLevelSync(userId, {
         protocol: "item_level_v1",
         baseRevision: 0,
-        upserts: [item],
+        upserts: [{ ...item, clientMutationId: crypto.randomUUID() }],
         deletes: []
       });
 
@@ -646,12 +893,105 @@ describe("D1VaultStore", () => {
       const result = await store.pushItemLevelSync(userId, {
         protocol: "item_level_v1",
         baseRevision: 0,
-        upserts: [item],
+        upserts: [{ ...item, clientMutationId: crypto.randomUUID() }],
         deletes: []
       });
 
       expect(result.serverRevision).toBe(1); // unchanged
       expect(result.applied.upsertedItemIds).toHaveLength(0);
+    });
+
+    it("replays an identical durable encrypted mutation without duplicating its write", async () => {
+      const clientMutationId = "d0000000-0000-4000-8000-000000000001";
+      const item = makeItem({ ownerUserId: userId, clientMutationId });
+      const first = await store.pushItemLevelSync(userId, {
+        protocol: "item_level_v1",
+        baseRevision: 0,
+        upserts: [item],
+        deletes: []
+      });
+      await store.pushItemLevelSync(userId, {
+        protocol: "item_level_v1",
+        baseRevision: 1,
+        upserts: [makeItem({
+          id: "a0000000-0000-4000-8000-000000000002",
+          ownerUserId: userId,
+          clientMutationId: "d0000000-0000-4000-8000-000000000011"
+        })],
+        deletes: []
+      });
+
+      const replay = await store.pushItemLevelSync(userId, {
+        protocol: "item_level_v1",
+        baseRevision: 0,
+        upserts: [item],
+        deletes: []
+      });
+
+      expect(first.applied.upsertedItemIds).toEqual([item.id]);
+      expect(replay.applied.upsertedItemIds).toEqual([item.id]);
+      expect(replay.serverRevision).toBe(2);
+      expect(replay.conflicts).toEqual([]);
+      expect(replay.applied.mutationReceipts).toEqual([{
+        clientMutationId,
+        itemId: item.id,
+        operation: "upsert",
+        appliedItemRevision: 1
+      }]);
+      expect((await store.pullItemLevelSync(userId, 0)).changes).toHaveLength(2);
+    });
+
+    it("does not acknowledge changed ciphertext under an applied mutation id", async () => {
+      const clientMutationId = "d0000000-0000-4000-8000-000000000003";
+      const item = makeItem({ ownerUserId: userId, clientMutationId });
+      await store.pushItemLevelSync(userId, {
+        protocol: "item_level_v1",
+        baseRevision: 0,
+        upserts: [item],
+        deletes: []
+      });
+
+      const changed = await store.pushItemLevelSync(userId, {
+        protocol: "item_level_v1",
+        baseRevision: 0,
+        upserts: [{
+          ...item,
+          encryptedPayload: { ...item.encryptedPayload, ciphertext: "cmFuZG9taXplZA" }
+        }],
+        deletes: []
+      });
+
+      expect(changed.applied.upsertedItemIds).toEqual([]);
+      expect(changed.conflicts).toMatchObject([{
+        itemId: item.id,
+        reason: "mutation_id_reused"
+      }]);
+      expect((await store.pullItemLevelSync(userId, 0)).changes).toHaveLength(1);
+    });
+
+    it("rejects a durable mutation id reused for changed logical metadata", async () => {
+      const clientMutationId = "d0000000-0000-4000-8000-000000000002";
+      const item = makeItem({ ownerUserId: userId, clientMutationId });
+      await store.pushItemLevelSync(userId, {
+        protocol: "item_level_v1",
+        baseRevision: 0,
+        upserts: [item],
+        deletes: []
+      });
+
+      const reused = await store.pushItemLevelSync(userId, {
+        protocol: "item_level_v1",
+        baseRevision: 0,
+        upserts: [{ ...item, updatedAt: "2025-01-02T00:00:00.000Z" }],
+        deletes: []
+      });
+
+      expect(reused.applied.upsertedItemIds).toEqual([]);
+      expect(reused.serverRevision).toBe(1);
+      expect(reused.conflicts).toMatchObject([{
+        itemId: item.id,
+        reason: "mutation_id_reused"
+      }]);
     });
 
     it("deletes items with item-level sync", async () => {
@@ -671,7 +1011,9 @@ describe("D1VaultStore", () => {
           {
             id: item.id,
             ownerUserId: userId,
-            deletedAt: "2025-06-01T00:00:00.000Z"
+            baseItemRevision: 1,
+            deletedAt: "2025-06-01T00:00:00.000Z",
+            clientMutationId: crypto.randomUUID()
           }
         ]
       });
@@ -679,9 +1021,134 @@ describe("D1VaultStore", () => {
       expect(result.applied.deletedItemIds).toContain(item.id);
       expect(result.conflicts).toHaveLength(0);
 
-      const pull = await store.pullItemLevelSync(userId);
+      const pull = await store.pullItemLevelSync(userId, 0);
       expect(pull.items).toHaveLength(0);
       expect(pull.deletedItemIds).toContain(item.id);
+    });
+
+    it("returns a missing-state conflict instead of acknowledging an unknown delete", async () => {
+      const missingId = "c0000000-0000-4000-8000-000000000001";
+      const result = await store.pushItemLevelSync(userId, {
+        protocol: "item_level_v1",
+        baseRevision: 0,
+        upserts: [],
+        deletes: [{
+          id: missingId,
+          ownerUserId: userId,
+          baseItemRevision: 0,
+          deletedAt: "2025-06-01T00:00:00.000Z",
+          clientMutationId: crypto.randomUUID()
+        }]
+      });
+
+      expect(result.applied.deletedItemIds).toEqual([]);
+      expect(result.serverRevision).toBe(0);
+      expect(result.conflicts).toMatchObject([{
+        itemId: missingId,
+        reason: "item_revision_mismatch",
+        serverState: { kind: "missing" }
+      }]);
+    });
+
+    it("serializes concurrent writers by claiming the next revision", async () => {
+      const { store: concurrentStore, db } = createStoreWithDb();
+      const user = await concurrentStore.createUser({
+        email: "concurrent@example.com",
+        opaqueRegistrationRecord: "rec",
+        publicKeyBundle: "pk",
+        encryptedRecoveryPacket: mockEnvelope
+      });
+      const item = makeItem({ ownerUserId: user.id });
+      await concurrentStore.pushItemLevelSync(user.id, {
+        protocol: "item_level_v1",
+        baseRevision: 0,
+        upserts: [item],
+        deletes: []
+      });
+
+      const originalBatch = db.batch.bind(db);
+      let arrivals = 0;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      db.batch = async (statements) => {
+        if (arrivals < 2) {
+          arrivals += 1;
+          if (arrivals === 2) release();
+          await gate;
+        }
+        return originalBatch(statements);
+      };
+
+      const update = (updatedAt: string): ItemLevelSyncPlan => ({
+        protocol: "item_level_v1",
+        baseRevision: 1,
+        upserts: [makeItem({
+          id: item.id,
+          ownerUserId: user.id,
+          baseItemRevision: 1,
+          clientMutationId: crypto.randomUUID(),
+          updatedAt
+        })],
+        deletes: []
+      });
+      const results = await Promise.all([
+        concurrentStore.pushItemLevelSync(user.id, update("2025-07-01T00:00:00.000Z")),
+        concurrentStore.pushItemLevelSync(user.id, update("2025-08-01T00:00:00.000Z"))
+      ]);
+
+      expect(results.filter((result) => result.applied.upsertedItemIds.length === 1)).toHaveLength(1);
+      expect(results.filter((result) => result.conflicts.length === 1)).toHaveLength(1);
+      expect(results.flatMap((result) => result.conflicts)[0]!.reason).toBe("item_revision_advanced");
+      expect((await concurrentStore.findUserById(user.id))!.serverRevision).toBe(2);
+      expect((await concurrentStore.pullItemLevelSync(user.id, 0)).changes).toHaveLength(2);
+    });
+
+    it("retries a concurrent conflict-receipt claim without surfacing a database error", async () => {
+      const { store: concurrentStore, db } = createStoreWithDb();
+      const user = await concurrentStore.createUser({
+        email: "concurrent-conflict@example.com",
+        opaqueRegistrationRecord: "rec",
+        publicKeyBundle: "pk",
+        encryptedRecoveryPacket: mockEnvelope
+      });
+      const item = makeItem({ ownerUserId: user.id });
+      await concurrentStore.pushItemLevelSync(user.id, {
+        protocol: "item_level_v1",
+        baseRevision: 0,
+        upserts: [item],
+        deletes: []
+      });
+
+      const stalePlan: ItemLevelSyncPlan = {
+        protocol: "item_level_v1",
+        baseRevision: 0,
+        upserts: [{
+          ...item,
+          clientMutationId: "d0000000-0000-4000-8000-000000000020"
+        }],
+        deletes: []
+      };
+      const originalBatch = db.batch.bind(db);
+      let arrivals = 0;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      db.batch = async (statements) => {
+        if (arrivals < 2) {
+          arrivals += 1;
+          if (arrivals === 2) release();
+          await gate;
+        }
+        return originalBatch(statements);
+      };
+
+      const results = await Promise.all([
+        concurrentStore.pushItemLevelSync(user.id, stalePlan),
+        concurrentStore.pushItemLevelSync(user.id, stalePlan)
+      ]);
+      expect(results).toHaveLength(2);
+      expect(results.every((result) => result.conflicts[0]?.reason === "item_revision_advanced"))
+        .toBe(true);
+      expect(results.every((result) => result.serverRevision === 1)).toBe(true);
     });
 
     it("mixes upserts and deletes", async () => {
@@ -705,6 +1172,7 @@ describe("D1VaultStore", () => {
       const updated1 = makeItem({
         id: item1.id,
         ownerUserId: userId,
+        baseItemRevision: 1,
         updatedAt: "2025-06-01T00:00:00.000Z"
       });
       const result = await store.pushItemLevelSync(userId, {
@@ -712,7 +1180,13 @@ describe("D1VaultStore", () => {
         baseRevision: 1,
         upserts: [updated1],
         deletes: [
-          { id: item2.id, ownerUserId: userId, deletedAt: "2025-06-01T00:00:00.000Z" }
+          {
+            id: item2.id,
+            ownerUserId: userId,
+            baseItemRevision: 1,
+            deletedAt: "2025-06-01T00:00:00.000Z",
+            clientMutationId: crypto.randomUUID()
+          }
         ]
       });
 
@@ -753,7 +1227,7 @@ describe("D1VaultStore", () => {
     it("rotates recovery packet", async () => {
       await store.saveRecoveryPacket(userId, mockEnvelope);
 
-      const newEnvelope: CiphertextEnvelope = {
+      const newEnvelope: RecoveryPacketEnvelope = {
         alg: "AES_256_GCM",
         nonce: "bmV3",
         ciphertext: "bmV3"
@@ -766,7 +1240,7 @@ describe("D1VaultStore", () => {
 
     it("prefers recovery_packets table over users table", async () => {
       // Save a different packet to recovery_packets table
-      const rotated: CiphertextEnvelope = {
+      const rotated: RecoveryPacketEnvelope = {
         alg: "AES_256_GCM",
         nonce: "cm90YXRlZA",
         ciphertext: "cm90YXRlZA"
@@ -858,6 +1332,43 @@ describe("D1VaultStore", () => {
       expect(devices[0]!.publicKey).toBe("bmV3LXB1YmxpYy1rZXk");
     });
 
+    it("preserves a native caller id when replacing stale installation metadata", async () => {
+      const first = await store.registerDevice(userId, makeDevice({ status: "approved" }));
+      const replacementId = "c0000000-0000-4000-8000-000000000099";
+      const replacement = await store.registerDevice(
+        userId,
+        makeDevice({
+          id: replacementId,
+          fingerprint: first.fingerprint,
+          publicKey: first.publicKey,
+          status: "pending"
+        }),
+        "native-credential-hash"
+      );
+
+      expect(replacement.id).toBe(replacementId);
+      expect(replacement.status).toBe("pending");
+      expect(await store.getDevice(userId, first.id)).toBeNull();
+      expect((await store.getDevice(userId, replacementId))!.id).toBe(replacementId);
+    });
+
+    it("rejects a caller-supplied device id owned by another account", async () => {
+      const otherUser = await store.createUser({
+        email: "other-device-owner@example.com",
+        opaqueRegistrationRecord: "rec",
+        publicKeyBundle: "pk",
+        encryptedRecoveryPacket: mockEnvelope
+      });
+      const device = makeDevice();
+      await store.registerDevice(otherUser.id, device);
+
+      await expect(store.registerDevice(
+        userId,
+        { ...device, fingerprint: "different-install", publicKey: "different-key" },
+        "native-credential-hash"
+      )).rejects.toThrow("device_id_conflict");
+    });
+
     it("collapses legacy pending duplicates created in the same minute", async () => {
       await store.registerDevice(
         userId,
@@ -930,6 +1441,18 @@ describe("D1VaultStore", () => {
 
   describe("device vault keys", () => {
     let userId: string;
+    const deviceId = "d0000000-0000-4000-8000-000000000001";
+    const packet = (ciphertext: string): DeviceVaultKeyPacket => ({
+      version: 1,
+      recipientDeviceId: deviceId,
+      recipientPublicKey: "D".repeat(43),
+      ephemeralPublicKey: "E".repeat(43),
+      encryptedVaultKey: {
+        alg: "XCHACHA20_POLY1305",
+        nonce: "N".repeat(32),
+        ciphertext
+      }
+    });
 
     beforeEach(async () => {
       const user = await store.createUser({
@@ -941,9 +1464,9 @@ describe("D1VaultStore", () => {
       userId = user.id;
 
       await store.registerDevice(userId, {
-        id: "dvk-device-001",
+        id: deviceId,
         name: "Test Device",
-        publicKey: "dGVzdC1way",
+        publicKey: "D".repeat(43),
         status: "approved",
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z"
@@ -951,21 +1474,95 @@ describe("D1VaultStore", () => {
     });
 
     it("saves and retrieves a device vault key", async () => {
-      await store.saveDeviceVaultKey(userId, "dvk-device-001", "encrypted-blob-data");
-      const key = await store.getDeviceVaultKey(userId, "dvk-device-001");
-      expect(key).toBe("encrypted-blob-data");
+      await store.saveDeviceVaultKey(userId, deviceId, packet("A".repeat(64)));
+      const key = await store.getDeviceVaultKey(userId, deviceId);
+      expect(key).toEqual(packet("A".repeat(64)));
     });
 
     it("returns null for device without a vault key", async () => {
-      const key = await store.getDeviceVaultKey(userId, "dvk-device-001");
+      const key = await store.getDeviceVaultKey(userId, deviceId);
       expect(key).toBeNull();
     });
 
     it("overwrites an existing device vault key", async () => {
-      await store.saveDeviceVaultKey(userId, "dvk-device-001", "old-blob");
-      await store.saveDeviceVaultKey(userId, "dvk-device-001", "new-blob");
-      const key = await store.getDeviceVaultKey(userId, "dvk-device-001");
-      expect(key).toBe("new-blob");
+      await store.saveDeviceVaultKey(userId, deviceId, packet("A".repeat(64)));
+      await store.saveDeviceVaultKey(userId, deviceId, packet("B".repeat(64)));
+      const key = await store.getDeviceVaultKey(userId, deviceId);
+      expect(key).toEqual(packet("B".repeat(64)));
+    });
+
+    it("strictly converts and atomically lazy-migrates a legacy raw packet", async () => {
+      const { store: legacyStore, db } = createStoreWithDb();
+      const legacyDeviceId = "d0000000-0000-4000-8000-000000000002";
+      const user = await legacyStore.createUser({
+        email: "legacy-dvk@example.com",
+        opaqueRegistrationRecord: "rec",
+        publicKeyBundle: "pk",
+        encryptedRecoveryPacket: mockEnvelope
+      });
+      await legacyStore.registerDevice(user.id, {
+        id: legacyDeviceId,
+        name: "Legacy Device",
+        publicKey: "L".repeat(43),
+        status: "approved",
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z"
+      });
+      const nonce = Buffer.alloc(24, 1);
+      const ephemeral = Buffer.alloc(32, 2);
+      const ciphertext = Buffer.alloc(48, 3);
+      const legacyBlob = Buffer.concat([nonce, ephemeral, ciphertext]).toString("base64url");
+      db.sqlite.prepare(
+        `INSERT INTO device_vault_keys (user_id, device_id, encrypted_blob, created_at)
+         VALUES (?, ?, ?, ?)`
+      ).run(user.id, legacyDeviceId, legacyBlob, "2025-01-01T00:00:00.000Z");
+
+      const migrated = await legacyStore.getDeviceVaultKey(user.id, legacyDeviceId);
+      expect(migrated).toEqual({
+        version: 1,
+        recipientDeviceId: legacyDeviceId,
+        recipientPublicKey: "L".repeat(43),
+        ephemeralPublicKey: ephemeral.toString("base64url"),
+        encryptedVaultKey: {
+          alg: "XCHACHA20_POLY1305",
+          nonce: nonce.toString("base64url"),
+          ciphertext: ciphertext.toString("base64url")
+        }
+      });
+      const stored = db.sqlite.prepare(
+        "SELECT encrypted_blob FROM device_vault_keys WHERE user_id = ? AND device_id = ?"
+      ).get(user.id, legacyDeviceId) as { encrypted_blob: string };
+      expect(JSON.parse(stored.encrypted_blob)).toEqual(migrated);
+    });
+
+    it("fails closed without rewriting a malformed legacy packet", async () => {
+      const { store: legacyStore, db } = createStoreWithDb();
+      const malformedDeviceId = "d0000000-0000-4000-8000-000000000003";
+      const user = await legacyStore.createUser({
+        email: "malformed-dvk@example.com",
+        opaqueRegistrationRecord: "rec",
+        publicKeyBundle: "pk",
+        encryptedRecoveryPacket: mockEnvelope
+      });
+      await legacyStore.registerDevice(user.id, {
+        id: malformedDeviceId,
+        name: "Malformed Device",
+        publicKey: "M".repeat(43),
+        status: "approved",
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z"
+      });
+      const malformed = Buffer.alloc(103, 9).toString("base64url");
+      db.sqlite.prepare(
+        `INSERT INTO device_vault_keys (user_id, device_id, encrypted_blob, created_at)
+         VALUES (?, ?, ?, ?)`
+      ).run(user.id, malformedDeviceId, malformed, "2025-01-01T00:00:00.000Z");
+
+      expect(await legacyStore.getDeviceVaultKey(user.id, malformedDeviceId)).toBeNull();
+      const stored = db.sqlite.prepare(
+        "SELECT encrypted_blob FROM device_vault_keys WHERE user_id = ? AND device_id = ?"
+      ).get(user.id, malformedDeviceId) as { encrypted_blob: string };
+      expect(stored.encrypted_blob).toBe(malformed);
     });
 
     it("returns null for unknown device", async () => {

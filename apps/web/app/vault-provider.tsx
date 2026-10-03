@@ -23,6 +23,7 @@ import {
 } from "../lib/local-vault";
 import { isLogin, isSecureNote, isCreditCard } from "../lib/item-types";
 import {
+  downloadCloudExport,
   fetchCurrentUser,
   fetchItemHistory,
   getErrorMessage,
@@ -30,7 +31,6 @@ import {
   logoutAccount,
   pullVault,
   registerAccount,
-  saveRecoveryPacketToServer
 } from "../lib/api-client";
 import {
   getSyncedLocalVaultItem,
@@ -89,12 +89,8 @@ import {
   handleRecoverVault
 } from "../lib/vault-recovery";
 import {
-  generateRecoveryCode,
-  createRecoveryPacket,
-  saveRecoveryPacket
-} from "../lib/recovery";
-import {
   handleRefreshDevices,
+  connectApprovedVault,
   handleApproveDevice as approveDeviceAction,
   handleRejectDevice as rejectDeviceAction,
   handleRevokeDevice as revokeDeviceAction
@@ -103,6 +99,7 @@ import type { ItemType, ItemForm } from "../components/credentials/credential-dr
 import {
   enqueueOfflineMutation,
   dequeueOfflineMutations,
+  peekAllEntries,
   getOfflineQueueSize
 } from "../lib/offline-queue";
 
@@ -154,7 +151,7 @@ const SETTINGS_STORAGE_KEYS = {
 
 const DEFAULT_AUTO_LOCK_TIMEOUT = 300;
 const DEFAULT_AUTO_SYNC_ENABLED = true;
-const DEFAULT_SYNC_INTERVAL = 900;
+const DEFAULT_SYNC_INTERVAL = 60;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -170,12 +167,8 @@ const emptyItemForm: ItemForm = {
   folder: ""
 };
 
-export const generatePassword = (length = 20): string => {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
-};
+import { generatePassword as generateSharedPassword } from "@zero-vault/browser-vault/password-generator";
+export const generatePassword = (length = 20): string => generateSharedPassword({ length });
 
 const copyToClipboard = async (text: string): Promise<boolean> => {
   try {
@@ -265,7 +258,7 @@ export interface VaultContextValue {
   recoveryPassword: string;
   setRecoveryPassword: (v: string) => void;
   regeneratingRecovery: boolean;
-  recoveryServerSaveFailed: boolean;
+  recoveryMigrationMessage: string;
   handleRegenerateRecovery: () => Promise<string>;
 
   // -- Device trust --
@@ -321,6 +314,7 @@ export interface VaultContextValue {
   lockVault: () => void;
   submitRegister: (e: FormEvent<HTMLFormElement>) => Promise<void>;
   submitLogin: () => Promise<void>;
+  connectCloudVault: () => Promise<void>;
   submitLogout: () => Promise<void>;
   submitItem: (e: FormEvent<HTMLFormElement>) => Promise<void>;
   confirmDelete: (id: string) => Promise<void>;
@@ -381,9 +375,12 @@ export interface VaultContextValue {
   cloudExports: Array<{ id: string; createdAt: string; algorithm: string }>;
   cloudExportLoading: boolean;
   cloudExportError: string;
+  cloudExportStatus: string;
+  cloudExportRestoringId: string | null;
   loadCloudExports: () => Promise<void>;
   createCloudExport: () => Promise<void>;
   deleteCloudExport: (exportId: string) => Promise<void>;
+  restoreCloudExport: (exportId: string) => Promise<void>;
 
   // -- Navigation --
   NAV_IDS: typeof NAV_IDS;
@@ -445,10 +442,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [recoveryInputCode, setRecoveryInputCode] = useState("");
   const [recoveryPassword, setRecoveryPassword] = useState("");
   const [regeneratingRecovery, setRegeneratingRecovery] = useState(false);
-  const [recoveryServerSaveFailed, setRecoveryServerSaveFailed] = useState(false);
+  const [recoveryMigrationMessage, setRecoveryMigrationMessage] = useState("");
 
   // -- Device trust state --
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
+  const syncInFlight = useRef(false);
   const [currentDeviceId, setCurrentDeviceId] = useState<string>("");
   const [showDeviceSection, setShowDeviceSection] = useState(false);
 
@@ -487,6 +485,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [cloudExports, setCloudExports] = useState<Array<{ id: string; createdAt: string; algorithm: string }>>([]);
   const [cloudExportLoading, setCloudExportLoading] = useState(false);
   const [cloudExportError, setCloudExportError] = useState("");
+  const [cloudExportStatus, setCloudExportStatus] = useState("");
+  const [cloudExportRestoringId, setCloudExportRestoringId] = useState<string | null>(null);
 
   const beginLoading = useCallback((message: string) => {
     setLoading(true);
@@ -651,6 +651,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   // -- Sync (delegated to vault-sync) --
   const syncNow = useCallback(async () => {
+    if (syncInFlight.current) return;
     setError("");
     setSyncConflict(null);
     if (!encryptedVault) {
@@ -668,13 +669,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Replay any queued offline mutations before syncing
-    const pendingMutations = dequeueOfflineMutations();
+    // Keep queue metadata until the server confirms success.
+    const pendingMutations = peekAllEntries();
     if (pendingMutations.length > 0) {
-      setOfflineQueueCount(0);
       addSyncEvent({ type: "push", description: `重放 ${pendingMutations.length} 条离线变更` });
     }
 
+    syncInFlight.current = true;
     beginLoading("正在拉取云端记录并合并本地变更...");
     setSyncStatus("同步中...");
     addSyncEvent({ type: "pull", description: "开始同步…" });
@@ -694,6 +695,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           break;
         }
         case "item-synced": {
+          dequeueOfflineMutations();
+          setOfflineQueueCount(0);
+          if (result.mergedVault) {
+            setUnlockedVault(result.mergedVault.unlocked);
+            setEncryptedVault(result.mergedVault.encrypted);
+            publishExtensionSession(result.mergedVault.unlocked.snapshot.items);
+          }
           setUser({ ...user, serverRevision: result.serverRevision });
           setItemSyncInfos(result.itemInfos);
           setItemConflicts([]);
@@ -717,6 +725,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           break;
         }
         case "conflicts": {
+          if (result.mergedVault) {
+            setUnlockedVault(result.mergedVault.unlocked);
+            setEncryptedVault(result.mergedVault.encrypted);
+            publishExtensionSession(result.mergedVault.unlocked.snapshot.items);
+          }
           setSyncStatus("检测到冲突");
           setItemConflicts(result.conflicts);
           setItemSyncInfos(result.itemInfos);
@@ -777,6 +790,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     } finally {
       endLoading();
     }
+    syncInFlight.current = false;
   }, [beginLoading, clearExtensionSession, encryptedVault, endLoading, formatError, unlockedVault, user, csrfToken, isOffline, addSyncEvent, publishExtensionSession]);
 
   useEffect(() => {
@@ -785,6 +799,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const timer = setInterval(() => { void syncNow(); }, intervalMs);
     return () => { clearInterval(timer); };
   }, [autoSyncEnabled, syncInterval, unlockedVault, user, csrfToken, syncNow]);
+
+  const syncNowRef = useRef(syncNow);
+  syncNowRef.current = syncNow;
+  const itemChangeSignature = unlockedVault?.snapshot.items.map((item) => `${item.id}:${item.updatedAt}`).join("|");
+  useEffect(() => {
+    if (!autoSyncEnabled || !user || !csrfToken || itemChangeSignature === undefined) return;
+    const timer = setTimeout(() => { void syncNowRef.current(); }, 1500);
+    return () => clearTimeout(timer);
+  }, [autoSyncEnabled, user?.id, csrfToken, itemChangeSignature]);
 
   // -- Initialization --
   useEffect(() => {
@@ -805,6 +828,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       .then((session) => {
         setUser(session.user);
         setCsrfToken(session.csrfToken);
+        if (session.device) window.localStorage.setItem("zero-vault.local.bound-session.v1", session.device.id);
         setSyncStatus(`已登录 · 版本 ${session.user.serverRevision}`);
         if (!loadEncryptedLocalVault()) {
           pullVault()
@@ -1143,6 +1167,36 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [accountEmail, accountPassword, beginLoading, endLoading, formatError]);
 
   // -- Logout --
+  const connectCloudVault = useCallback(async () => {
+    setError("");
+    beginLoading("正在接入云端密码库...");
+    try {
+      let token = csrfToken;
+      let account = user;
+      if (accountPassword) {
+        const session = await loginAccount(accountEmail.trim(), accountPassword, true);
+        account = session.user;
+        token = session.csrfToken;
+        setUser(account);
+        setCsrfToken(token);
+        setAccountPassword("");
+      }
+      if (!account || !token) throw new Error("请输入已有账户的邮箱和账户密码。");
+      if (!window.localStorage.getItem("zero-vault.local.bound-session.v1")) throw new Error("请使用邮箱和账户密码重新登录后接入。");
+      const connected = await connectApprovedVault(token, masterPassword, encryptedVault);
+      window.localStorage.setItem("zero-vault.local.owner.v1", account.id);
+      setEncryptedVault(connected.encrypted);
+      setUnlockedVault(connected.unlocked);
+      setMasterPassword("");
+      setStatus("已解锁");
+      setActiveNav(NAV_IDS.CREDENTIALS);
+    } catch (caught) {
+      setError(formatError(caught, "接入失败，请在手机批准此浏览器后重试。"));
+    } finally {
+      endLoading();
+    }
+  }, [accountEmail, accountPassword, user, csrfToken, masterPassword, encryptedVault, beginLoading, endLoading, formatError]);
+
   const submitLogout = useCallback(async () => {
     if (csrfToken) {
       await logoutAccount(csrfToken).catch(() => undefined);
@@ -1567,15 +1621,20 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   // -- Recovery (vault-recovery) --
   const handleCreateRecoveryCodeCb = useCallback(async () => {
-    if (!unlockedVault) return;
+    if (!unlockedVault) {
+      setError("请先解锁密码库，再生成恢复码。");
+      return;
+    }
+    setError("");
     try {
       const result = await handleCreateRecoveryCode({ unlockedVault, csrfToken });
       setRecoveryCode(result.code);
       setRecoveryConfirmed(false);
-    } catch {
-      // Error already handled inside the pure function
+      setRecoveryMigrationMessage(result.migrationRequired ? result.migrationMessage : "");
+    } catch (error) {
+      setError(`生成恢复码失败：${formatError(error, "请稍后重试。")}`);
     }
-  }, [unlockedVault, csrfToken]);
+  }, [unlockedVault, csrfToken, formatError]);
 
   const confirmRecoveryCodeSaved = useCallback(() => {
     setRecoveryConfirmed(true);
@@ -1600,7 +1659,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setError("请设置新的主密码（至少 12 个字符）以重新加密密码库。");
         setShowRecoveryEntry(true);
       } else if (result.status === "no-packet") {
-        setError("未找到恢复包。恢复包可能尚未上传到服务器，或此设备上没有本地副本。");
+        setError("当前浏览器和服务器账户中均未找到旧版恢复包。请回到原设备导出密码库后再迁移。");
+      } else if (result.status === "recovery-v2-managed") {
+        setError(result.message);
+        setShowRecoveryEntry(true);
+      } else if (
+        result.status === "remote-only-unsupported" ||
+        result.status === "remote-items-failed"
+      ) {
+        setError(result.message);
+        setShowRecoveryEntry(true);
       } else if (result.status === "error") {
         setError(formatError(result.message, "恢复失败。请检查恢复码。"));
       } else {
@@ -1613,10 +1681,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setRecoveryCode(result.recoveryCode);
         setRecoveryConfirmed(false);
         setRecoveryModalMode("rotated");
-        setRecoveryServerSaveFailed(result.serverSaveFailed);
+        setRecoveryMigrationMessage(result.migrationRequired ? result.migrationMessage : "");
         setShowRecoveryModal(true);
         setStatus("已解锁");
-        setSyncStatus(`密码库已恢复，包含 ${result.recoveredCount} 条凭据。旧恢复码已失效，请保存新的恢复码。`);
+        setSyncStatus(`密码库已恢复，包含 ${result.recoveredCount} 条凭据。本机恢复码已轮换，请保存新恢复码；服务器 Recovery v2 尚未迁移。`);
       }
     } catch (e) {
       setError(formatError(e, "恢复失败。请检查恢复码。"));
@@ -1630,7 +1698,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setRecoveryCode("");
     setRecoveryConfirmed(false);
     setRecoveryModalMode("initial");
-    setRecoveryServerSaveFailed(false);
+    setRecoveryMigrationMessage("");
   }, []);
 
   // -- Regenerate recovery code --
@@ -1638,20 +1706,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     if (!unlockedVault) throw new Error("请先解锁密码库。");
     setRegeneratingRecovery(true);
     try {
-      const vaultKeyBytes =
-        unlockedVault.runtime === "webcrypto-mvp"
-          ? new Uint8Array(await crypto.subtle.exportKey("raw", unlockedVault.key))
-          : unlockedVault.key;
-
-      const code = generateRecoveryCode();
-      const packet = await createRecoveryPacket(code, vaultKeyBytes);
-      saveRecoveryPacket(packet);
-
-      if (csrfToken) {
-        await saveRecoveryPacketToServer(csrfToken, packet).catch(() => undefined);
-      }
-
-      return code;
+      const result = await handleCreateRecoveryCode({ unlockedVault, csrfToken });
+      setRecoveryMigrationMessage(result.migrationRequired ? result.migrationMessage : "");
+      return result.code;
     } finally {
       setRegeneratingRecovery(false);
     }
@@ -1694,11 +1751,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // -- Cloud export (vault-settings) --
   const loadCloudExports = useCallback(async () => {
     if (!csrfToken) return;
+    setCloudExportError("");
     try {
       const response = await requestJson<{ exports: Array<{ id: string; createdAt: string; algorithm: string }> }>("/exports");
       setCloudExports(response.exports);
-    } catch {
-      // Silently fail - cloud exports are optional
+      if (response.exports.length === 0) {
+        setCloudExportStatus("");
+      }
+    } catch (e) {
+      setCloudExportError(e instanceof Error ? getErrorMessage(e) : "加载云端备份列表失败。");
     }
   }, [csrfToken]);
 
@@ -1706,6 +1767,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     if (!encryptedVault || !csrfToken) return;
     setCloudExportLoading(true);
     setCloudExportError("");
+    setCloudExportStatus("");
     try {
       const exportId = crypto.randomUUID();
       await requestJson<{ ok: true }>("/exports/create", {
@@ -1722,6 +1784,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(encryptedVault),
       });
       await loadCloudExports();
+      setCloudExportStatus("已上传新的云端备份快照。它可用于迁移或恢复，不会替代设备同步。");
     } catch (e) {
       setCloudExportError(e instanceof Error ? getErrorMessage(e) : "上传云端备份失败。");
     } finally {
@@ -1731,16 +1794,60 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const deleteCloudExport = useCallback(async (exportId: string) => {
     if (!csrfToken) return;
+    setCloudExportError("");
+    setCloudExportStatus("");
     try {
       await requestJson<{ ok: true }>(`/exports/${exportId}`, {
         method: "DELETE",
         headers: { "x-zero-vault-csrf": csrfToken },
       });
       setCloudExports((prev) => prev.filter((e) => e.id !== exportId));
+      setCloudExportStatus("云端备份快照已删除。");
     } catch {
-      // Silently fail
+      setCloudExportError("删除云端备份失败。");
     }
   }, [csrfToken]);
+
+  const restoreCloudExport = useCallback(async (exportId: string) => {
+    const shouldRestore = window.confirm("恢复这个云端备份快照后，当前设备上的本地加密库将被覆盖，并需要重新解锁。是否继续？");
+    if (!shouldRestore) {
+      return;
+    }
+
+    setError("");
+    setCloudExportError("");
+    setCloudExportStatus("");
+    setCloudExportRestoringId(exportId);
+    try {
+      const blob = await downloadCloudExport(exportId);
+      const file = new File([blob], `cloud-export-${exportId}.json`, {
+        type: "application/json"
+      });
+      const result = await importEncryptedBackup(file);
+
+      if (result.status === "invalid") {
+        setCloudExportError("云端备份格式无效，无法恢复到当前设备。");
+        return;
+      }
+
+      if (result.status === "error") {
+        setCloudExportError(result.message);
+        return;
+      }
+
+      setEncryptedVault(result.encrypted);
+      if (unlockedVault) {
+        lockVault();
+      }
+      setSelectedIds(new Set());
+      setImportBackupStatus("已从云端备份快照恢复，请使用主密码解锁。");
+      setCloudExportStatus("已恢复到当前设备。本地密码库已替换，请重新解锁。");
+    } catch (e) {
+      setCloudExportError(e instanceof Error ? getErrorMessage(e) : "恢复云端备份失败。");
+    } finally {
+      setCloudExportRestoringId(null);
+    }
+  }, [lockVault, unlockedVault]);
 
   // -- GET item-sync hydration (Phase 2.4) --
   useEffect(() => {
@@ -1920,15 +2027,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [encryptedVault, unlockedVault, publishExtensionSession]);
 
   const handleDeleteAccount = useCallback(async () => {
-    await deleteAccountAction(csrfToken);
-    setEncryptedVault(null);
-    setUnlockedVault(null);
-    setUser(null);
-    setCsrfToken("");
-    setStatus("已锁定");
-    setActiveNav(NAV_IDS.DASHBOARD);
-    window.location.reload();
-  }, [csrfToken]);
+    setError("");
+    try {
+      await deleteAccountAction(csrfToken);
+      setEncryptedVault(null);
+      setUnlockedVault(null);
+      setUser(null);
+      setCsrfToken("");
+      setStatus("已锁定");
+      setActiveNav(NAV_IDS.DASHBOARD);
+      window.location.reload();
+    } catch (deleteError) {
+      const message = formatError(deleteError, "账户删除失败，请稍后重试。");
+      setError(`账户删除失败：${message}`);
+      throw new Error(message);
+    }
+  }, [csrfToken, formatError]);
 
   // -- Export (vault-settings) --
   const handleExportCsvCb = useCallback(() => {
@@ -1999,7 +2113,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     showRecoveryModal, recoveryModalMode, recoveryCode, recoveryConfirmed, setRecoveryConfirmed,
     showRecoveryEntry, setShowRecoveryEntry, recoveryInputCode, setRecoveryInputCode,
     recoveryPassword, setRecoveryPassword, regeneratingRecovery,
-    recoveryServerSaveFailed,
+    recoveryMigrationMessage,
     handleRegenerateRecovery,
     devices, currentDeviceId, showDeviceSection, setShowDeviceSection,
     activeNav, setActiveNav, drawerOpen,
@@ -2012,7 +2126,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     isLocked, itemCount, updatedAt, weakCount, duplicateCount, unsyncedCount, conflictCount,
     filteredItems, hasLocalVault,
     loadExistingVault, createVault, unlockVault, lockVault,
-    submitRegister, submitLogin, submitLogout,
+    submitRegister, submitLogin, connectCloudVault, submitLogout,
     submitItem, confirmDelete, batchDeleteCredentials, batchUpdatePassword,
     openDrawerForCreate, openDrawerForEdit, closeDrawer,
     handleGeneratePassword, importPasswords, syncNow, restoreFromCloud,
@@ -2035,7 +2149,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     handleExportEncryptedSelected: handleExportEncryptedSelectedCb,
     handleCopy,
     historyVersions, historyLoading, historyError, loadHistory,
-    cloudExports, cloudExportLoading, cloudExportError, loadCloudExports, createCloudExport, deleteCloudExport,
+    cloudExports, cloudExportLoading, cloudExportError, cloudExportStatus, cloudExportRestoringId, loadCloudExports, createCloudExport, deleteCloudExport, restoreCloudExport,
     NAV_IDS
   };
 

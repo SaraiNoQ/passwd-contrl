@@ -1,5 +1,6 @@
 const nextConfig = {
-  typedRoutes: true
+  typedRoutes: true,
+  ...(process.env.CLOUDFLARE_PAGES === "1" ? { output: "export" } : {})
 };
 
 export default nextConfig;

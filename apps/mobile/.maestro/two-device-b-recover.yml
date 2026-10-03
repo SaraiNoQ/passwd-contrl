@@ -1,0 +1,68 @@
+appId: com.zerovault.mobile
+name: Two-device B performs replacement-device recovery
+tags:
+  - api36
+  - two-device
+  - destructive
+  - sensitive-recovery
+---
+- launchApp:
+    clearState: true
+- tapOn: "http://"
+- inputText: "127.0.0.1:8081"
+- hideKeyboard
+- tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 120000
+- tapOn: "Continue"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "使用恢复码恢复账户"
+    timeout: 30000
+- tapOn: "使用恢复码恢复账户"
+- tapOn:
+    id: "recovery-email"
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: "recovery-new-password"
+- inputText: ${E2E_NEW_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "recovery-new-password-confirm"
+- inputText: ${E2E_NEW_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "recovery-code"
+- inputText: ${E2E_RECOVERY_CODE}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "recovery-continue"
+    direction: DOWN
+- tapOn:
+    id: "recovery-continue"
+- tapOn:
+    id: "recovery-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "recovery-code-value"
+    timeout: 30000
+- tapOn:
+    id: "recovery-code-acknowledge-start"
+- tapOn:
+    id: "recovery-code-acknowledge-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "unlock-password"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${E2E_NEW_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 30000

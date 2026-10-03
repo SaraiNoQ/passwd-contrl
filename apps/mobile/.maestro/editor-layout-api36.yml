@@ -1,0 +1,119 @@
+appId: com.zerovault.mobile
+name: New credential editor layout on API 36
+---
+- runScript: scripts/new-account.js
+- launchApp:
+    clearState: true
+- tapOn: "http://"
+- inputText: "127.0.0.1:8081"
+- hideKeyboard
+- tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+- tapOn: "Continue"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "创建新账户"
+    timeout: 30000
+- tapOn: "创建新账户"
+- tapOn:
+    id: "register-email"
+- inputText: ${output.email}
+- tapOn:
+    id: "register-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "register-password-confirm"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "register-submit"
+- extendedWaitUntil:
+    visible:
+      id: "recovery-code-value"
+    timeout: 30000
+- tapOn:
+    id: "recovery-code-acknowledge-start"
+- tapOn:
+    id: "recovery-code-acknowledge-confirm"
+- extendedWaitUntil:
+    visible: "解锁密码库"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible: "凭据"
+    timeout: 30000
+- tapOn:
+    id: "vault-add-item"
+- extendedWaitUntil:
+    visible:
+      id: "editor-type-login"
+    timeout: 30000
+- assertVisible:
+    id: "editor-title"
+- assertVisible:
+    id: "editor-origin-protocol"
+- tapOn:
+    id: "editor-origin-protocol"
+- assertVisible:
+    id: "editor-origin-protocol-menu"
+- tapOn:
+    id: "editor-origin-protocol-http"
+- assertVisible: "http://"
+- tapOn:
+    id: "editor-origin-protocol"
+- tapOn:
+    id: "editor-origin-protocol-https"
+- assertVisible: "https://"
+- tapOn:
+    id: "editor-title"
+- inputText: "Folder Group Fixture"
+- tapOn:
+    id: "editor-folder"
+- inputText: "Team"
+- assertVisible: "保存后将新建文件夹 Team"
+- tapOn:
+    id: "editor-origin"
+- inputText: "folder.example.invalid"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-password"
+    direction: DOWN
+- tapOn:
+    id: "editor-password"
+- inputText: "Synthetic-Folder!42"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible: "Folder Group Fixture"
+    timeout: 15000
+- pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "vault-add-item"
+    timeout: 15000
+- assertVisible: "Team"
+- assertVisible: "Folder Group Fixture"
+- tapOn:
+    id: "vault-add-item"
+- extendedWaitUntil:
+    visible:
+      id: "editor-folder-suggestions"
+    timeout: 15000
+- tapOn:
+    id: "editor-folder-suggestion-Team"
+- assertVisible: "将保存到已有文件夹 Team"
+- waitForAnimationToEnd

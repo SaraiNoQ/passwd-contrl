@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import {
   AlertTriangle,
   Blocks,
@@ -33,6 +33,7 @@ export interface LockedStateProps {
   onRecoveryPasswordChange: (password: string) => void;
   onRecoverVault: () => void;
   error: string;
+  cloudConnection?: ReactNode;
 }
 
 export function LockedState({
@@ -51,6 +52,7 @@ export function LockedState({
   onRecoveryPasswordChange,
   onRecoverVault,
   error,
+  cloudConnection,
 }: LockedStateProps) {
   const modeLabel = hasLocalVault ? "UNLOCK MODE" : "FORGE MODE";
   const actionTitle = hasLocalVault ? "解锁本地密码库" : "创建主密码";
@@ -199,6 +201,8 @@ export function LockedState({
             {loading ? "处理中..." : hasLocalVault ? "解锁密码库" : "开始生成"}
           </Button>
         </form>
+
+        {cloudConnection}
 
         <div className={styles.securityStrip} id="master-password-security-note">
           <ShieldCheck size={18} aria-hidden="true" />

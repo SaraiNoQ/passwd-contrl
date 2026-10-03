@@ -16,6 +16,7 @@ class MockR2Bucket implements R2Bucket {
     body: ReadableStream | ArrayBuffer | string,
     options?: R2PutOptions
   ): Promise<R2Object> {
+    if (options?.onlyIf && this.objects.has(key)) return null as unknown as R2Object;
     let arrayBody: ArrayBuffer;
     if (typeof body === "string") {
       arrayBody = new TextEncoder().encode(body).buffer as ArrayBuffer;

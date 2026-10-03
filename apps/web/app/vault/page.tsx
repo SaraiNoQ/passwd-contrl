@@ -393,9 +393,12 @@ export default function VaultPage() {
               cloudExports={ctx.cloudExports}
               cloudExportLoading={ctx.cloudExportLoading}
               cloudExportError={ctx.cloudExportError}
+              cloudExportStatus={ctx.cloudExportStatus}
+              cloudExportRestoringId={ctx.cloudExportRestoringId}
               onLoadCloudExports={ctx.loadCloudExports}
               onCreateCloudExport={ctx.createCloudExport}
               onDeleteCloudExport={ctx.deleteCloudExport}
+              onRestoreCloudExport={ctx.restoreCloudExport}
             />
           ) : null}
 
@@ -575,7 +578,7 @@ export default function VaultPage() {
         onClose={ctx.closeRecoveryModal}
         mode={ctx.recoveryModalMode}
         recoveryCode={ctx.recoveryCode}
-        serverSaveFailed={ctx.recoveryServerSaveFailed}
+        migrationMessage={ctx.recoveryMigrationMessage}
         onCopy={() => {
           void navigator.clipboard.writeText(ctx.recoveryCode);
           setLastCopiedAt(Date.now());

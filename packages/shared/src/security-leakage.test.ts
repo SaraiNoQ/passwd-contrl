@@ -16,7 +16,7 @@ import {
 const envelope = (value = "ciphertext") => ({
   alg: "AES_256_GCM" as const,
   nonce: "AAAAAAAAAAAAAAAA",
-  ciphertext: Buffer.from(value).toString("base64url"),
+  ciphertext: Buffer.from(value.padEnd(16, "_")).toString("base64url"),
 });
 
 const encryptedItem = {
@@ -120,7 +120,7 @@ describe("security: ciphertextEnvelopeSchema strict validation", () => {
       ciphertextEnvelopeSchema.parse({
         alg: "AES_256_GCM",
         nonce: "AAAAAAAAAAAAAAAA",
-        ciphertext: "AAAA",
+        ciphertext: "A".repeat(22),
         plaintext: "should-not-be-here",
       }),
     ).toThrow();
@@ -131,7 +131,7 @@ describe("security: ciphertextEnvelopeSchema strict validation", () => {
       ciphertextEnvelopeSchema.parse({
         alg: "INSECURE_CIPHER",
         nonce: "AAAAAAAAAAAAAAAA",
-        ciphertext: "AAAA",
+        ciphertext: "A".repeat(22),
       }),
     ).toThrow();
   });
@@ -141,7 +141,7 @@ describe("security: ciphertextEnvelopeSchema strict validation", () => {
       ciphertextEnvelopeSchema.parse({
         alg: "AES_256_GCM",
         nonce: "AAAAAAAAAAAAAAAA",
-        ciphertext: "AAAA",
+        ciphertext: "A".repeat(22),
       }),
     ).not.toThrow();
   });
@@ -151,7 +151,7 @@ describe("security: ciphertextEnvelopeSchema strict validation", () => {
       ciphertextEnvelopeSchema.parse({
         alg: "XCHACHA20_POLY1305",
         nonce: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        ciphertext: "AAAA",
+        ciphertext: "A".repeat(22),
       }),
     ).not.toThrow();
   });
@@ -167,6 +167,6 @@ describe("security: test fixtures do not contain real-looking secrets", () => {
 
   it("fixture envelope values are clearly fake (base64 of short strings)", () => {
     const decoded = Buffer.from(encryptedItem.encryptedPayload.ciphertext, "base64url").toString();
-    expect(decoded).toBe("payload"); // clearly fake
+    expect(decoded).toBe("payload_________"); // clearly fake, with a mock AEAD tag-sized payload
   });
 });

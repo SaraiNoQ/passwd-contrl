@@ -1,0 +1,44 @@
+appId: com.zerovault.mobile
+name: Two-device B verifies one remote original and one local copy
+tags:
+  - api36
+  - two-device
+  - conflict
+---
+- launchApp:
+    clearState: false
+- runFlow:
+    file: subflows/two-device-unlock-if-needed.yml
+    env:
+      E2E_PASSWORD: ${E2E_PASSWORD}
+- tapOn:
+    id: "vault-search"
+- inputText: "Two Device Keep Both"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "打开条目 Two Device Keep Both（本地副本）"
+    timeout: 15000
+- assertVisible:
+    text: "^Two Device Keep Both$"
+    index: 0
+- assertVisible:
+    text: "^Two Device Keep Both（本地副本）$"
+    index: 0
+- tapOn: "^打开条目 Two Device Keep Both$"
+- assertVisible: "server-keep-both@example.invalid"
+- assertNotVisible: "local-keep-both@example.invalid"
+- pressKey: Back
+- tapOn: "^打开条目 Two Device Keep Both（本地副本）$"
+- assertVisible: "local-keep-both@example.invalid"
+- assertNotVisible: "server-keep-both@example.invalid"
+- pressKey: Back
+- tapOn:
+    id: "vault-search"
+- eraseText: 100
+- tapOn:
+    id: "vault-search"
+- eraseText: 100
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "打开条目 Two Device Decide Later"
+    timeout: 15000

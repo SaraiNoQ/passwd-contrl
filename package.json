@@ -5,28 +5,46 @@
   "description": "Zero-knowledge password vault with web, browser extension, and future mobile clients.",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "build": "pnpm -r --if-present build",
+    "build": "pnpm -r --filter '!@zero-vault/mobile' --if-present build",
     "dev": "pnpm run dev:worker & pnpm run dev:web",
     "dev:worker": "pnpm --filter @zero-vault/worker-api dev",
     "dev:web": "pnpm --filter @zero-vault/web dev",
     "dev:desktop": "pnpm run dev:worker & ZERO_VAULT_API_URL=http://localhost:8787 pnpm --dir apps/desktop exec tauri dev",
     "dev:extension": "pnpm --filter @zero-vault/extension dev",
+    "mobile:remote:bootstrap": "./scripts/mobile-remote.sh bootstrap",
+    "mobile:remote:shell": "./scripts/mobile-remote.sh shell",
+    "mobile:remote:doctor": "./scripts/mobile-remote.sh doctor",
+    "mobile:remote:upgrade": "./scripts/mobile-remote.sh upgrade-expo",
+    "mobile:remote:typecheck": "./scripts/mobile-remote.sh typecheck",
+    "mobile:remote:test:ui": "./scripts/mobile-remote.sh test-ui",
+    "mobile:remote:test:targeted": "./scripts/mobile-remote.sh test-targeted",
+    "mobile:remote:test": "./scripts/mobile-remote.sh test",
+    "mobile:remote:sbom": "./scripts/mobile-remote.sh sbom",
+    "mobile:remote:browser-cert": "./scripts/mobile-remote.sh browser-cert",
+    "mobile:remote:browser-cert:device": "./scripts/mobile-remote.sh browser-cert-device",
+    "mobile:remote:build:debug": "./scripts/mobile-remote.sh build-debug",
+    "mobile:remote:build:personal": "./scripts/mobile-remote.sh build-personal",
+    "mobile:remote:build:play": "./scripts/mobile-remote.sh build-play",
+    "mobile:remote:upgrade-check": "./scripts/mobile-remote.sh upgrade-check",
+    "mobile:remote:instrumented": "./scripts/mobile-remote.sh instrumented",
+    "mobile:remote:emulator": "./scripts/mobile-remote.sh emulator",
+    "mobile:remote:e2e": "./scripts/mobile-remote.sh e2e",
+    "mobile:remote:e2e:local": "./scripts/mobile-remote.sh e2e-local",
+    "mobile:remote:e2e:recovery": "./scripts/mobile-remote.sh e2e-recovery",
+    "mobile:remote:e2e:system": "./scripts/mobile-remote.sh e2e-system",
+    "mobile:remote:e2e:multidevice": "./scripts/mobile-remote.sh e2e-multidevice",
+    "mobile:remote:artifacts": "./scripts/mobile-remote.sh artifacts",
     "lint": "pnpm -r --if-present lint",
-    "test": "pnpm -r --if-present test",
+    "test": "pnpm -r --filter '!@zero-vault/mobile' --if-present test",
     "test:e2e": "pnpm --filter @zero-vault/extension test:e2e && pnpm --filter @zero-vault/web test:e2e",
     "test:e2e:sync": "pnpm --filter @zero-vault/web test:e2e:sync",
     "test:rust": "cargo test --manifest-path crates/crypto-core/Cargo.toml",
     "test:all": "pnpm test && pnpm test:rust",
-    "typecheck": "pnpm -r --if-present typecheck",
+    "typecheck": "pnpm -r --filter '!@zero-vault/mobile' --if-present typecheck",
     "wasm:build": "wasm-pack build crates/crypto-core --target web --out-dir ../../packages/crypto-core-wasm/pkg",
     "audit": "pnpm audit --audit-level critical && cargo audit --file crates/crypto-core/Cargo.toml"
   },
-  "pnpm": {
-    "overrides": {
-      "@types/react": "18.3.31"
-    }
-  },
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "~6.0.3"
   }
 }

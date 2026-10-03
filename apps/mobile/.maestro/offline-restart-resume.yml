@@ -1,0 +1,37 @@
+appId: com.zerovault.mobile
+name: Offline queue survives process death - resume
+tags:
+  - business
+  - destructive
+  - offline
+  - offline-resume
+---
+- launchApp:
+    stopApp: false
+- runFlow:
+    when:
+      visible: "Connect"
+    commands:
+      - tapOn: "http://"
+      - inputText: "127.0.0.1:8081"
+      - hideKeyboard
+      - tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "解锁密码库"
+    timeout: 30000
+- assertNotVisible: "Maestro Offline Queue"
+
+# Password authorization is online again because the HTTPS proxy failure is
+# one-shot. Unlocking must drain the mutation retained from the prior process.
+- tapOn:
+    id: "unlock-password"
+- inputText: ${OFFLINE_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible: "Maestro Offline Queue"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "待同步 0 项"
+    timeout: 30000

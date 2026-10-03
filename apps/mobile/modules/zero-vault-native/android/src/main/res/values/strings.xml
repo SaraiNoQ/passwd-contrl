@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="zero_vault_name" translatable="false">Zero Vault</string>
+    <string name="biometric_cancel">Cancel</string>
+    <string name="biometric_enable_title">Enable biometric unlock for Zero Vault</string>
+    <string name="unlock_zero_vault">Unlock Zero Vault</string>
+    <string name="autofill_choose_credential">Verify to choose a credential</string>
+    <string name="verify_identity">Verify your identity</string>
+</resources>

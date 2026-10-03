@@ -8,6 +8,31 @@ use thiserror::Error;
 use wasm_bindgen::prelude::*;
 use x25519_dalek::{EphemeralSecret, PublicKey, StaticSecret};
 
+#[cfg(feature = "uniffi")]
+mod mobile;
+
+#[cfg(feature = "uniffi")]
+pub use mobile::{
+    mobile_create_vault_for_device, mobile_decrypt_backup, mobile_decrypt_crypto_core_backup,
+    mobile_decrypt_item, mobile_encrypt_backup, mobile_encrypt_item,
+    mobile_generate_device_keypair, mobile_open_recovery_v2,
+    mobile_generate_password, mobile_generate_recovery_code, mobile_generate_recovery_packet,
+    mobile_generate_totp, mobile_lock_all_vaults, mobile_lock_vault,
+    mobile_cancel_recovery, mobile_prepare_recovery_rotation, mobile_recovery_discard_proof,
+    mobile_open_device_vault, mobile_opaque_cancel, mobile_opaque_finish_login,
+    mobile_opaque_finish_registration, mobile_opaque_start_login,
+    mobile_opaque_start_registration, mobile_restore_recovery_packet,
+    mobile_protocol_version, mobile_session_is_valid, mobile_share_vault_key,
+    mobile_sign_recovery_finish,
+    mobile_unlock_vault, MobileCryptoError,
+    MobileDeviceKeyPair, MobileEncryptedItem, MobileNewVault, MobileOpaqueLoginFinish,
+    MobileOpaqueRegistrationFinish, MobileOpaqueStart, MobileRecoveryV2Open,
+    MobileRecoveryV2Rotation, MobileTotp,
+};
+
+#[cfg(feature = "uniffi")]
+uniffi::setup_scaffolding!();
+
 pub const KEY_LEN: usize = 32;
 pub const XCHACHA20_NONCE_LEN: usize = 24;
 

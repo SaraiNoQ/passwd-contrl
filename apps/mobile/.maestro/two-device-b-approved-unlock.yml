@@ -1,0 +1,39 @@
+appId: com.zerovault.mobile
+name: Two-device B fetches key packet and unlocks
+tags:
+  - api36
+  - two-device
+  - key-distribution
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "login-email"
+    timeout: 30000
+- tapOn:
+    id: "login-email"
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: "login-password"
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
+- extendedWaitUntil:
+    visible:
+      id: "unlock-password"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible: "打开条目 Two Device Keep Local"
+    timeout: 30000
+- assertVisible: "打开条目 Two Device Accept Remote"
+- assertVisible: "打开条目 Two Device Keep Both"
+- assertVisible: "打开条目 Two Device Decide Later"
+- assertVisible: "待同步 0 项"

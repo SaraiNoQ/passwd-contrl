@@ -1,86 +1,204 @@
-/**
- * MobileCryptoAdapter — interface for mobile cryptographic operations.
- *
- * MVP uses a test double (TestDoubleCryptoAdapter) for development.
- * Production MUST use crypto-core via UniFFI/Expo native module.
- *
- * Security rules:
- * - Master password is never logged, persisted, or sent to server.
- * - Derived keys and vault keys are never logged or persisted in plaintext.
- * - Plaintext items exist only in JS memory while vault is unlocked.
- * - Locking clears all sensitive state from memory.
- */
+import {
+  ciphertextEnvelopeSchema,
+  deviceVaultKeyPacketSchema,
+  vaultItemSchema,
+  vaultItemCiphertextSchema,
+  type CiphertextEnvelope,
+  type DeviceVaultKeyPacket,
+  type TrustedDevice,
+  type VaultItem,
+  type VaultItemCiphertext,
+} from "@zero-vault/shared";
+import {
+  decryptNativeItem,
+  enableNativeBiometric,
+  encryptNativeItem,
+  generateNativePassword,
+  generateNativeTotp,
+  generateNativeUuid,
+  getLocalDeviceSecurityState as getNativeLocalDeviceSecurityState,
+  getNativeStatus,
+  hasInstalledVaultKey,
+  installEncryptedVaultKey,
+  lockAllVaultSessions,
+  openVaultSession,
+  shareNativeVaultKey,
+  unlockVaultWithBiometric,
+  unlockVaultWithDevice,
+  type LocalDeviceSecurityState,
+} from "@zero-vault/zero-vault-native";
 
-import type { VaultItem } from "@zero-vault/shared";
-import type { CiphertextEnvelope } from "@zero-vault/shared";
+export type PasswordGeneratorOptions = {
+  length: number;
+  upper: boolean;
+  lower: boolean;
+  digits: boolean;
+  symbols: boolean;
+};
 
+export type TotpCode = { code: string; validForSeconds: number };
+
+/** JS receives only an opaque native session handle, never vault-key bytes. */
 export interface MobileCryptoAdapter {
-  /**
-   * Derive vault key from master password and salt.
-   * Returns the raw vault key bytes (32 bytes).
-   */
-  deriveVaultKey(
-    masterPassword: string,
-    salt: Uint8Array,
-    params: { memoryKib: number; iterations: number; parallelism: number }
-  ): Promise<Uint8Array>;
-
-  /**
-   * Decrypt a single item from its ciphertext envelope.
-   * The item key is derived from the vault key and item ID.
-   */
+  unlock(accountId: string): Promise<string>;
+  unlockWithBiometric(accountId: string): Promise<string>;
+  enableBiometric(accountId: string): Promise<void>;
+  getLocalDeviceSecurityState(accountId: string): Promise<LocalDeviceSecurityState>;
+  hasVaultKey(accountId: string): Promise<boolean>;
+  encryptItem(
+    vaultSessionHandle: string,
+    item: VaultItem,
+    ownerUserId: string,
+    revision: number,
+  ): Promise<VaultItemCiphertext>;
   decryptItem(
-    vaultKey: Uint8Array,
+    vaultSessionHandle: string,
     encryptedItemKey: CiphertextEnvelope,
     encryptedPayload: CiphertextEnvelope,
-    itemId: string
+    itemId: string,
   ): Promise<VaultItem>;
-
-  /**
-   * Lock the adapter — clear any cached keys or sensitive state.
-   */
+  createItemId(): Promise<string>;
+  generatePassword(options: PasswordGeneratorOptions): Promise<string>;
+  generateTotp(secretOrUri: string): Promise<TotpCode>;
+  createDeviceVaultKeyPacket(
+    vaultSessionHandle: string,
+    device: Pick<TrustedDevice, "id" | "publicKey">,
+  ): Promise<DeviceVaultKeyPacket>;
+  installDeviceVaultKey(accountId: string, packet: DeviceVaultKeyPacket): Promise<void>;
   lock(): void;
 }
 
-/**
- * Test double for development and testing.
- * NOT FOR PRODUCTION — uses simple base64 encoding, not real crypto.
- * Marked with explicit "TEST_DOUBLE" to prevent accidental production use.
- */
-export class TestDoubleCryptoAdapter implements MobileCryptoAdapter {
-  private static readonly TAG = "[TEST_DOUBLE_NOT_FOR_PRODUCTION]";
-  private derivedKeys = new Map<string, Uint8Array>();
-
-  async deriveVaultKey(
-    masterPassword: string,
-    salt: Uint8Array,
-    _params: { memoryKib: number; iterations: number; parallelism: number }
-  ): Promise<Uint8Array> {
-    // Deterministic test key derivation — NOT cryptographically secure
-    const encoder = new TextEncoder();
-    const input = encoder.encode(`${masterPassword}:${Array.from(salt).join(",")}`);
-    const hash = new Uint8Array(32);
-    for (let i = 0; i < input.length && i < 32; i++) {
-      const inputByte = input[i] ?? 0;
-      const saltByte = salt[i % salt.length] ?? 0;
-      hash[i] = inputByte ^ saltByte;
+export class NativeMobileCryptoAdapter implements MobileCryptoAdapter {
+  constructor() {
+    const status = getNativeStatus();
+    if (!status.available || !status.opaqueInteropVerified || !status.keystore || !status.room || !status.rustCrypto) {
+      throw new Error([
+        status.code.toLowerCase(),
+        `protocol=${status.protocolVersion}`,
+        `room=${status.room}`,
+        `keystore=${status.keystore}`,
+        `rust=${status.rustCrypto}`,
+        `opaque=${status.opaqueInteropVerified}`,
+      ].join(";"));
     }
-    this.derivedKeys.set("vault", hash);
-    return hash;
+  }
+
+  unlock(accountId: string): Promise<string> {
+    return this.openAuthorizedSession(accountId);
+  }
+
+  private async openAuthorizedSession(accountId: string): Promise<string> {
+    // Registration keeps its freshly created Rust session alive through bind;
+    // a normal login instead supplies a one-time device-unlock grant.
+    try {
+      return await openVaultSession(accountId);
+    } catch (error) {
+      const code = typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code: unknown }).code)
+        : "";
+      if (code !== "VAULT_LOCKED") throw error;
+      return unlockVaultWithDevice(accountId);
+    }
+  }
+
+  unlockWithBiometric(accountId: string): Promise<string> {
+    return unlockVaultWithBiometric(accountId);
+  }
+
+  enableBiometric(accountId: string): Promise<void> {
+    return enableNativeBiometric(accountId);
+  }
+
+  getLocalDeviceSecurityState(accountId: string): Promise<LocalDeviceSecurityState> {
+    return getNativeLocalDeviceSecurityState(accountId);
+  }
+
+  hasVaultKey(accountId: string): Promise<boolean> {
+    return hasInstalledVaultKey(accountId);
+  }
+
+  async encryptItem(
+    vaultSessionHandle: string,
+    item: VaultItem,
+    ownerUserId: string,
+    revision: number,
+  ): Promise<VaultItemCiphertext> {
+    const parsedItem = vaultItemSchema.parse(item);
+    const encrypted = await encryptNativeItem(vaultSessionHandle, parsedItem, parsedItem.id);
+    return vaultItemCiphertextSchema.parse({
+      id: parsedItem.id,
+      ownerUserId,
+      revision,
+      createdAt: parsedItem.createdAt,
+      updatedAt: parsedItem.updatedAt,
+      encryptedItemKey: ciphertextEnvelopeSchema.parse(JSON.parse(encrypted.encryptedItemKeyJson)),
+      encryptedPayload: ciphertextEnvelopeSchema.parse(JSON.parse(encrypted.encryptedPayloadJson)),
+      encryptedSearchTokens: [],
+    });
   }
 
   async decryptItem(
-    vaultKey: Uint8Array,
-    _encryptedItemKey: CiphertextEnvelope,
+    vaultSessionHandle: string,
+    encryptedItemKey: CiphertextEnvelope,
     encryptedPayload: CiphertextEnvelope,
-    _itemId: string
+    itemId: string,
   ): Promise<VaultItem> {
-    // Test double: ciphertext is base64-encoded JSON
-    const decoded = atob(encryptedPayload.ciphertext.replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(decoded) as VaultItem;
+    const plaintext = await decryptNativeItem(
+      vaultSessionHandle,
+      ciphertextEnvelopeSchema.parse(encryptedItemKey),
+      ciphertextEnvelopeSchema.parse(encryptedPayload),
+      itemId,
+    );
+    const item = vaultItemSchema.parse(plaintext);
+    if (item.id !== itemId) throw new Error("decrypted_item_id_mismatch");
+    return item;
+  }
+
+  async createItemId(): Promise<string> {
+    return generateNativeUuid();
+  }
+
+  async generatePassword(options: PasswordGeneratorOptions): Promise<string> {
+    return generateNativePassword(options.length, options);
+  }
+
+  async generateTotp(secretOrUri: string): Promise<TotpCode> {
+    return generateNativeTotp(secretOrUri, Math.floor(Date.now() / 1_000));
+  }
+
+  async createDeviceVaultKeyPacket(
+    vaultSessionHandle: string,
+    device: Pick<TrustedDevice, "id" | "publicKey">,
+  ): Promise<DeviceVaultKeyPacket> {
+    return deviceVaultKeyPacketSchema.parse(
+      await shareNativeVaultKey(vaultSessionHandle, device.id, device.publicKey),
+    );
+  }
+
+  async installDeviceVaultKey(accountId: string, packet: DeviceVaultKeyPacket): Promise<void> {
+    await installEncryptedVaultKey(accountId, deviceVaultKeyPacketSchema.parse(packet));
   }
 
   lock(): void {
-    this.derivedKeys.clear();
+    lockAllVaultSessions();
   }
+}
+
+/** Fail closed when the Expo Module or verified OPAQUE path is unavailable. */
+export class NativeCryptoUnavailableAdapter implements MobileCryptoAdapter {
+  async unlock(): Promise<string> { throw new Error("native_crypto_unavailable"); }
+  async unlockWithBiometric(): Promise<string> { throw new Error("native_crypto_unavailable"); }
+  async enableBiometric(): Promise<void> { throw new Error("native_crypto_unavailable"); }
+  async getLocalDeviceSecurityState(): Promise<LocalDeviceSecurityState> {
+    throw new Error("native_crypto_unavailable");
+  }
+  async hasVaultKey(): Promise<boolean> { return false; }
+  async encryptItem(): Promise<VaultItemCiphertext> { throw new Error("native_crypto_unavailable"); }
+  async decryptItem(): Promise<VaultItem> { throw new Error("native_crypto_unavailable"); }
+  async createItemId(): Promise<string> { throw new Error("native_crypto_unavailable"); }
+  async generatePassword(): Promise<string> { throw new Error("native_crypto_unavailable"); }
+  async generateTotp(): Promise<TotpCode> { throw new Error("native_crypto_unavailable"); }
+  async createDeviceVaultKeyPacket(): Promise<DeviceVaultKeyPacket> { throw new Error("native_crypto_unavailable"); }
+  async installDeviceVaultKey(): Promise<void> { throw new Error("native_crypto_unavailable"); }
+  lock(): void { /* no native session exists */ }
 }

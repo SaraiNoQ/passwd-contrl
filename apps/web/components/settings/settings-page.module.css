@@ -507,6 +507,20 @@
   margin: 0;
 }
 
+.deleteModalError {
+  background:
+    linear-gradient(90deg, var(--color-danger) 0 4px, transparent 4px),
+    var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  border-radius: 6px;
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.55;
+  margin: 0;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+}
+
 .passwordSuccess {
   background:
     linear-gradient(90deg, var(--settings-orange) 0 4px, transparent 4px),

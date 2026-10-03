@@ -2,6 +2,14 @@
  * Cryptographic utilities for Cloudflare Worker runtime.
  * Uses the Web Crypto API available in Workers (no Node.js crypto).
  */
+import { decodeCanonicalBase64Url } from '@zero-vault/shared';
+
+export async function publicKeyFingerprint(publicKey: string): Promise<string> {
+  const bytes = decodeCanonicalBase64Url(publicKey);
+  if (bytes.length !== 32) throw new Error('invalid_device_public_key');
+  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
 
 /**
  * Generate a cryptographically random token.

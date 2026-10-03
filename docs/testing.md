@@ -2,6 +2,12 @@
 
 本文档描述 Zero Vault 项目的测试架构、运行方式和编写规范。
 
+> 根 `pnpm test` 和 `pnpm typecheck` 明确排除 `@zero-vault/mobile`；它们不能作为移动端通过证据。移动端及 Android Rust target 只能通过 `pnpm mobile:remote:*` 在 `campus-server` 容器验证。
+
+## Android 历史远程验证快照
+
+历史快照证据不得外推为当前源码通过。当前候选的专项证据包括 `20260730T124911Z-e2e-local-91529-15360`（clear-state 灾难恢复）和 `20260730T125747Z-e2e-multidevice-api36-94573-25141`（强化双设备）；最终冻结指纹仍须单独通过 API 36 instrumented 和聚合业务 E2E。证据判定见 `docs/android-dev/quality-release.md`。
+
 ## 测试架构概览
 
 Zero Vault 采用三层测试策略：
@@ -33,6 +39,8 @@ Rust 加密核心使用 `cargo test` 独立运行，WASM 构建后通过 Vitest 
 
 ## 快速开始
 
+> Android 例外：移动端 typecheck、unit test、Gradle、Rust Android target、模拟器和 Maestro 全部使用 `pnpm mobile:remote:*` 在 campus-server 容器执行。运行前必须同步成功；结果位于 `/root/dev/zero-vault-artifacts`。不要在本地执行下面命令中的 mobile 部分。
+
 ### 安装依赖
 
 ```sh
@@ -42,8 +50,11 @@ npx pnpm install
 ### 运行所有测试
 
 ```sh
-# 单元测试（TypeScript）
+# 非移动端单元测试（根脚本显式排除 @zero-vault/mobile）
 npx pnpm test
+
+# 移动端测试（SSH/rsync 到 campus-server 容器）
+npx pnpm mobile:remote:test
 
 # 单元测试（Rust）
 cargo test --manifest-path crates/crypto-core/Cargo.toml
@@ -68,7 +79,7 @@ npx playwright install chromium
 npx pnpm test
 ```
 
-这会并行运行所有 workspace 的单元测试。
+这会运行根脚本包含的非移动 workspace 单元测试；不会运行 `@zero-vault/mobile`。
 
 ### 运行 Rust 加密测试
 

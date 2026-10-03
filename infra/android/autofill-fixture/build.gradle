@@ -1,0 +1,54 @@
+apply plugin: 'com.android.application'
+
+def releaseSigningValues = [
+  System.getenv('ZERO_VAULT_AUTOFILL_FIXTURE_STORE_FILE'),
+  System.getenv('ZERO_VAULT_AUTOFILL_FIXTURE_STORE_PASSWORD'),
+  System.getenv('ZERO_VAULT_AUTOFILL_FIXTURE_KEY_ALIAS'),
+  System.getenv('ZERO_VAULT_AUTOFILL_FIXTURE_KEY_PASSWORD'),
+]
+def releaseSigningConfigured = releaseSigningValues.every { value -> value != null && !value.isBlank() }
+if (releaseSigningValues.any { value -> value != null && !value.isBlank() } && !releaseSigningConfigured) {
+  throw new GradleException('Autofill fixture release signing variables must be provided together')
+}
+
+android {
+  namespace 'com.zerovault.autofillfixture'
+  compileSdk 36
+
+  defaultConfig {
+    applicationId 'com.zerovault.autofillfixture'
+    minSdk 26
+    targetSdk 36
+    versionCode 1
+    versionName '1.0.0'
+  }
+
+  signingConfigs {
+    if (releaseSigningConfigured) {
+      fixtureRelease {
+        storeFile file(releaseSigningValues[0])
+        storePassword releaseSigningValues[1]
+        keyAlias releaseSigningValues[2]
+        keyPassword releaseSigningValues[3]
+      }
+    }
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+      if (releaseSigningConfigured) {
+        signingConfig signingConfigs.fixtureRelease
+      }
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+}
+
+dependencies {
+  implementation 'androidx.credentials:credentials:1.6.0'
+}

@@ -1,0 +1,20 @@
+appId: com.zerovault.mobile
+---
+- extendedWaitUntil:
+    visible:
+      id: "(unlock-password|vault-sync|vault-conflicts|conflicts-screen)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: "unlock-password"
+    commands:
+      - tapOn:
+          id: "unlock-password"
+      - inputText: ${E2E_PASSWORD}
+      - hideKeyboard
+      - tapOn:
+          id: "unlock-submit"
+- extendedWaitUntil:
+    visible: "(凭据|同步冲突)"
+    timeout: 30000

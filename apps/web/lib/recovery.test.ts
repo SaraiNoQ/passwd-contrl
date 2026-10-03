@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { generateRecoveryCode, createRecoveryPacket, recoverVaultKey } from "./recovery";
+import {
+  generateRecoveryCode,
+  createRecoveryPacket,
+  recoverVaultKey,
+  loadRecoveryPacket,
+  LEGACY_RECOVERY_MIGRATION_MESSAGE,
+  LEGACY_RECOVERY_PROTOCOL,
+  RECOVERY_PACKET_STORAGE_KEY,
+} from "./recovery";
 import { randomBytes } from "./crypto-utils";
 
 describe("recovery code", () => {
+  it("marks the Web packet as a local-only legacy migration boundary", () => {
+    expect(LEGACY_RECOVERY_PROTOCOL).toBe("web-local-v1");
+    expect(LEGACY_RECOVERY_MIGRATION_MESSAGE).toContain("Recovery v2");
+  });
+
   it("generates a 256-bit base64url recovery code", () => {
     const code = generateRecoveryCode();
     expect(code).toMatch(/^[A-Za-z0-9_-]+$/u);
@@ -46,5 +59,30 @@ describe("recovery code", () => {
 
     const tampered = { ...packet, ciphertext: `${packet.ciphertext.slice(1)}A` };
     await expect(recoverVaultKey(code, tampered)).rejects.toThrow();
+  });
+
+  it("fails closed when local storage contains a non-v1 packet", () => {
+    const originalWindow = globalThis.window;
+    const getItem = () => JSON.stringify({
+      version: 2,
+      alg: "XCHACHA20_POLY1305",
+      nonce: "AA",
+      ciphertext: "BB",
+    });
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { localStorage: { getItem } },
+    });
+
+    try {
+      expect(() => loadRecoveryPacket()).toThrow(/Recovery v2/u);
+      expect(getItem()).toContain("\"version\":2");
+      expect(RECOVERY_PACKET_STORAGE_KEY).toContain("recovery-packet.v1");
+    } finally {
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: originalWindow,
+      });
+    }
   });
 });

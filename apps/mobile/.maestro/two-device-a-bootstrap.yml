@@ -1,0 +1,40 @@
+appId: com.zerovault.mobile
+name: Two-device A account and conflict baselines
+tags:
+  - api36
+  - two-device
+  - destructive
+  - sensitive-recovery
+---
+- launchApp:
+    clearState: true
+- tapOn: "http://"
+- inputText: "127.0.0.1:8081"
+- hideKeyboard
+- tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 120000
+- tapOn: "Continue"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "创建新账户"
+    timeout: 30000
+- tapOn: "创建新账户"
+- tapOn:
+    id: "register-email"
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: "register-password"
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "register-password-confirm"
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "register-submit"
+- extendedWaitUntil:
+    visible:
+      id: "recovery-code-value"
+    timeout: 30000

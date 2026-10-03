@@ -21,6 +21,10 @@ beforeEach(() => {
 });
 
 describe("form detection", () => {
+  it("does not classify an unrelated text field as a username", () => {
+    document.body.innerHTML = '<form><input name="search" type="text"><input type="password"></form>';
+    expect(detectForms()[0]?.usernameFieldId).toBeUndefined();
+  });
   it("detects visible username and password fields", () => {
     document.body.innerHTML = `<form><input type="email" /><input type="password" /></form>`;
     expect(detectForms()).toEqual([

@@ -1,6 +1,6 @@
 # Development
 
-Last updated: 2026-06-04
+Last updated: 2026-07-16
 
 ## Local Setup
 
@@ -11,6 +11,12 @@ npx pnpm dev:web
 ```
 
 No Docker is required for local development. The Worker API uses Wrangler's local D1/R2 simulation.
+
+This statement does not apply to Android. Android tooling and even `@zero-vault/mobile` typecheck/test run only through the remote wrappers on `root@campus-server`; see `docs/android-dev/remote-development.md`. Never install Android SDK/JDK/Gradle/NDK/emulator/Maestro locally.
+
+The root `pnpm typecheck` and `pnpm test` commands exclude mobile. Use `pnpm mobile:remote:shell` only for explicit interactive diagnosis; it does not implicitly sync, while normal remote commands sync and verify the source fingerprint before execution. Remote commands are serialized by a dedicated lock and write evidence to `/root/dev/zero-vault-artifacts/<UTC timestamp>-<command>-<pid>-<nonce>/`.
+
+The 2026-07-15 historical snapshot verified Expo 57 / React Native 0.86 / TypeScript 6.0.3, doctor 20/20, baseline mobile/shared/Worker/Web and Rust/UniFFI tests, two ABIs, debug APK, API 36 emulator, and Maestro smoke. It predates the current production implementation and cannot be cited as current-snapshot typecheck/build/test evidence. See `docs/android-dev/quality-release.md`.
 
 ### Running the Worker API locally
 
@@ -67,13 +73,21 @@ npx pnpm test
 ### TypeScript Type Checking
 
 ```sh
+# Root command excludes @zero-vault/mobile.
 npx pnpm typecheck
+
+# Mobile is remote-only.
+npx pnpm mobile:remote:typecheck
 ```
 
 ### Unit Tests (TypeScript)
 
 ```sh
+# Root command excludes @zero-vault/mobile.
 npx pnpm test
+
+# Mobile and its cross-package regression gate run remotely.
+npx pnpm mobile:remote:test
 ```
 
 ### Rust Tests

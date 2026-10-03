@@ -1,0 +1,42 @@
+appId: com.zerovault.mobile
+name: Two-device B verifies decide-later returns on next sync
+tags:
+  - api36
+  - two-device
+  - conflict
+---
+- launchApp:
+    clearState: false
+- runFlow:
+    file: subflows/two-device-unlock-if-needed.yml
+    env:
+      E2E_PASSWORD: ${E2E_PASSWORD}
+- tapOn:
+    id: "vault-sync"
+- extendedWaitUntil:
+    visible: "同步成功"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "处理 1 个冲突"
+    timeout: 30000
+- tapOn: "处理 1 个冲突"
+- scrollUntilVisible:
+    element:
+      id: "conflict-server-.*"
+    direction: DOWN
+- tapOn:
+    id: "conflict-server-.*"
+- scrollUntilVisible:
+    element:
+      id: "conflict-confirm-.*"
+    direction: DOWN
+- tapOn:
+    id: "conflict-confirm-.*"
+- scrollUntilVisible:
+    element: "没有待处理冲突"
+    direction: UP
+- pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "vault-sync"
+    timeout: 15000

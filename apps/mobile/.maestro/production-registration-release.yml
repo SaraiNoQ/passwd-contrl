@@ -1,0 +1,43 @@
+appId: com.zerovault.mobile
+name: Production release registration
+---
+- runScript: scripts/new-account.js
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "创建新账户"
+    timeout: 30000
+- tapOn: "创建新账户"
+- tapOn:
+    id: "register-email"
+- inputText: ${output.email}
+- tapOn:
+    id: "register-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "register-password-confirm"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "register-submit"
+- extendedWaitUntil:
+    visible:
+      id: "recovery-code-value"
+    timeout: 30000
+- tapOn:
+    id: "recovery-code-acknowledge-start"
+- tapOn:
+    id: "recovery-code-acknowledge-confirm"
+- extendedWaitUntil:
+    visible: "解锁密码库"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible: "凭据"
+    timeout: 30000

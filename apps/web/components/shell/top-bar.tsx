@@ -171,7 +171,7 @@ export default function TopBar({
           >
             <RefreshCw size={14} />
             <span className={styles.syncButtonLabel}>
-              {loading ? "写入中..." : "保存结果"}
+              {loading ? "写入中..." : "立即同步"}
             </span>
           </button>
         </div>

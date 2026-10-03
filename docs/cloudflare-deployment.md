@@ -1,6 +1,23 @@
 # Cloudflare Deployment
 
-Last updated: 2026-06-04
+Last updated: 2026-10-03
+
+## Project endpoints
+
+- Web Vault: `https://zero-vault-web.pages.dev`
+- Android / direct API: `https://zero-vault-api.sarainosakura.workers.dev`
+- Extension direct API: same Worker, device-bound bearer login at `/auth/extension/login/finish`; no cookie bridge or new database migration.
+- Browser API: same-origin `/api`, forwarded by `apps/web/public/_worker.js` to the existing Worker. Session cookies remain HttpOnly; API responses are never cached.
+
+The Web Vault uses Next.js static export; cryptography and data access run in the browser. Build and deploy from the repository root:
+
+```sh
+pnpm --filter @zero-vault/web build:cloudflare
+apps/worker-api/node_modules/.bin/wrangler deploy --config apps/worker-api/wrangler.toml
+apps/worker-api/node_modules/.bin/wrangler pages deploy apps/web/out --project-name zero-vault-web --branch main --commit-dirty=true
+```
+
+Keep the existing D1/R2 bindings and OPAQUE server setup secret. Apply pending D1 migrations before a Worker upgrade; never recreate the database or rotate the setup key to deploy a frontend.
 
 This guide covers deploying Zero Vault's Worker API to Cloudflare Workers with D1 (database) and R2 (object storage). For the self-hosted PostgreSQL deployment, see [deployment.md](./deployment.md).
 
@@ -104,7 +121,10 @@ Generate a suitable `SESSION_SECRET`:
 openssl rand -hex 32
 ```
 
-If `OPAQUE_SERVER_SETUP` is left unset, the server auto-generates a key on first request. This key must never change after users register. Back it up immediately after first use.
+`OPAQUE_SERVER_SETUP` is mandatory in `production` and `staging`. The Worker
+fails closed when it is missing and never logs a generated setup value. Only
+local development/test environments may use the process-local generated setup,
+which is unsuitable for persistent accounts.
 
 ## Environment Variables
 

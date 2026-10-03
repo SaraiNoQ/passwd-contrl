@@ -3,8 +3,13 @@ import type { Env } from "../env";
 import { D1VaultStore } from "../store";
 import { requireSession } from "../middleware/session";
 import {
+  encryptedItemDeleteRequestSchema,
+  encryptedItemUpsertRequestSchema,
+  itemLevelSyncCursorSchema,
   itemLevelSyncPlanSchema,
+  itemLevelSyncPullResponseSchema,
   itemLevelSyncResponseSchema,
+  syncConflictResponseSchema,
   syncPushRequestSchema,
   vaultSearchRequestSchema,
   vaultSearchResponseSchema
@@ -60,9 +65,15 @@ export function buildVaultRoutes(): Hono<{ Bindings: Env }> {
     const session = c.get("session");
     if (!session) return c.json({ error: "not_authenticated" }, 401);
 
+    const cursor = itemLevelSyncCursorSchema.safeParse(c.req.query("cursor") ?? "0");
+    const limit = itemLevelSyncCursorSchema.safeParse(c.req.query("limit") ?? "200");
+    if (!cursor.success || !limit.success || limit.data < 1 || limit.data > 500) {
+      return c.json({ error: "invalid_sync_cursor" }, 400);
+    }
+
     const store = new D1VaultStore(c.env.DB);
-    const result = await store.pullItemLevelSync(session.userId);
-    return c.json(result);
+    const result = await store.pullItemLevelSync(session.userId, cursor.data, limit.data);
+    return c.json(itemLevelSyncPullResponseSchema.parse(result));
   });
 
   // ── POST /vault/item-sync ────────────────────────────────────────────────
@@ -80,14 +91,12 @@ export function buildVaultRoutes(): Hono<{ Bindings: Env }> {
     try {
       const result = await store.pushItemLevelSync(session.userId, parsed.data);
       if (result.conflicts.length > 0) {
-        return c.json(
-          {
+        return c.json(syncConflictResponseSchema.parse({
             error: "sync_conflict",
             serverRevision: result.serverRevision,
+            applied: result.applied,
             conflicts: result.conflicts
-          },
-          409
-        );
+          }), 409);
       }
       const response = itemLevelSyncResponseSchema.parse({
         protocol: "item_level_v1",
@@ -102,6 +111,90 @@ export function buildVaultRoutes(): Hono<{ Bindings: Env }> {
       }
       throw error;
     }
+  });
+
+  // ── Encrypted item CRUD ─────────────────────────────────────────────────
+  app.get("/vault/items/:id", async (c) => {
+    const session = c.get("session");
+    if (!session) return c.json({ error: "not_authenticated" }, 401);
+
+    const store = new D1VaultStore(c.env.DB);
+    const item = await store.getEncryptedItem(session.userId, c.req.param("id"));
+    return item ? c.json(item) : c.json({ error: "item_not_found" }, 404);
+  });
+
+  app.put("/vault/items/:id", async (c) => {
+    const session = c.get("session");
+    if (!session) return c.json({ error: "not_authenticated" }, 401);
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid_item_upsert_request" }, 400);
+    }
+    const parsed = encryptedItemUpsertRequestSchema.safeParse(body);
+    if (!parsed.success || parsed.data.item.id !== c.req.param("id")) {
+      return c.json({ error: "invalid_item_upsert_request" }, 400);
+    }
+
+    const store = new D1VaultStore(c.env.DB);
+    const result = await store.pushItemLevelSync(session.userId, {
+      protocol: "item_level_v1",
+      baseRevision: parsed.data.baseRevision,
+      upserts: [parsed.data.item],
+      deletes: []
+    });
+    if (result.conflicts.length > 0) {
+      return c.json(syncConflictResponseSchema.parse({
+        error: "sync_conflict",
+        serverRevision: result.serverRevision,
+        applied: result.applied,
+        conflicts: result.conflicts
+      }), 409);
+    }
+    return c.json(itemLevelSyncResponseSchema.parse({
+      protocol: "item_level_v1",
+      serverRevision: result.serverRevision,
+      applied: result.applied,
+      conflicts: []
+    }));
+  });
+
+  app.delete("/vault/items/:id", async (c) => {
+    const session = c.get("session");
+    if (!session) return c.json({ error: "not_authenticated" }, 401);
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid_item_delete_request" }, 400);
+    }
+    const parsed = encryptedItemDeleteRequestSchema.safeParse(body);
+    if (!parsed.success || parsed.data.deletion.id !== c.req.param("id")) {
+      return c.json({ error: "invalid_item_delete_request" }, 400);
+    }
+
+    const store = new D1VaultStore(c.env.DB);
+    const result = await store.pushItemLevelSync(session.userId, {
+      protocol: "item_level_v1",
+      baseRevision: parsed.data.baseRevision,
+      upserts: [],
+      deletes: [parsed.data.deletion]
+    });
+    if (result.conflicts.length > 0) {
+      return c.json(syncConflictResponseSchema.parse({
+        error: "sync_conflict",
+        serverRevision: result.serverRevision,
+        applied: result.applied,
+        conflicts: result.conflicts
+      }), 409);
+    }
+    return c.json(itemLevelSyncResponseSchema.parse({
+      protocol: "item_level_v1",
+      serverRevision: result.serverRevision,
+      applied: result.applied,
+      conflicts: []
+    }));
   });
 
   // ── GET /vault/items/:id/history ─────────────────────────────────────────

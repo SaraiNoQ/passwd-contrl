@@ -13,6 +13,7 @@ Thumbs.db
 # Environment and local secrets
 .env
 .env.*
+*.env
 !.env.example
 .dev.vars
 .dev.vars.*
@@ -26,6 +27,7 @@ node_modules/
 # Build output
 dist/
 build/
+build-test/
 .next/
 out/
 .turbo/
@@ -33,6 +35,11 @@ out/
 .vercel/
 .wrangler/
 target/
+.expo/
+apps/mobile/android/
+apps/mobile/ios/
+artifacts/
+.artifacts/
 
 # Test and coverage output
 coverage/
@@ -51,3 +58,16 @@ blob-report/
 *.csv
 *.sqlite
 *.sqlite3
+*.db
+
+# Android signing and Play credentials
+*.jks
+*.keystore
+*.pk8
+*.p12
+*.pfx
+key.properties
+keystore.properties
+google-services.json
+*service-account*.json
+release.env

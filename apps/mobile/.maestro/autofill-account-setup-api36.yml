@@ -1,0 +1,118 @@
+appId: com.zerovault.mobile
+name: API 36 Autofill account and provider setup
+tags:
+  - api36
+  - autofill
+  - credential-provider
+  - destructive
+  - sensitive-recovery
+---
+- runScript: scripts/new-account.js
+- launchApp:
+    clearState: true
+- tapOn: "http://"
+- inputText: "127.0.0.1:8081"
+- hideKeyboard
+- tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+- tapOn: "Continue"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "创建新账户"
+    timeout: 30000
+
+# Create a dedicated synthetic first-device account. Recovery material remains
+# visible only inside the runner's mode-0700 temporary output.
+- tapOn: "创建新账户"
+- tapOn:
+    id: "register-email"
+- inputText: ${output.email}
+- tapOn:
+    id: "register-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "register-password-confirm"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "register-submit"
+- extendedWaitUntil:
+    visible:
+      id: "recovery-code-value"
+    timeout: 30000
+- tapOn:
+    id: "recovery-code-acknowledge-start"
+- tapOn:
+    id: "recovery-code-acknowledge-confirm"
+- extendedWaitUntil:
+    visible: "解锁密码库"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible: "凭据"
+    timeout: 30000
+
+# Bind one generated login to the package and exact signer extracted from the
+# APK built in this same run. No debug signer is added to production policy.
+- tapOn:
+    id: "vault-add-item"
+- tapOn:
+    id: "editor-title"
+- inputText: "Maestro Fixture Login"
+- tapOn:
+    id: "editor-origin"
+- inputText: "https://fixture.example.invalid"
+- tapOn:
+    id: "editor-username"
+- inputText: "fixture-user@example.invalid"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-generate-password"
+    direction: DOWN
+- tapOn:
+    id: "editor-generate-password"
+- scrollUntilVisible:
+    element:
+      id: "editor-android-association-add"
+    direction: DOWN
+- tapOn:
+    id: "editor-android-association-add"
+- scrollUntilVisible:
+    element:
+      id: "editor-android-package-name-0"
+    direction: DOWN
+- tapOn:
+    id: "editor-android-package-name-0"
+- inputText: ${FIXTURE_PACKAGE}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-android-signing-certificate-sha256-0"
+    direction: DOWN
+- tapOn:
+    id: "editor-android-signing-certificate-sha256-0"
+- inputText: ${FIXTURE_CERT}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "editor-save"
+    direction: DOWN
+- tapOn:
+    id: "editor-save"
+- extendedWaitUntil:
+    visible: "Maestro Fixture Login"
+    timeout: 15000
+- pressKey: Back
+- tapOn: "设置"
+- extendedWaitUntil:
+    visible: "设置"
+    timeout: 30000

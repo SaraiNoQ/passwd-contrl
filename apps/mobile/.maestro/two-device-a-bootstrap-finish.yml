@@ -1,0 +1,55 @@
+appId: com.zerovault.mobile
+name: Two-device A acknowledges recovery material and creates baselines
+tags:
+  - api36
+  - two-device
+  - destructive
+---
+- launchApp:
+    clearState: false
+- tapOn:
+    id: "recovery-code-acknowledge-start"
+- tapOn:
+    id: "recovery-code-acknowledge-confirm"
+- extendedWaitUntil:
+    visible:
+      id: "unlock-password"
+    timeout: 30000
+- tapOn:
+    id: "unlock-password"
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "unlock-submit"
+- extendedWaitUntil:
+    visible:
+      id: "vault-add-item"
+    timeout: 30000
+- runFlow:
+    file: subflows/two-device-create-login.yml
+    env:
+      ITEM_TITLE: "Two Device Keep Local"
+      ITEM_USERNAME: "baseline-keep@example.invalid"
+- runFlow:
+    file: subflows/two-device-create-login.yml
+    env:
+      ITEM_TITLE: "Two Device Accept Remote"
+      ITEM_USERNAME: "baseline-remote@example.invalid"
+- runFlow:
+    file: subflows/two-device-create-login.yml
+    env:
+      ITEM_TITLE: "Two Device Keep Both"
+      ITEM_USERNAME: "baseline-copy@example.invalid"
+- runFlow:
+    file: subflows/two-device-create-login.yml
+    env:
+      ITEM_TITLE: "Two Device Decide Later"
+      ITEM_USERNAME: "baseline-skip@example.invalid"
+- tapOn:
+    id: "vault-sync"
+- extendedWaitUntil:
+    visible: "同步成功"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "待同步 0 项"
+    timeout: 30000

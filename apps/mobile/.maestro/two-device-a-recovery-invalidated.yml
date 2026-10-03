@@ -1,0 +1,35 @@
+appId: com.zerovault.mobile
+name: Recovery invalidates the old approved device
+tags:
+  - api36
+  - two-device
+  - recovery
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: "(vault-sync|unlock-password|login-email)"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: "unlock-password"
+    commands:
+      - tapOn:
+          id: "unlock-password"
+      - inputText: ${E2E_OLD_PASSWORD}
+      - hideKeyboard
+      - tapOn:
+          id: "unlock-submit"
+- runFlow:
+    when:
+      visible:
+        id: "vault-sync"
+    commands:
+      - tapOn:
+          id: "vault-sync"
+- extendedWaitUntil:
+    visible:
+      id: "login-email"
+    timeout: 30000

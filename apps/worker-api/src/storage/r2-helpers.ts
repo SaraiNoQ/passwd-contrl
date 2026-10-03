@@ -33,12 +33,14 @@ export class R2Storage {
     exportId: string,
     data: ArrayBuffer,
     metadata?: Record<string, string>
-  ): Promise<void> {
+  ): Promise<boolean> {
     const key = this.exportKey(userId, exportId);
-    await this.bucket.put(key, data, {
+    const stored = await this.bucket.put(key, data, {
       httpMetadata: { contentType: "application/octet-stream" },
-      customMetadata: metadata
+      customMetadata: metadata,
+      onlyIf: { etagDoesNotMatch: "*" },
     });
+    return stored !== null;
   }
 
   /**
@@ -71,9 +73,42 @@ export class R2Storage {
    * List all exports for a user.
    */
   async listExports(userId: string): Promise<R2Object[]> {
-    const prefix = `exports/${userId}/`;
-    const listed = await this.bucket.list({ prefix });
-    return listed.objects;
+    return this.listPrefix(`exports/${userId}/`);
+  }
+
+  private async listPrefix(prefix: string): Promise<R2Object[]> {
+    const objects: R2Object[] = [];
+    let cursor: string | undefined;
+    do {
+      const options = {
+        prefix,
+        include: ["customMetadata"] as const,
+        ...(cursor ? { cursor } : {}),
+      };
+      const listed = await this.bucket.list(options);
+      objects.push(...listed.objects);
+      if (!listed.truncated) break;
+      if (!listed.cursor || listed.cursor === cursor) throw new Error("r2_pagination_invalid");
+      cursor = listed.cursor;
+    } while (true);
+    return objects;
+  }
+
+  /** Deletes every encrypted export owned by the account, across all R2 pages. */
+  async deleteAllExports(userId: string): Promise<number> {
+    const objects = await this.listExports(userId);
+    for (const object of objects) await this.bucket.delete(object.key);
+    return objects.length;
+  }
+
+  /** Deletes all currently supported R2 object classes owned by an account. */
+  async deleteAccountObjects(userId: string): Promise<number> {
+    const objects = [
+      ...await this.listPrefix(`exports/${userId}/`),
+      ...await this.listPrefix(`backups/${userId}/`),
+    ];
+    for (const object of objects) await this.bucket.delete(object.key);
+    return objects.length;
   }
 
   // ── Backups ──────────────────────────────────────────────────────────────

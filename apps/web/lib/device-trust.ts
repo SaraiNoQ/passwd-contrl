@@ -1,13 +1,22 @@
 import { loadCryptoCore } from "./local-vault";
 import { requestJson, toBase64Url, fromBase64Url } from "./crypto-utils";
 import {
+  deviceVaultKeyPacketSchema,
+  deviceVaultKeyResponseSchema,
+  type DeviceVaultKeyPacket
+} from "@zero-vault/shared";
+import {
   saveDevicePrivateKey,
   loadDevicePrivateKey,
-  hasDevicePrivateKey as idbHasDevicePrivateKey
+  hasDevicePrivateKey as idbHasDevicePrivateKey,
+  loadWebDeviceIdentity, saveWebDeviceIdentity
 } from "./device-key-store";
 
 const DEVICE_ID_KEY = "zero-vault.local.device-id.v1";
 const DEVICE_FINGERPRINT_KEY = "zero-vault.local.device-fingerprint.v1";
+const XCHACHA_NONCE_BYTES = 24;
+const X25519_PUBLIC_KEY_BYTES = 32;
+const POLY1305_TAG_BYTES = 16;
 
 let keypairPromise: Promise<string> | null = null;
 let registerDevicePromise: Promise<DeviceInfo | null> | null = null;
@@ -132,6 +141,9 @@ export const registerDevice = async (csrfToken: string): Promise<DeviceInfo | nu
 
 const registerDeviceInternal = async (csrfToken: string): Promise<DeviceInfo | null> => {
   try {
+    if (window.localStorage.getItem("zero-vault.local.bound-session.v1")) {
+      return (await requestJson<{ device: DeviceInfo }>("/devices/self")).device;
+    }
     const fingerprint = getDeviceFingerprint();
     const publicKey = await generateDeviceKeypair();
     const requestInit = {
@@ -163,6 +175,16 @@ const registerDeviceInternal = async (csrfToken: string): Promise<DeviceInfo | n
   }
 };
 
+export const prepareWebDevice = async (email: string) => {
+  const publicKey = await generateDeviceKeypair();
+  let identity = await loadWebDeviceIdentity(email);
+  if (!identity) {
+    identity = { id: crypto.randomUUID(), credential: toBase64Url(crypto.getRandomValues(new Uint8Array(32))) };
+    await saveWebDeviceIdentity(email, identity);
+  }
+  return { ...identity, publicKey, fingerprint: getDeviceFingerprint(), name: `${getDeviceName()} · Web` };
+};
+
 export const listDevices = async (csrfToken: string): Promise<DeviceInfo[]> => {
   try {
     const response = await requestJson<{ devices: DeviceInfo[] }>("/devices", {
@@ -176,12 +198,14 @@ export const listDevices = async (csrfToken: string): Promise<DeviceInfo[]> => {
 
 export const approveDevice = async (
   csrfToken: string,
-  targetDeviceId: string
+  targetDeviceId: string,
+  encryptedVaultKeyPacket: DeviceVaultKeyPacket
 ): Promise<{ ok: boolean }> => {
   try {
     return await requestJson<{ ok: boolean }>(`/devices/${targetDeviceId}/approve`, {
       method: "POST",
-      headers: { "x-zero-vault-csrf": csrfToken }
+      headers: { "x-zero-vault-csrf": csrfToken },
+      body: JSON.stringify({ encryptedVaultKeyPacket })
     });
   } catch {
     return { ok: false };
@@ -254,6 +278,9 @@ export const decryptVaultKeyOnDevice = async (
   return cryptoCore.decryptOnDevice(privateKey, blobBytes);
 };
 
+export { createDeviceVaultKeyPacket, deviceVaultKeyPacketToBlob } from "@zero-vault/browser-vault/device-packet";
+import { createDeviceVaultKeyPacket, deviceVaultKeyPacketToBlob } from "@zero-vault/browser-vault/device-packet";
+
 /**
  * Read the device private key from IndexedDB.
  */
@@ -275,13 +302,16 @@ export const fetchDeviceVaultKey = async (
   deviceId: string
 ): Promise<string | null> => {
   try {
-    const response = await requestJson<{ encryptedVaultKey: string }>(
+    const response = deviceVaultKeyResponseSchema.parse(await requestJson<unknown>(
       `/devices/${deviceId}/key`,
       {
         headers: { "x-zero-vault-csrf": csrfToken }
       }
-    );
-    return response.encryptedVaultKey;
+    ));
+    if (response.encryptedVaultKeyPacket.recipientDeviceId !== deviceId) {
+      throw new Error("device_vault_key_recipient_mismatch");
+    }
+    return deviceVaultKeyPacketToBlob(response.encryptedVaultKeyPacket);
   } catch {
     return null;
   }
@@ -293,11 +323,17 @@ export const fetchDeviceVaultKey = async (
 export const shareVaultKeyWithDevice = async (
   csrfToken: string,
   deviceId: string,
+  devicePublicKey: string,
   encryptedBlob: string
 ): Promise<void> => {
+  const encryptedVaultKeyPacket = createDeviceVaultKeyPacket(
+    deviceId,
+    devicePublicKey,
+    encryptedBlob
+  );
   await requestJson<{ ok: boolean }>(`/devices/${deviceId}/share-key`, {
     method: "POST",
     headers: { "x-zero-vault-csrf": csrfToken },
-    body: JSON.stringify({ encryptedVaultKey: encryptedBlob })
+    body: JSON.stringify({ encryptedVaultKeyPacket })
   });
 };

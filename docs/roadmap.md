@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-06-14
+Last updated: 2026-07-16
 
 Current target: a stable Web Vault + Chrome/Edge extension development build. Do not treat the current repository as production-ready.
 
@@ -9,13 +9,13 @@ Current target: a stable Web Vault + Chrome/Edge extension development build. Do
 | Phase | Status | Completed | Current limits | Next step |
 | --- | --- | --- | --- | --- |
 | Phase 0: Project Foundation | Complete | Monorepo, project docs, CI/check expectations, package scripts. | None specific to this phase. | Keep docs aligned with security-sensitive changes. |
-| Phase 1: Crypto Core | Complete | Rust Argon2id + XChaCha20-Poly1305 via `crypto-core`, WASM exports, Web Vault create/unlock/lock, encrypted local persistence, CSV import. | Legacy `webcrypto-mvp` vaults remain compatible but are not automatically migrated. | Add explicit user-confirmed legacy vault migration only if needed. |
+| Phase 1: Crypto Core | Complete for Web baseline; Android migration gate open | Rust Argon2id + XChaCha20-Poly1305 via `crypto-core`, WASM exports, Web Vault create/unlock/lock, encrypted local persistence, CSV import. | Legacy `webcrypto-mvp` vaults remain compatible but are not automatically migrated; Android deliberately rejects them. | Implement explicit, user-confirmed and rollback-safe Web migration before Android production release. |
 | Phase 2: API + Sync | Complete | OPAQUE auth, HttpOnly session cookies, CSRF checks, D1 storage, revision conflicts, history, Web sync push, encrypted cloud restore, whole-envelope sync. | Whole-envelope sync is the legacy path. | Superseded by item-level sync as the new default. |
 | Phase 3: Extension MVP | Complete | MV3 background/content/popup, form detection, confirmed fill, HTTPS-only origin matching, visible-field checks, cross-origin iframe blocking, session bridge, E2E tests. | `NEXT_PUBLIC_EXTENSION_ID` is manually configured. Chrome/Edge compatibility needs manual validation before release. | Harden browser E2E and document browser-specific restrictions. |
 | Phase 4: Item-Level Sync | Complete | Per-item encrypted sync backend, conflict detection, recovery codes, device trust backend, conflict resolution UI, device management UI, sync panel with activity log, ECDH device trust (X25519 keypair generation, vault key encryption/decryption, IndexedDB private key storage), device vault key sharing via `POST /devices/:id/share-key`. | Recovery flow end-to-end not manually verified. | Manual E2E verification. |
 | UI Refactor (UI-1 through UI-6) | Complete | Design system tokens, full component library, Web Shell (sidebar, top bar, locked state), credential workspace (sorting, strength, batch ops), CSV import wizard (5-step), recovery flow (3-step wizard + entry), sync/device page, conflict resolution, settings page, responsive layout, mobile navigation, ARIA accessibility. | None. | None. |
 | Phase 5: Production | Complete | Security audit completed, 299 tests passing, TypeScript clean, Worker API deployed to Cloudflare with D1/R2. Unified Worker API architecture: OPAQUE works in Workers via static WASM import. D1-backed rate limiting implemented. Browser E2E tests passing (vault creation, credential CRUD, search, password generator). Full Worker API route test coverage (vault, recovery, devices, auth). | npm audit has 12 vulnerabilities (mostly dev-only). | Upgrade vitest, add staging environment. |
-| Phase 6: Mobile | In Progress | Expo + TypeScript scaffold (`apps/mobile`), Expo Router, dark theme, 6 MVP screens, MobileApiClient, MobileCryptoAdapter (test double), MobileSecureStore, MobileCiphertextStore, MobileSyncService, auth/vault state management, 25 unit tests passing. | MVP uses test double crypto (not real crypto-core). OPAQUE login requires WASM port to RN. In-memory stores (not SQLite/SecureStore). No Android Autofill or iOS Credential Provider. | Wire real crypto-core via UniFFI/Expo native module. Implement OPAQUE client for RN. Add SQLite persistence. |
+| Phase 6: Android | In Progress | Expo 57; remote workflow; Worker device-bound mobile protocol and Recovery v2; Rust/UniFFI/Room/Keystore; CRUD/sync/recovery/device UI; Autofill/Credential Provider; real Rust↔Serenity OPAQUE; Room schemas. Last verified personal APK is `0.1.1 / versionCode 18`; v19 candidate has passed clear-state recovery and strengthened two-device API 36 flows. | Final-fingerprint instrumented/aggregate E2E, v19 build/upgrade, keystore offline backup, real-browser allowlist and real-device acceptance remain open. Automated Android tests target API 36 only. | Close the exact gates in `docs/android-dev/overview.md` and `quality-release.md`; do not infer completion from code presence or historical builds. |
 | Phase 7: Desktop | In Progress | Tauri 2.x + React macOS app, OPAQUE login, native crypto/keychain/sqlite adapters, page orchestration, online CRUD, import/recovery/device/settings UI, and 210 desktop tests passing on 2026-06-14. | Rust key custody, complete conflict strategies, persistent offline queue, Tauri smoke, and release validation remain. Credential Provider is out of scope. | Complete security/sync semantics and native smoke before packaging. |
 
 ## Phase 0: Project Foundation
@@ -32,7 +32,7 @@ Current target: a stable Web Vault + Chrome/Edge extension development build. Do
 - CSV import is implemented in Web Vault after unlock.
 - New Web Vaults default to `crypto-core-wasm` using Argon2id and XChaCha20-Poly1305.
 - Legacy `webcrypto-mvp` vaults remain unlockable and are re-sealed in their original format.
-- Current limitation: there is no automatic legacy-to-WASM migration.
+- Current limitation: there is no explicit legacy-to-WASM migration. Android production makes this a required Web-side gate; Android will not add the AES/PBKDF2 compatibility runtime.
 
 ## Phase 2: API + Sync
 
@@ -103,27 +103,8 @@ The UI refactor transforms the Web Vault and browser extension into a dark-theme
 
 ## Phase 6: Mobile
 
-- **Status:** In Progress (MVP scaffold complete).
-- **Scope:** React Native + Expo + TypeScript mobile client at `apps/mobile`.
-- **Implemented:**
-  - Expo managed workflow with Expo Router file-based routing.
-  - Dark theme tokens independent from Web CSS (`src/theme/tokens.ts`).
-  - 6 MVP screens: Login, Unlock, VaultList, CredentialDetail, SyncStatus, Settings.
-  - MobileApiClient with `loginDirect`, `loginStart`, `loginFinish`, `fetchCurrentUser`, `logout`, `pullItems`, `pushItemLevelSync`.
-  - MobileCryptoAdapter interface with test double (NOT for production).
-  - MobileSecureStore with Expo SecureStore adapter and in-memory fallback.
-  - MobileCiphertextStore with in-memory implementation.
-  - MobileSyncService for item-level sync pull.
-  - Auth state and vault state management with auto-lock.
-  - 25 unit tests passing (API client, crypto adapter, ciphertext store, sync service).
-- **Remaining (MVP):**
-  - Wire real crypto-core via UniFFI/Expo native module (replace test double).
-  - Implement OPAQUE client protocol for React Native (replace direct login).
-  - Add SQLite persistence for ciphertext store.
-  - Add expo-secure-store persistence for secure store.
-  - Update `docs/mobile-development.md` Phase status.
-- **Remaining (Post-MVP):**
-  - Android AutofillService.
-  - iOS/macOS Credential Provider Extension.
-  - Rust crypto reuse through UniFFI bindings.
-  - E2E smoke tests.
+- **Status:** In Progress; not production-ready.
+- **Scope:** Android API 26+, React Native / Expo UI, Kotlin `VaultRepository`, Room/Keystore and Rust UniFFI.
+- **Established in source:** remote-only workflow, device-bound bearer protocol, Android associations, global AppProvider, Rust/UniFFI/Repository/Room/Keystore source, CRUD/sync/recovery/device UI and system-service source.
+- **Personal distribution blockers:** the current 8-bit UI now has a remote API 36 v14 release, UI test evidence and recent native instrumented coverage; total-device-loss Recovery v2, full business E2E, personal-key offline backup, real-browser allowlist, and real-device first-install/in-place-upgrade evidence remain open. v14 is the last verified APK baseline. Play/AAB is a separate later scope.
+- **Execution plan:** the eight gated stages and exact Definition of Done are maintained in `docs/android-dev/development-phases.md`. Do not restore direct login, production test doubles, JS memory fallback or legacy `webcrypto-mvp` compatibility; legacy vaults migrate in Web first.

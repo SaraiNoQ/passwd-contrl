@@ -1,0 +1,36 @@
+appId: com.zerovault.mobile
+name: Two-device B enters real pending approval
+tags:
+  - api36
+  - two-device
+  - device-approval
+---
+- launchApp:
+    clearState: true
+- tapOn: "http://"
+- inputText: "127.0.0.1:8081"
+- hideKeyboard
+- tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 120000
+- tapOn: "Continue"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "创建新账户"
+    timeout: 30000
+- tapOn:
+    id: "login-email"
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: "login-password"
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "login-submit"
+- extendedWaitUntil:
+    visible:
+      id: "device-approval-fingerprint"
+    timeout: 30000
+- assertVisible: "等待设备批准"
+- assertVisible: "刷新状态"

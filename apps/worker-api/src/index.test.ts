@@ -44,6 +44,29 @@ describe("Zero Vault Worker API", () => {
       const body = (await res.json()) as { error: string };
       expect(body.error).toContain("限制");
     });
+
+    it("rejects an over-limit streaming body without Content-Length", async () => {
+      const chunk = new TextEncoder().encode("x".repeat(524_289));
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(chunk);
+          controller.enqueue(chunk);
+          controller.close();
+        }
+      });
+      const requestInit = {
+          method: "POST",
+          headers: { "content-type": "application/octet-stream" },
+          body: stream,
+          duplex: "half"
+        } as unknown as RequestInit;
+      const res = await app.request(
+        "/health",
+        requestInit,
+        createEnv()
+      );
+      expect(res.status).toBe(413);
+    });
   });
 
   describe("Error handling", () => {

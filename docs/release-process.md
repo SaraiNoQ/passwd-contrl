@@ -1,6 +1,6 @@
 # Release Process
 
-Last updated: 2026-06-04
+Last updated: 2026-07-16
 
 ## Version Numbering
 
@@ -37,6 +37,21 @@ Complete every item before tagging a release.
   npx pnpm test:e2e
   npx pnpm test:rust
   ```
+- [ ] If the release includes Android, run the separate remote-only gates (root `typecheck`/`test` exclude mobile):
+  ```sh
+  pnpm mobile:remote:doctor
+  pnpm mobile:remote:typecheck
+  pnpm mobile:remote:test
+  pnpm mobile:remote:sbom
+  pnpm mobile:remote:build:debug
+  pnpm mobile:remote:instrumented
+  pnpm mobile:remote:e2e:local
+  # Also run this when the isolated HTTPS E2E Worker is configured:
+  pnpm mobile:remote:e2e
+  pnpm mobile:remote:build:personal
+  pnpm mobile:remote:artifacts <personal-release-run-id>
+  ```
+  Run `pnpm mobile:remote:bootstrap` first when Expo/native dependencies change. Both E2E commands execute on `campus-server`: `e2e:local` uses an ephemeral Worker inside the remote container, while `e2e` targets the configured isolated HTTPS E2E Worker.
 - [ ] WASM builds cleanly:
   ```sh
   npx pnpm wasm:build
@@ -78,6 +93,12 @@ Complete every item before tagging a release.
 - [ ] CI passes on the tagged commit.
 
 ## Deployment: Cloudflare Worker API
+
+## Android Personal Distribution
+
+Android 个人分发独立遵守 `docs/android-dev/quality-release.md`。签名 release APK 只能由 `pnpm mobile:remote:build:personal` 在校园服务器容器生成；签名私钥不得通过 rsync、Git、镜像层或日志传输。分发前必须归档同步标识、最新版 Android API 36 测试、APK SHA-256、SBOM、mapping/native symbols 和证书摘要，并另行保存人工 manifest/权限复核记录；当前包装器不会自动生成 permissions diff。
+
+2026-07-15 的历史 debug 基线早于当前实现；当时缺少签名的 fail-closed 结果不代表 personal APK 通过。目前仍需长期 personal keystore、API 36 业务 Autofill、真实 E2E、首次安装和覆盖升级证据。Play service account、AAB 和商店上传不在当前范围。
 
 ### Prerequisites
 

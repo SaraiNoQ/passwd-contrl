@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Zero Vault",
-  "version": "0.1.0",
-  "description": "User-confirmed zero-knowledge password autofill.",
+  "version": "0.2.0",
+  "description": "独立解锁、生成密码、确认保存和加密同步的密码管理插件。",
   "action": {
     "default_popup": "popup.html"
   },
@@ -18,9 +18,9 @@
       "all_frames": false
     }
   ],
-  "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["https://*/*"],
-  "externally_connectable": {
-    "matches": ["http://localhost/*", "https://localhost/*"]
-  }
+  "permissions": ["activeTab", "scripting", "storage", "alarms"],
+  "minimum_chrome_version": "120",
+  "content_security_policy": { "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'none';" },
+  "web_accessible_resources": [{ "resources": ["save-prompt.html", "ui.css", "dist/save-prompt.js"], "matches": ["https://*/*"] }],
+  "host_permissions": ["https://*/*"]
 }

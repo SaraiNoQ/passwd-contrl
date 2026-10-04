@@ -1,11 +1,14 @@
 {
   "name": "@zero-vault/extension",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && node build.mjs",
+    "build:firefox": "tsc -p tsconfig.json --noEmit && node build.mjs firefox",
     "package": "node build.mjs && node package.mjs",
+    "package:firefox": "tsc -p tsconfig.json --noEmit && node build.mjs firefox && node package.mjs firefox",
+    "sign:firefox": "bash scripts/sign-firefox.sh",
     "dev": "tsc -p tsconfig.json --watch",
     "test": "vitest run",
     "test:e2e": "pnpm build && playwright test",

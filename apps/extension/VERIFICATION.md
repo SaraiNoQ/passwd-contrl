@@ -1,8 +1,16 @@
-# Extension 0.2.0 verification
+# Extension 0.2.2 verification
+
+- 0.2.2 icons: Firefox toolbar/manager and popup favicon use the bundled SVG pixel key; Chromium has matching PNG sizes. Mozilla strict lint reports 0 errors/warnings, the icon files are present in the XPI, and both real Firefox regression tests pass. The isolated Web release builds with automatic SVG, ICO and Apple icon metadata.
+
+- Firefox toolbar popup regression: the previous `max-width: 100vw` capped the auto-sized viewport at 36px. The popup now keeps its 360px body width; the embedded save prompt retains its viewport constraint. `e2e/firefox-popup.spec.ts` measures the actual toolbar popup rather than a tab.
+- 0.2.1 checks: both real Firefox tests pass (toolbar sizing and independent save/fill/sync), extension typecheck and 57 unit tests pass, Mozilla lint reports 0 errors/warnings, and XPI archive integrity passes. Root typecheck currently stops on unrelated Desktop type errors. Root tests under the default Node runtime encounter a pre-existing SQLite ABI mismatch; Worker tests must use the installed Node 20 runtime.
 
 Date: 2026-10-03
 
 ## Current evidence
+
+- Firefox XPI packaging: web-ext 10.6.0 validation reports 0 errors, 0 warnings; ZIP integrity passes. Mozilla unlisted signing still requires AMO credentials; the unsigned XPI is not a permanent-install signature claim.
+- Signing build requires Firefox 142+ for data-collection permission metadata. The bundled OPAQUE 1.1.0 global-object Function-constructor fallback is replaced in-memory during bundling by a fail-closed exception, matching the existing extension CSP; its cryptography and globalThis lookup are unchanged. Dependency files are not edited.
 
 - Extension typecheck and 57 unit tests pass: strict message sender boundaries, rejected external publishing, exact-origin matching, field visibility/native setter, focus-triggered mutations, page-controlled selector rejection, explicit injection for an existing page, candidate expiry and exclusions, password rejection sampling, hostile UI strings, real WASM local identity/vault encryption, wrong-password/tamper rejection and offline lock/unlock persistence.
 - Web typecheck, production static build and 192 unit tests pass, including the shared sync engine's two-client edits, deletions, exact retry after response loss and explicit conflicts.

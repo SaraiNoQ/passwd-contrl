@@ -1,23 +1,40 @@
-# Zero Vault 浏览器插件 0.2.0
+# Zero Vault 浏览器插件 0.2.2
 
 网页密码库：https://zero-vault-web.pages.dev
 
 ## Chrome / Edge
 
-1. 解压 `zero-vault-chromium-0.2.0.zip`，保留目录中的所有文件。
+1. 解压 `zero-vault-chromium-0.2.2.zip`，保留目录中的所有文件。
 2. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。
 3. 开启开发者模式，选择“加载已解压的扩展程序”，选择包含 `manifest.json` 的解压目录。
 4. 把 Zero Vault 固定到工具栏。允许插件在需要保存或填充的 HTTPS 网站上运行，并刷新安装前已打开的网页，以启用自动保存提示。
 
 从本仓库构建后，也可直接加载 `apps/extension/build/chromium`。
 
-## Firefox（个人测试包）
+## Firefox XPI（优先发布）
+
+当前构建目标为 Firefox 142+，Mozilla 检查通过后可进行个人分发签名，不公开上架商店。
+
+在仓库根目录运行：
+
+```sh
+pnpm --filter @zero-vault/extension package:firefox
+bash apps/extension/scripts/sign-firefox.sh
+```
+
+第一条命令生成 `apps/extension/artifacts/zero-vault-firefox-0.2.2-unsigned.xpi`。第二条采用 Node 24.19.0、web-ext 10.6.0 和 `--channel=unlisted`，先构建及严格检查，再隐藏输入 AMO API key/secret。凭据不写入文件、命令参数或仓库，结束时清除脚本内环境变量。已有 `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` 环境变量时可直接使用。
+
+AMO 凭据在 [Mozilla 开发者中心](https://addons.mozilla.org/en-US/developers/addon/api/key/) 获取，不要发送到聊天或提交到 Git。成功签名后，XPI 位于 `apps/extension/artifacts/firefox-signed/`，旁边生成 `SHA256SUMS`。签名可能需要等待 Mozilla 的自动或人工审核；未下载签名包不代表签名已经成功。
+
+安装签名版：Firefox 打开 `about:addons`，点击齿轮菜单“从文件安装附加组件”，选择签名 XPI；签名版可保留安装。相关机制见 [Mozilla 签名说明](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/)。
+
+### 未签名 XPI 的临时测试
 
 1. 打开 `about:debugging#/runtime/this-firefox`。
-2. 点击“临时载入附加组件”，选择 `zero-vault-firefox-0.2.0.zip`，或解压目录中的 `manifest.json`。
+2. 点击“临时载入附加组件”，选择 `zero-vault-firefox-0.2.2-unsigned.xpi`，或解压目录中的 `manifest.json`。
 3. 根据浏览器界面允许所需网站权限。将插件固定到工具栏。
 
-Firefox 重启后临时安装失效；长期安装须经 Mozilla 签名。本次交付不含签名或商店发布。默认支持 Chrome/Edge 120+、Firefox 128+；验收使用机器上的实际浏览器版本。
+Firefox 重启后临时安装失效。仅将 ZIP 改为 XPI 后缀不会获得 Mozilla 签名。Chrome/Edge 的既有开发版本保留，但当前优先构建和签名 Firefox。
 
 ## 连接与使用
 

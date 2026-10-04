@@ -3,8 +3,11 @@ import { spawn, type ChildProcess } from 'node:child_process';
 export class FirefoxDriver {
   process: ChildProcess;
   session = '';
-  readonly endpoint = 'http://127.0.0.1:4459';
-  constructor(binary: string) { this.process = spawn(binary, ['--port', '4459', '--log', 'error', '--allow-system-access'], { stdio: 'ignore' }); }
+  readonly endpoint: string;
+  constructor(binary: string, port = 4459) {
+    this.endpoint = `http://127.0.0.1:${port}`;
+    this.process = spawn(binary, ['--port', String(port), '--log', 'error', '--allow-system-access'], { stdio: 'ignore' });
+  }
   async raw(path: string, body?: unknown, method = 'POST'): Promise<any> {
     const response = await fetch(this.endpoint + path, { method, headers: { 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     const data = await response.json() as { value: any };
